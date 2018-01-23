@@ -1,4 +1,6 @@
 #include "partners_api/ads_engine.hpp"
+#include "partners_api/facebook_ads.hpp"
+#include "partners_api/google_ads.hpp"
 #include "partners_api/mopub_ads.hpp"
 #include "partners_api/rb_ads.hpp"
 
@@ -16,17 +18,18 @@ Engine::Engine()
   m_banners.emplace_back(Banner::Type::RB, my::make_unique<Rb>());
   m_banners.emplace_back(Banner::Type::Mopub, my::make_unique<Mopub>());
 
-  m_searchBanners.emplace_back(Banner::Type::Mopub, my::make_unique<Mopub>());
+  m_searchBanners.emplace_back(Banner::Type::Facebook, my::make_unique<Facebook>());
 }
 
 bool Engine::HasBanner(feature::TypesHolder const & types,
-                       storage::TCountriesVec const & countryIds) const
+                       storage::TCountriesVec const & countryIds,
+                       std::string const & userLanguage) const
 {
   for (auto const & countryId : countryIds)
   {
     for (auto const & item : m_banners)
     {
-      if (item.m_container->HasBanner(types, countryId))
+      if (item.m_container->HasBanner(types, countryId, userLanguage))
         return true;
     }
   }
@@ -35,7 +38,8 @@ bool Engine::HasBanner(feature::TypesHolder const & types,
 }
 
 std::vector<Banner> Engine::GetBanners(feature::TypesHolder const & types,
-                                       storage::TCountriesVec const & countryIds) const
+                                       storage::TCountriesVec const & countryIds,
+                                       std::string const & userLanguage) const
 {
   std::vector<Banner> result;
 
@@ -43,7 +47,7 @@ std::vector<Banner> Engine::GetBanners(feature::TypesHolder const & types,
   {
     for (auto const & countryId : countryIds)
     {
-      auto const bannerId = item.m_container->GetBannerId(types, countryId);
+      auto const bannerId = item.m_container->GetBannerId(types, countryId, userLanguage);
       // We need to add banner for every banner system just once.
       if (!bannerId.empty())
       {

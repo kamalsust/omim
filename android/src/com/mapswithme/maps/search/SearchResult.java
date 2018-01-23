@@ -1,14 +1,17 @@
 package com.mapswithme.maps.search;
 
+import com.mapswithme.maps.bookmarks.data.FeatureId;
+
+import static com.mapswithme.maps.search.SearchResultTypes.TYPE_LOCAL_ADS_CUSTOMER;
+import static com.mapswithme.maps.search.SearchResultTypes.TYPE_RESULT;
+import static com.mapswithme.maps.search.SearchResultTypes.TYPE_SUGGEST;
+
 /**
  * Class instances are created from native code.
  */
 @SuppressWarnings("unused")
-public class SearchResult
+public class SearchResult implements SearchData
 {
-  public static final int TYPE_SUGGEST = 0;
-  public static final int TYPE_RESULT = 1;
-
   // Values should match osm::YesNoUnknown enum.
   public static final int OPEN_NOW_UNKNOWN = 0;
   public static final int OPEN_NOW_YES = 1;
@@ -16,6 +19,7 @@ public class SearchResult
 
   public static class Description
   {
+    public final FeatureId featureId;
     public final String featureType;
     public final String region;
     public final String distance;
@@ -25,9 +29,10 @@ public class SearchResult
     public final int stars;
     public final int openNow;
 
-    public Description(String featureType, String region, String distance,
+    public Description(FeatureId featureId, String featureType, String region, String distance,
                        String cuisine, String rating, String pricing, int stars, int openNow)
     {
+      this.featureId = featureId;
       this.featureType = featureType;
       this.region = region;
       this.distance = distance;
@@ -59,21 +64,28 @@ public class SearchResult
     this.lat = lat;
     this.lon = lon;
     this.isHotel = false;
-    description = null;
-    type = TYPE_SUGGEST;
+    this.description = null;
+    this.type = TYPE_SUGGEST;
 
     this.highlightRanges = highlightRanges;
   }
 
-  public SearchResult(String name, Description description, double lat, double lon, int[] highlightRanges, boolean isHotel)
+  public SearchResult(String name, Description description, double lat, double lon, int[] highlightRanges,
+                      boolean isHotel, boolean isLocalAdsCustomer)
   {
+    this.type = isLocalAdsCustomer ? TYPE_LOCAL_ADS_CUSTOMER : TYPE_RESULT;
     this.name = name;
     this.isHotel = isHotel;
-    suggestion = null;
+    this.suggestion = null;
     this.lat = lat;
     this.lon = lon;
-    type = TYPE_RESULT;
     this.description = description;
     this.highlightRanges = highlightRanges;
+  }
+
+  @Override
+  public int getItemViewType()
+  {
+    return type;
   }
 }

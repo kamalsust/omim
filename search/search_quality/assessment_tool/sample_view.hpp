@@ -4,12 +4,17 @@
 #include "search/search_quality/assessment_tool/edits.hpp"
 #include "search/search_quality/sample.hpp"
 
+#include "geometry/point2d.hpp"
+
+#include <QtCore/QMargins>
 #include <QtWidgets/QWidget>
 
-class LanguagesList;
-class QLineEdit;
+class Framework;
+class QLabel;
+class QListWidget;
 class QPushButton;
 class ResultsView;
+class Spinner;
 
 class SampleView : public QWidget
 {
@@ -18,28 +23,66 @@ class SampleView : public QWidget
 public:
   using Relevance = search::Sample::Result::Relevance;
 
-  explicit SampleView(QWidget * parent);
+  SampleView(QWidget * parent, Framework & framework);
 
-  void SetContents(search::Sample const & sample);
-  void ShowResults(search::Results::Iter begin, search::Results::Iter end);
+  void SetContents(search::Sample const & sample, bool positionAvailable,
+                   m2::PointD const & position);
+  void OnSearchStarted();
+  void OnSearchCompleted();
 
-  void EnableEditing(Edits & edits);
+  void AddFoundResults(search::Results::ConstIter begin, search::Results::ConstIter end);
+  void ShowNonFoundResults(std::vector<search::Sample::Result> const & results,
+                           std::vector<Edits::Entry> const & entries);
 
-  void Update(Edits::Update const & update);
+  void ShowFoundResultsMarks(search::Results::ConstIter begin, search::Results::ConstIter end);
+  void ShowNonFoundResultsMarks(std::vector<search::Sample::Result> const & results,
+                                std::vector<Edits::Entry> const & entries);
+  void ClearSearchResultMarks();
+
+  void SetEdits(Edits & resultsEdits, Edits & nonFoundResultsEdits);
+
   void Clear();
 
-  ResultsView & GetResultsView() { return *m_results; }
+  ResultsView & GetFoundResultsView() { return *m_foundResults; }
+  ResultsView & GetNonFoundResultsView() { return *m_nonFoundResults; }
+
+  void OnLocationChanged(Qt::DockWidgetArea area);
 
 signals:
   void OnShowViewportClicked();
   void OnShowPositionClicked();
 
 private:
-  QLineEdit * m_query = nullptr;
-  LanguagesList * m_langs = nullptr;
+  void ClearAllResults();
+  void SetEdits(ResultsView & results, Edits & edits);
+  void OnRemoveNonFoundResult(int row);
+
+  void ShowUserPosition(m2::PointD const & position);
+  void HideUserPosition();
+
+  Framework & m_framework;
+
+  Spinner * m_spinner = nullptr;
+
+  QLabel * m_query = nullptr;
+  QLabel * m_langs = nullptr;
+
+  QListWidget * m_relatedQueries = nullptr;
+  QWidget * m_relatedQueriesBox = nullptr;
+
   QPushButton * m_showViewport = nullptr;
   QPushButton * m_showPosition = nullptr;
-  ResultsView * m_results = nullptr;
 
-  Edits * m_edits = nullptr;
+  ResultsView * m_foundResults = nullptr;
+  QWidget * m_foundResultsBox = nullptr;
+
+  ResultsView * m_nonFoundResults = nullptr;
+  QWidget * m_nonFoundResultsBox = nullptr;
+
+  Edits * m_nonFoundResultsEdits = nullptr;
+
+  QMargins m_rightAreaMargins;
+  QMargins m_defaultMargins;
+
+  bool m_positionAvailable = false;
 };

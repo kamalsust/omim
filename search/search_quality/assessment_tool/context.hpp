@@ -2,6 +2,7 @@
 
 #include "search/result.hpp"
 #include "search/search_quality/assessment_tool/edits.hpp"
+#include "search/search_quality/matcher.hpp"
 #include "search/search_quality/sample.hpp"
 
 #include "base/string_utils.hpp"
@@ -18,9 +19,29 @@ class FeatureLoader;
 
 struct Context
 {
-  explicit Context(Edits::OnUpdate onUpdate) : m_edits(onUpdate) {}
+  Context(Edits::OnUpdate onFoundResultsUpdate, Edits::OnUpdate onNonFoundResultsUpdate)
+    : m_foundResultsEdits(onFoundResultsUpdate), m_nonFoundResultsEdits(onNonFoundResultsUpdate)
+  {
+  }
 
-  bool HasChanges() const { return m_initialized && m_edits.HasChanges(); }
+  void AddNonFoundResult(search::Sample::Result const & result)
+  {
+    CHECK_EQUAL(m_goldenMatching.size(), m_sample.m_results.size(), ());
+
+    m_sample.m_results.push_back(result);
+    m_goldenMatching.push_back(search::Matcher::kInvalidId);
+
+    m_nonFoundResults.push_back(result);
+    m_nonFoundResultsEdits.Add(result.m_relevance);
+  }
+
+  bool HasChanges() const
+  {
+    if (!m_initialized)
+      return false;
+    return m_foundResultsEdits.HasChanges() || m_nonFoundResultsEdits.HasChanges();
+  }
+
   void Clear();
 
   // Makes sample in accordance with uncommited edits.
@@ -30,11 +51,14 @@ struct Context
   void ApplyEdits();
 
   search::Sample m_sample;
-  search::Results m_results;
-  Edits m_edits;
+  search::Results m_foundResults;
+  Edits m_foundResultsEdits;
 
   std::vector<size_t> m_goldenMatching;
   std::vector<size_t> m_actualMatching;
+
+  std::vector<search::Sample::Result> m_nonFoundResults;
+  Edits m_nonFoundResultsEdits;
 
   bool m_initialized = false;
 };
@@ -55,7 +79,7 @@ public:
       return strings::ToUtf8((*m_contexts)[index].m_sample.m_query);
     }
 
-    bool IsChanged(size_t index) const { return (*m_contexts)[index].m_edits.HasChanges(); }
+    bool IsChanged(size_t index) const { return (*m_contexts)[index].HasChanges(); }
 
     size_t Size() const { return m_contexts->Size(); }
 
@@ -65,7 +89,7 @@ public:
 
   using OnUpdate = std::function<void(size_t index, Edits::Update const & update)>;
 
-  explicit ContextList(OnUpdate onUpdate);
+  ContextList(OnUpdate onResultsUpdate, OnUpdate onNonFoundResultsUpdate);
 
   void Resize(size_t size);
   size_t Size() const { return m_contexts.size(); }
@@ -82,9 +106,12 @@ public:
   void ApplyEdits();
 
 private:
+  void OnContextUpdated(size_t index);
+
   std::vector<Context> m_contexts;
   std::vector<bool> m_hasChanges;
   size_t m_numChanges = 0;
 
-  OnUpdate m_onUpdate;
+  OnUpdate m_onResultsUpdate;
+  OnUpdate m_onNonFoundResultsUpdate;
 };

@@ -11,14 +11,17 @@ import com.google.android.gms.common.GoogleApiAvailability;
 import com.mapswithme.maps.Framework;
 import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.ads.Banner;
+import com.mapswithme.maps.bookmarks.data.FeatureId;
 import com.mapswithme.maps.bookmarks.data.MapObject;
 import com.mapswithme.maps.routing.RoutingController;
 import com.mapswithme.util.Config;
 import com.mapswithme.util.Listeners;
 import com.mapswithme.util.LocationUtils;
+import com.mapswithme.util.PermissionsUtils;
 import com.mapswithme.util.Utils;
 import com.mapswithme.util.log.Logger;
 import com.mapswithme.util.log.LoggerFactory;
+import com.mapswithme.util.permissions.PermissionsResult;
 
 public enum LocationHelper
 {
@@ -158,12 +161,6 @@ public enum LocationHelper
     }
   };
 
-
-  LocationHelper()
-  {
-    mLogger.d(LocationHelper.class.getSimpleName(), "ctor()");
-  }
-
   @UiThread
   public void initialize()
   {
@@ -218,8 +215,8 @@ public enum LocationHelper
       return null;
 
     if (mMyPosition == null)
-      mMyPosition = new MapObject(MapObject.MY_POSITION, "", "", "", mSavedLocation.getLatitude(),
-          mSavedLocation.getLongitude(), "", null, false, "");
+      mMyPosition = MapObject.createMapObject(FeatureId.EMPTY, MapObject.MY_POSITION, "", "",
+                                  mSavedLocation.getLatitude(), mSavedLocation.getLongitude());
 
     return mMyPosition;
   }
@@ -378,6 +375,11 @@ public enum LocationHelper
         mInterval = INTERVAL_NAVIGATION_BICYCLE_MS;
         break;
 
+      case Framework.ROUTER_TYPE_TRANSIT:
+        // TODO: what is the interval should be for transit type?
+        mInterval = INTERVAL_NAVIGATION_PEDESTRIAN_MS;
+        break;
+
       default:
         throw new IllegalArgumentException("Unsupported router type: " + router);
       }
@@ -482,6 +484,12 @@ public enum LocationHelper
     mLogger.d(TAG, "startInternal(), current provider is '" + mLocationProvider
                    + "' , my position mode = " + LocationState.nameOf(getMyPositionMode())
                    + ", mInFirstRun = " + mInFirstRun);
+    if (!PermissionsUtils.isLocationGranted())
+    {
+      mLogger.w(TAG, "Dynamic permission ACCESS_COARSE_LOCATION/ACCESS_FINE_LOCATION is not granted",
+                new Throwable());
+      return;
+    }
     checkProviderInitialization();
     //noinspection ConstantConditions
     mLocationProvider.start();
@@ -596,7 +604,7 @@ public enum LocationHelper
     {
       notifyLocationUpdated();
       mLogger.d(TAG, "Current location is available, so play the nice zoom animation");
-      Framework.nativeZoomToPoint(location.getLatitude(), location.getLongitude(), 14, true);
+      Framework.nativeRunFirstLaunchAnimation();
       return;
     }
 

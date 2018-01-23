@@ -4,11 +4,13 @@ import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.CallSuper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -118,10 +120,12 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
     return inflater.inflate(R.layout.fragment_editor_host, container, false);
   }
 
+  @CallSuper
   @Override
-  public void onViewCreated(View view, @Nullable Bundle savedInstanceState)
+  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
+
     mToolbarController.findViewById(R.id.save).setOnClickListener(this);
     mToolbarController.getToolbar().setNavigationOnClickListener(new View.OnClickListener()
     {
@@ -153,7 +157,9 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
       @Override
       protected void onTextChanged(String query)
       {
-        ((CuisineFragment) getChildFragmentManager().findFragmentByTag(CuisineFragment.class.getName())).setFilter(query);
+        Fragment fragment = getChildFragmentManager().findFragmentByTag(CuisineFragment.class.getName());
+        if (fragment != null)
+          ((CuisineFragment) fragment).setFilter(query);
       }
     };
   }
@@ -219,7 +225,6 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
     for (LocalizedName name : sNames)
       languages.add(name.lang);
     args.putStringArrayList(LanguagesFragment.EXISTING_LOCALIZED_NAMES, languages);
-    UiUtils.hide(mToolbarController.findViewById(R.id.save));
     editWithFragment(Mode.LANGUAGE, R.string.choose_language, args, LanguagesFragment.class, false);
   }
 
@@ -280,16 +285,23 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
         Editor.nativeSetSelectedCuisines(cuisines);
         editMapObject();
         break;
+      case LANGUAGE:
+        editMapObject();
+        break;
       case MAP_OBJECT:
         if (!setEdits())
           return;
 
         // Save object edits
         if (!MwmApplication.prefs().contains(NOOB_ALERT_SHOWN))
+        {
           showNoobDialog();
+        }
         else
+        {
+          saveNote();
           saveMapObjectEdits();
-
+        }
         break;
       }
     }
@@ -323,6 +335,15 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
     }
   }
 
+  private void saveNote()
+  {
+    String tag = EditorFragment.class.getName();
+    EditorFragment fragment = (EditorFragment) getChildFragmentManager().findFragmentByTag(tag);
+    String note = fragment.getDescription();
+    if (!TextUtils.isEmpty(note))
+      Editor.nativeCreateNote(note);
+  }
+
   private void showMistakeDialog(@StringRes int resId)
   {
     new AlertDialog.Builder(getActivity())
@@ -345,11 +366,7 @@ public class EditorHostFragment extends BaseMwmToolbarFragment
           MwmApplication.prefs().edit()
                         .putBoolean(NOOB_ALERT_SHOWN, true)
                         .apply();
-          // Save note
-          final String note = ((EditorFragment) getChildFragmentManager().findFragmentByTag(EditorFragment.class.getName())).getDescription();
-          if (note.length() != 0)
-            Editor.nativeCreateNote(note);
-          // Save edits
+          saveNote();
           saveMapObjectEdits();
         }
       })

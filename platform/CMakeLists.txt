@@ -17,6 +17,7 @@ set(
   file_logging.hpp
   get_text_by_id.cpp
   get_text_by_id.hpp
+  gui_thread.hpp
   http_client.cpp
   http_client.hpp
   http_request.cpp
@@ -39,16 +40,20 @@ set(
   platform.hpp
   preferred_languages.cpp
   preferred_languages.hpp
+  secure_storage.hpp
   servers_list.cpp
   servers_list.hpp
   settings.cpp
   settings.hpp
   socket.hpp
+  string_storage_base.cpp
+  string_storage_base.hpp
 )
 
 if(${PLATFORM_IPHONE})
   append(
     SRC
+    gui_thread_apple.mm
     http_thread_apple.h
     http_thread_apple.mm
     http_client_apple.mm
@@ -56,6 +61,7 @@ if(${PLATFORM_IPHONE})
     platform_ios.mm
     platform_unix_impl.cpp
     platform_unix_impl.hpp
+    secure_storage_ios.mm
     socket_apple.mm
   )
 elseif(${PLATFORM_ANDROID})
@@ -84,12 +90,14 @@ else() # neither iPhone nor Android
       http_thread_qt.hpp
       marketing_service_dummy.cpp
       platform_win.cpp
+      secure_storage_dummy.cpp
       wifi_info_windows.cpp
     )
   elseif(${PLATFORM_MAC})
     append(
       SRC
       apple_location_service.mm
+      gui_thread_apple.mm
       http_client_apple.mm
       http_thread_apple.h
       http_thread_apple.mm
@@ -97,11 +105,13 @@ else() # neither iPhone nor Android
       platform_mac.mm
       platform_unix_impl.cpp
       platform_unix_impl.hpp
+      secure_storage_qt.cpp
       socket_apple.mm
     )
   elseif(${PLATFORM_LINUX})
     append(
       SRC
+      gui_thread_linux.cpp
       http_client_curl.cpp
       http_thread_qt.cpp
       http_thread_qt.hpp
@@ -109,6 +119,7 @@ else() # neither iPhone nor Android
       platform_linux.cpp
       platform_unix_impl.cpp
       platform_unix_impl.hpp
+      secure_storage_qt.cpp
     )
   endif()
 endif()

@@ -20,13 +20,18 @@
   <color name="black_primary">#DE000000</color>   <!-- 87% black -->
   <color name="black_secondary">#8A000000</color> <!-- 54% black -->
   <color name="black_lightest">#61000000</color>  <!-- 38% black -->
+  <color name="black_4">#0A000000</color> <!-- 4% black -->
   <color name="black_8">#14000000</color> <!-- 8% black -->
+  <color name="black_11">#1E000000</color> <!-- 11% black -->
   <color name="black_24">#3D000000</color> <!-- 24% black -->
   <color name="black_60">#99000000</color> <!-- 24% black -->
   <color name="white_primary">#FFFFFFFF</color>   <!-- 100% white -->
   <color name="white_secondary">#B3FFFFFF</color> <!-- 70% white -->
   <color name="white_lightest">#4CFFFFFF</color>  <!-- 50% white -->
+  <color name="white_4">#0AFFFFFF</color> <!-- 4% white -->
   <color name="white_8">#14FFFFFF</color> <!-- 8% white -->
+  <color name="white_11">#1EFFFFFF</color> <!-- 11% white -->
+  <color name="white_12">#1Effffff</color> <!-- 12% white -->
   <color name="white_24">#3DFFFFFF</color> <!-- 24% black -->
   <color name="white_60">#99FFFFFF</color> <!-- 24% black -->
   <color name="warm_gray">#FF999691</color>
@@ -98,7 +103,7 @@
   <color name="button_accent_normal">@color/base_accent</color>
   <color name="button_accent_normal_night">@color/base_accent_night</color>
   <color name="button_accent_pressed">#FF1C85D6</color>
-  <color name="button_accent_pressed_night">#FFCCB870</color>
+  <color name="button_accent_pressed_night">#FF3C9BBE</color>
   <color name="button_accent_disabled">#FFEFEFEF</color>
   <color name="button_accent_disabled_night">#FF505050</color>
   <color name="button_accent_text">#FFFFFFFF</color>
@@ -117,15 +122,11 @@
 
   <!-- Routing-->
   <color name="bg_routing_progress">#1F000000</color>
-  <color name="routing_slot_background">#FFFFFFFF</color>
-  <color name="routing_slot_background_night">@color/bg_panel_night</color>
-  <color name="routing_slot_background_pressed">#FFF0F0F0</color>
-  <color name="routing_slot_background_pressed_night">@color/bg_window_night</color>
-  <color name="routing_slot_shadow">#3D000000</color>
   <color name="routing_button_tint">#FFFFFFFF</color>
   <color name="routing_button_activated_tint">@color/bg_statusbar</color>
   <color name="routing_button_activated_tint_night">@color/bg_statusbar_night</color>
   <color name="routing_button_pressed_tint">#80FFFFFF</color>
+  <color name="routing_intermediate_point">#43A047</color>
 
 
   <color name="bs_divider_color">@color/divider</color>
@@ -133,6 +134,8 @@
 
   <!-- Search -->
   <color name="search_star_dimmed">#1F000000</color>
+  <color name="search_local_ads_customer_result">@color/bg_banner_color</color>
+  <color name="search_local_ads_customer_result_night">@color/bg_banner_color_night</color>
 
   <!-- What's new -->
   <color name="news_marker_active">#8A000000</color>
@@ -155,18 +158,28 @@
   <color name="bg_brand_booking_pressed">#FF1B549E</color>
   <color name="bg_brand_opentable">#FFDA3743</color>
   <color name="bg_brand_opentable_pressed">#FFFC5965</color>
+  <color name="bg_brand_partner1">#FFFFDA00</color>
+  <color name="bg_brand_partner1_pressed">#FFF2CE00</color>
 
-  <!-- Banner colors-->
+  <!-- Banner colors -->
   <color name="bg_banner_color">#FFFFFBF3</color>
-  <color name="bg_banner_color_night">#FF555A5A</color>
+  <color name="bg_banner_color_night">#FF484C50</color>
   <color name="text_banner_color">#28000000</color>
   <color name="text_banner_color_night">#28FFFFFF</color>
   <color name="bg_banner_button">#FFF3EBDA</color>
-  <color name="bg_banner_button_night">#4CFFFAE1</color>
+  <color name="bg_banner_button_night">#FF52565A</color>
   <color name="text_ads_color">#FFFFFBF2</color>
   <color name="text_ads_color_night">#FFFFFBF2</color>
   <color name="banner_action_btn_start_anim_night">#FF888A82</color>
   <color name="banner_action_btn_end_anim">#FFD9D2C3</color>
   <color name="banner_action_btn_end_anim_night">#FF71736C</color>
 
+  <!-- Rating colors -->
+  <color name="rating_excellent">#43A047</color>
+  <color name="rating_good">#7CB342</color>
+  <color name="rating_normal">#F5B027</color>
+  <color name="rating_bad">#F4511E</color>
+  <color name="rating_horrible">#E53935</color>
+  <color name="rating_none">#FF888A82</color>
+  <color name="rating_coming_soon">#FF1E96F0</color>
 </resources>

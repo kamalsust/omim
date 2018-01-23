@@ -2,6 +2,7 @@ package com.mapswithme.maps.ads;
 
 import android.content.Context;
 import android.os.SystemClock;
+import android.support.annotation.CallSuper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -19,7 +20,7 @@ abstract class CachingNativeAdLoader extends BaseNativeAdLoader
 {
   private static final Logger LOGGER = LoggerFactory.INSTANCE.getLogger(LoggerFactory.Type.MISC);
   private static final String TAG = CachingNativeAdLoader.class.getSimpleName();
-  private static final long REQUEST_INTERVAL_MS = 30 * 1000;
+  private static final long REQUEST_INTERVAL_MS = 5 * 1000;
   private static final Map<BannerKey, CachedMwmNativeAd> CACHE = new HashMap<>();
   private static final Set<BannerKey> PENDING_REQUESTS = new HashSet<>();
 
@@ -45,6 +46,7 @@ abstract class CachingNativeAdLoader extends BaseNativeAdLoader
    *
    */
   @Override
+  @CallSuper
   public void loadAd(@NonNull Context context, @NonNull String bannerId)
   {
     LOGGER.d(TAG, "Load the ad for a banner id '" + bannerId + "'");
@@ -69,6 +71,14 @@ abstract class CachingNativeAdLoader extends BaseNativeAdLoader
       LOGGER.d(TAG, "A cached ad '" + cachedAd.getTitle() + "' is set immediately");
       getAdListener().onAdLoaded(cachedAd);
     }
+  }
+
+  @CallSuper
+  @Override
+  public void cancel()
+  {
+    super.cancel();
+    PENDING_REQUESTS.clear();
   }
 
   private boolean isImpressionGood(@NonNull CachedMwmNativeAd ad)
@@ -101,11 +111,11 @@ abstract class CachingNativeAdLoader extends BaseNativeAdLoader
   @NonNull
   abstract String getProvider();
 
-  void onError(@NonNull String bannerId, @NonNull MwmNativeAd ad, @NonNull NativeAdError error)
+  void onError(@NonNull String bannerId, @NonNull String provider, @NonNull NativeAdError error)
   {
     PENDING_REQUESTS.remove(new BannerKey(getProvider(), bannerId));
     if (getAdListener() != null)
-      getAdListener().onError(ad, error);
+      getAdListener().onError(bannerId, provider, error);
   }
 
   void onAdLoaded(@NonNull String bannerId, @NonNull CachedMwmNativeAd ad)
@@ -169,5 +179,24 @@ abstract class CachingNativeAdLoader extends BaseNativeAdLoader
   private boolean isCacheEmptyForId(@NonNull BannerKey key)
   {
     return getAdByIdFromCache(key) == null;
+  }
+
+  @CallSuper
+  @Override
+  public void detach()
+  {
+    for (CachedMwmNativeAd ad : CACHE.values())
+      ad.detachAdListener();
+  }
+
+  @CallSuper
+  @Override
+  public void attach()
+  {
+    for (CachedMwmNativeAd ad : CACHE.values())
+    {
+      if (ad.getProvider().equals(getProvider()))
+        ad.attachAdListener(this);
+    }
   }
 }

@@ -8,6 +8,7 @@
 #include "search/search_tests_support/test_search_request.hpp"
 
 #include "indexer/classificator_loader.hpp"
+#include "indexer/index.hpp"
 
 #include "storage/country_info_getter.hpp"
 #include "storage/index.hpp"
@@ -94,7 +95,7 @@ void DisplayStats(ostream & os, vector<Sample> const & samples, vector<Stats> co
   {
     if (stats[i].m_notFound.empty())
       continue;
-    os << "Query #" << i << " \"" << strings::ToUtf8(samples[i].m_query) << "\":" << endl;
+    os << "Query #" << i + 1 << " \"" << strings::ToUtf8(samples[i].m_query) << "\":" << endl;
     for (auto const & j : stats[i].m_notFound)
       os << "Not found: " << DebugPrint(samples[i].m_results[j]) << endl;
   }
@@ -122,15 +123,15 @@ int main(int argc, char * argv[])
   LOG(LINFO, ("writable dir =", platform.WritableDir()));
   LOG(LINFO, ("resources dir =", platform.ResourcesDir()));
 
-  Storage storage(countriesFile, FLAGS_mwm_path);
+  Storage storage(countriesFile);
   storage.Init(&DidDownload, &WillDelete);
   auto infoGetter = CountryInfoReader::CreateCountryInfoReader(platform);
   infoGetter->InitAffiliationsInfo(&storage.GetAffiliations());
 
-  string jsonStr;
+  string lines;
   if (FLAGS_json_in.empty())
   {
-    GetContents(cin, jsonStr);
+    GetContents(cin, lines);
   }
   else
   {
@@ -140,18 +141,18 @@ int main(int argc, char * argv[])
       cerr << "Can't open input json file." << endl;
       return -1;
     }
-    GetContents(ifs, jsonStr);
+    GetContents(ifs, lines);
   }
 
   vector<Sample> samples;
-  if (!Sample::DeserializeFromJSON(jsonStr, samples))
+  if (!Sample::DeserializeFromJSONLines(lines, samples))
   {
     cerr << "Can't parse input json file." << endl;
     return -1;
   }
 
   classificator::Load();
-  TestSearchEngine engine(move(infoGetter), make_unique<ProcessorFactory>(), Engine::Params{});
+  Index index;
 
   vector<platform::LocalCountryFile> mwms;
   platform::FindAllLocalMapsAndCleanup(numeric_limits<int64_t>::max() /* the latest version */,
@@ -159,11 +160,13 @@ int main(int argc, char * argv[])
   for (auto & mwm : mwms)
   {
     mwm.SyncWithDisk();
-    engine.RegisterMap(mwm);
+    index.RegisterMap(mwm);
   }
 
+  TestSearchEngine engine(index, move(infoGetter), Engine::Params{});
+
   vector<Stats> stats(samples.size());
-  FeatureLoader loader(engine);
+  FeatureLoader loader(index);
   Matcher matcher(loader);
 
   cout << "SampleId,";
@@ -174,17 +177,9 @@ int main(int argc, char * argv[])
   {
     auto const & sample = samples[i];
 
-    engine.SetLocale(sample.m_locale);
-
-    auto latLon = MercatorBounds::ToLatLon(sample.m_pos);
-
     search::SearchParams params;
-    params.m_query = strings::ToUtf8(sample.m_query);
-    params.m_inputLocale = sample.m_locale;
-    params.m_mode = Mode::Everywhere;
-    params.SetPosition(latLon.lat, latLon.lon);
-    params.m_suggestsEnabled = false;
-    TestSearchRequest request(engine, params, sample.m_viewport);
+    sample.FillSearchParams(params);
+    TestSearchRequest request(engine, params);
     request.Run();
 
     auto const & results = request.Results();
@@ -195,7 +190,7 @@ int main(int argc, char * argv[])
 
     for (size_t j = 0; j < results.size(); ++j)
     {
-      if (results[j].GetResultType() != Result::RESULT_FEATURE)
+      if (results[j].GetResultType() != Result::Type::Feature)
         continue;
       auto const & info = results[j].GetRankingInfo();
       cout << i << ",";
@@ -220,6 +215,7 @@ int main(int argc, char * argv[])
 
   if (FLAGS_stats_path.empty())
   {
+    cerr << string(34, '=') << " Statistics " << string(34, '=') << endl;
     DisplayStats(cerr, samples, stats);
   }
   else

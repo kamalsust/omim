@@ -1,30 +1,35 @@
 #include "partners_api/booking_api.hpp"
+#include "partners_api/utils.hpp"
 
 #include "platform/http_client.hpp"
 #include "platform/platform.hpp"
 
 #include "coding/url_encode.hpp"
 
-#include "base/gmtime.hpp"
+#include "base/get_time.hpp"
 #include "base/logging.hpp"
 #include "base/thread.hpp"
+#include "base/url_helpers.hpp"
 
-#include "std/initializer_list.hpp"
-#include "std/iomanip.hpp"
-#include "std/iostream.hpp"
-#include "std/sstream.hpp"
-#include "std/utility.hpp"
+#include <chrono>
+#include <iostream>
+#include <sstream>
+#include <utility>
 
 #include "3party/jansson/myjansson.hpp"
 
 #include "private.h"
 
+using namespace base;
+using namespace booking;
+using namespace platform;
+using namespace std;
+using namespace std::chrono;
+
 namespace
 {
-using namespace platform;
-using namespace booking;
-
-string const kBookingApiBaseUrl = "https://distribution-xml.booking.com/json/bookings";
+string const kBookingApiBaseUrlV1 = "https://distribution-xml.booking.com/json/bookings";
+string const kBookingApiBaseUrlV2 = "https://distribution-xml.booking.com/2.0/json/";
 string const kExtendedHotelInfoBaseUrl = "https://hotels.maps.me/getDescription";
 string const kPhotoOriginalUrl = "http://aff.bstatic.com/images/hotel/max500/";
 string const kPhotoSmallUrl = "http://aff.bstatic.com/images/hotel/max300/";
@@ -38,39 +43,28 @@ bool RunSimpleHttpRequest(bool const needAuth, string const & url, string & resu
   if (needAuth)
     request.SetUserAndPassword(BOOKING_KEY, BOOKING_SECRET);
 
-  if (request.RunHttpRequest() && !request.WasRedirected() && request.ErrorCode() == 200)
-  {
-    result = request.ServerResponse();
-    return true;
-  }
-  return false;
+  return request.RunHttpRequest(result);
 }
 
-string MakeApiUrl(string const & func, initializer_list<pair<string, string>> const & params)
+std::string FormatTime(system_clock::time_point p)
 {
-  ASSERT_NOT_EQUAL(params.size(), 0, ());
+  return partners_api::FormatTime(p, "%Y-%m-%d");
+}
 
-  ostringstream os;
+string MakeApiUrlV1(string const & func, url::Params const & params)
+{
   if (!g_BookingUrlForTesting.empty())
-    os << g_BookingUrlForTesting << "." << func << "?";
-  else
-    os << kBookingApiBaseUrl << "." << func << "?";
+    return url::Make(g_BookingUrlForTesting + "." + func, params);
 
-  bool firstParam = true;
-  for (auto const & param : params)
-  {
-    if (firstParam)
-    {
-      firstParam = false;
-    }
-    else
-    {
-      os << "&";
-    }
-    os << param.first << "=" << param.second;
-  }
+  return url::Make(kBookingApiBaseUrlV1 + "." + func, params);
+}
 
-  return os.str();
+string MakeApiUrlV2(string const & func, url::Params const & params)
+{
+  if (!g_BookingUrlForTesting.empty())
+    return url::Make(g_BookingUrlForTesting + "/" + func, params);
+
+  return url::Make(kBookingApiBaseUrlV2 + "/" + func, params);
 }
 
 void ClearHotelInfo(HotelInfo & info)
@@ -154,7 +148,7 @@ vector<HotelReview> ParseReviews(json_t const * reviewsArray)
     FromJSONObject(item, "date", date);
     istringstream ss(date);
     tm t = {};
-    ss >> get_time(&t, "%Y-%m-%d %H:%M:%S");
+    ss >> base::get_time(&t, "%Y-%m-%d %H:%M:%S");
     if (ss.fail())
     {
       LOG(LWARNING, ("Incorrect review date =", date));
@@ -185,7 +179,7 @@ void FillHotelInfo(string const & src, HotelInfo & info)
   FromJSONObjectOptionalField(root.get(), "score", score);
   info.m_score = static_cast<float>(score);
 
-  json_int_t scoreCount = 0;
+  int64_t scoreCount = 0;
   FromJSONObjectOptionalField(root.get(), "score_count", scoreCount);
   info.m_scoreCount = static_cast<uint32_t>(scoreCount);
 
@@ -237,6 +231,23 @@ void FillPriceAndCurrency(string const & src, string const & currency, string & 
     }
   }
 }
+
+void FillHotelIds(string const & src, vector<std::string> & ids)
+{
+  my::Json root(src.c_str());
+  auto const resultsArray = json_object_get(root.get(), "result");
+
+  auto const size = json_array_size(resultsArray);
+
+  ids.resize(size);
+  for (size_t i = 0; i < size; ++i)
+  {
+    auto const obj = json_array_get(resultsArray, i);
+    uint64_t id = 0;
+    FromJSONObject(obj, "hotel_id", id);
+    ids[i] = std::to_string(id);
+  }
+}
 }  // namespace
 
 namespace booking
@@ -244,19 +255,12 @@ namespace booking
 // static
 bool RawApi::GetHotelAvailability(string const & hotelId, string const & currency, string & result)
 {
-  char dateArrival[12]{};
-  char dateDeparture[12]{};
-
   system_clock::time_point p = system_clock::from_time_t(time(nullptr));
-  tm arrival = my::GmTime(system_clock::to_time_t(p));
-  tm departure = my::GmTime(system_clock::to_time_t(p + hours(24)));
-  strftime(dateArrival, sizeof(dateArrival), "%Y-%m-%d", &arrival);
-  strftime(dateDeparture, sizeof(dateDeparture), "%Y-%m-%d", &departure);
 
-  string url = MakeApiUrl("getHotelAvailability", {{"hotel_ids", hotelId},
-                                                   {"currency_code", currency},
-                                                   {"arrival_date", dateArrival},
-                                                   {"departure_date", dateDeparture}});
+  string url = MakeApiUrlV1("getHotelAvailability", {{"hotel_ids", hotelId},
+                                                     {"currency_code", currency},
+                                                     {"arrival_date", FormatTime(p)},
+                                                     {"departure_date", FormatTime(p + hours(24))}});
   return RunSimpleHttpRequest(true, url, result);
 }
 
@@ -266,6 +270,14 @@ bool RawApi::GetExtendedInfo(string const & hotelId, string const & lang, string
   ostringstream os;
   os << kExtendedHotelInfoBaseUrl << "?hotel_id=" << hotelId << "&lang=" << lang;
   return RunSimpleHttpRequest(false, os.str(), result);
+}
+
+// static
+bool RawApi::HotelAvailability(AvailabilityParams const & params, string & result)
+{
+  string url = MakeApiUrlV2("hotelAvailability", params.Get());
+
+  return RunSimpleHttpRequest(true, url, result);
 }
 
 string Api::GetBookHotelUrl(string const & baseUrl) const
@@ -289,17 +301,13 @@ string Api::GetHotelReviewsUrl(string const & hotelId, string const & baseUrl) c
   return os.str();
 }
 
-string Api::GetSearchUrl(string const & city, string const & street, string const & hotelName,
-                         string const & type) const
+string Api::GetSearchUrl(string const & city, string const & name) const
 {
-  if (city.empty() || type.empty())
+  if (city.empty() || name.empty())
     return "";
 
   ostringstream paramStream;
-  if (!street.empty())
-    paramStream << city << " " << street << " " << type;
-  else if (!hotelName.empty())
-    paramStream << city << " " << hotelName << " " << type;
+  paramStream << city << " " << name;
 
   auto const urlEncodedParams = UrlEncode(paramStream.str());
 
@@ -312,9 +320,9 @@ string Api::GetSearchUrl(string const & city, string const & street, string cons
 }
 
 void Api::GetMinPrice(string const & hotelId, string const & currency,
-                      GetMinPriceCallback const & fn)
+                      GetMinPriceCallback const & fn) const
 {
-  threads::SimpleThread([hotelId, currency, fn]()
+  GetPlatform().RunTask(Platform::Thread::Network, [hotelId, currency, fn]()
   {
     string minPrice;
     string priceCurrency;
@@ -336,12 +344,13 @@ void Api::GetMinPrice(string const & hotelId, string const & currency,
       priceCurrency.clear();
     }
     fn(hotelId, minPrice, priceCurrency);
-  }).detach();
+  });
 }
 
-void Api::GetHotelInfo(string const & hotelId, string const & lang, GetHotelInfoCallback const & fn)
+void Api::GetHotelInfo(string const & hotelId, string const & lang,
+                       GetHotelInfoCallback const & fn) const
 {
-  threads::SimpleThread([hotelId, lang, fn]()
+  GetPlatform().RunTask(Platform::Thread::Network, [hotelId, lang, fn]()
   {
     HotelInfo info;
     info.m_hotelId = hotelId;
@@ -364,7 +373,34 @@ void Api::GetHotelInfo(string const & hotelId, string const & lang, GetHotelInfo
     }
 
     fn(info);
-  }).detach();
+  });
+}
+
+void Api::GetHotelAvailability(AvailabilityParams const & params,
+                               GetHotelAvailabilityCallback const & fn) const
+{
+  GetPlatform().RunTask(Platform::Thread::Network, [params, fn]()
+  {
+    std::vector<std::string> result;
+    string httpResult;
+    if (!RawApi::HotelAvailability(params, httpResult))
+    {
+      fn(std::move(result));
+      return;
+    }
+
+    try
+    {
+      FillHotelIds(httpResult, result);
+    }
+    catch (my::Json::Exception const & e)
+    {
+      LOG(LERROR, (e.Msg()));
+      result.clear();
+    }
+
+    fn(std::move(result));
+  });
 }
 
 void SetBookingUrlForTesting(string const & url)

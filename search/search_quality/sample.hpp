@@ -14,6 +14,8 @@ class FeatureType;
 
 namespace search
 {
+struct SearchParams;
+
 struct Sample
 {
   struct Result
@@ -32,6 +34,7 @@ struct Sample
     bool operator==(Result const & rhs) const;
 
     m2::PointD m_pos = m2::PointD(0, 0);
+
     strings::UniString m_name;
     std::string m_houseNumber;
     std::vector<std::string> m_types;  // MAPS.ME types, not OSM types.
@@ -41,8 +44,8 @@ struct Sample
   bool DeserializeFromJSON(std::string const & jsonStr);
   my::JSONPtr SerializeToJSON() const;
 
-  static bool DeserializeFromJSON(std::string const & jsonStr, std::vector<Sample> & samples);
-  static void SerializeToJSON(std::vector<Sample> const & samples, std::string & jsonStr);
+  static bool DeserializeFromJSONLines(std::string const & lines, std::vector<Sample> & samples);
+  static void SerializeToJSONLines(std::vector<Sample> const & samples, std::string & lines);
 
   bool operator<(Sample const & rhs) const;
 
@@ -51,11 +54,15 @@ struct Sample
   void DeserializeFromJSONImpl(json_t * root);
   void SerializeToJSONImpl(json_t & root) const;
 
+  void FillSearchParams(search::SearchParams & params) const;
+
   strings::UniString m_query;
   std::string m_locale;
   m2::PointD m_pos = m2::PointD(0, 0);
+  bool m_posAvailable = false;
   m2::RectD m_viewport = m2::RectD(0, 0, 0, 0);
   std::vector<Result> m_results;
+  std::vector<strings::UniString> m_relatedQueries;
 };
 
 void FromJSONObject(json_t * root, string const & field, Sample::Result::Relevance & relevance);

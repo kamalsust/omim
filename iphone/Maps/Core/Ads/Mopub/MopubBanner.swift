@@ -1,7 +1,7 @@
 final class MopubBanner: NSObject, Banner {
   private enum Limits {
     static let minTimeOnScreen: TimeInterval = 3
-    static let minTimeSinceLastRequest: TimeInterval = 30
+    static let minTimeSinceLastRequest: TimeInterval = 5
   }
 
   fileprivate var success: Banner.Success!
@@ -20,6 +20,10 @@ final class MopubBanner: NSObject, Banner {
 
     load()
     requestDate = Date()
+  }
+
+  func unregister() {
+    nativeAd?.unregister()
   }
 
   var isBannerOnScreen = false {
@@ -74,7 +78,7 @@ final class MopubBanner: NSObject, Banner {
   }
 
   @objc private func enterBackground() {
-    if (isBannerOnScreen) {
+    if isBannerOnScreen {
       stopCountTimeOnScreen()
     }
   }
@@ -84,7 +88,7 @@ final class MopubBanner: NSObject, Banner {
       showDate = Date()
     }
 
-    if (remainingTime > 0) {
+    if remainingTime > 0 {
       perform(#selector(setEnoughTimeOnScreen), with: nil, afterDelay: remainingTime)
     }
   }
@@ -96,7 +100,7 @@ final class MopubBanner: NSObject, Banner {
     }
 
     let timePassed = Date().timeIntervalSince(date)
-    if (timePassed < Limits.minTimeOnScreen) {
+    if timePassed < Limits.minTimeOnScreen {
       remainingTime = Limits.minTimeOnScreen - timePassed
       NSObject.cancelPreviousPerformRequests(withTarget: self)
     } else {
@@ -108,7 +112,7 @@ final class MopubBanner: NSObject, Banner {
     isNeedToRetain = false
   }
 
-  //MARK: - Content
+  // MARK: - Content
   private(set) var nativeAd: MPNativeAd?
 
   var title: String {
@@ -127,7 +131,11 @@ final class MopubBanner: NSObject, Banner {
     return nativeAd?.properties[kAdCTATextKey] as? String ?? ""
   }
 
-  //MARK: - Helpers
+  var privacyInfoURL: String? {
+    return nativeAd?.properties[kDAAIconTapDestinationURL] as? String
+  }
+
+  // MARK: - Helpers
   private var request: MPNativeAdRequest!
 
   private func load() {
@@ -135,17 +143,20 @@ final class MopubBanner: NSObject, Banner {
     let config = MPStaticNativeAdRenderer.rendererConfiguration(with: settings)!
     request = MPNativeAdRequest(adUnitIdentifier: placementID, rendererConfigurations: [config])
     let targeting = MPNativeAdRequestTargeting()
+    targeting.keywords = "user_lang:\(AppInfo.shared().twoLetterLanguageId)"
     targeting.desiredAssets = [kAdTitleKey, kAdTextKey, kAdIconImageKey, kAdCTATextKey]
     if let location = MWMLocationManager.lastLocation() {
       targeting.location = location
     }
     request.targeting = targeting
 
-    request.start { [weak self] request, nativeAd, error in
+    request.start { [weak self] _, nativeAd, error in
       guard let s = self else { return }
       if let error = error as NSError? {
-        let params: [String : Any] = [kStatBanner : s.bannerID,
-                                     kStatProvider : kStatMopub]
+        let params: [String: Any] = [
+          kStatBanner: s.bannerID,
+          kStatProvider: kStatMopub,
+        ]
         let event = kStatPlacePageBannerError
         s.failure(s.type, event, params, error)
       } else {

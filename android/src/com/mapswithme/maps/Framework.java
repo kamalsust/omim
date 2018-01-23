@@ -1,18 +1,27 @@
 package com.mapswithme.maps;
 
 import android.graphics.Bitmap;
+import android.location.Location;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.Size;
 import android.support.annotation.UiThread;
 
+import com.mapswithme.maps.ads.Banner;
+import com.mapswithme.maps.ads.LocalAdInfo;
 import com.mapswithme.maps.api.ParsedRoutingData;
 import com.mapswithme.maps.api.ParsedSearchRequest;
 import com.mapswithme.maps.api.ParsedUrlMwmRequest;
 import com.mapswithme.maps.bookmarks.data.DistanceAndAzimut;
 import com.mapswithme.maps.bookmarks.data.MapObject;
+import com.mapswithme.maps.discovery.DiscoveryParams;
+import com.mapswithme.maps.location.LocationHelper;
+import com.mapswithme.maps.routing.RouteMarkData;
+import com.mapswithme.maps.routing.RoutePointInfo;
 import com.mapswithme.maps.routing.RoutingInfo;
+import com.mapswithme.maps.routing.TransitRouteInfo;
+import com.mapswithme.maps.routing.TransitStepInfo;
 import com.mapswithme.util.Constants;
 
 import java.lang.annotation.Retention;
@@ -24,13 +33,19 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class Framework
 {
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({MAP_STYLE_CLEAR, MAP_STYLE_DARK, MAP_STYLE_VEHICLE_CLEAR, MAP_STYLE_VEHICLE_DARK})
+
+  public @interface MapStyle {}
+
   public static final int MAP_STYLE_CLEAR = 0;
   public static final int MAP_STYLE_DARK = 1;
   public static final int MAP_STYLE_VEHICLE_CLEAR = 3;
   public static final int MAP_STYLE_VEHICLE_DARK = 4;
 
   @Retention(RetentionPolicy.SOURCE)
-  @IntDef({ROUTER_TYPE_VEHICLE, ROUTER_TYPE_PEDESTRIAN, ROUTER_TYPE_BICYCLE, ROUTER_TYPE_TAXI})
+  @IntDef({ ROUTER_TYPE_VEHICLE, ROUTER_TYPE_PEDESTRIAN, ROUTER_TYPE_BICYCLE, ROUTER_TYPE_TAXI,
+            ROUTER_TYPE_TRANSIT })
 
   public @interface RouterType {}
 
@@ -38,6 +53,40 @@ public class Framework
   public static final int ROUTER_TYPE_PEDESTRIAN = 1;
   public static final int ROUTER_TYPE_BICYCLE = 2;
   public static final int ROUTER_TYPE_TAXI = 3;
+  public static final int ROUTER_TYPE_TRANSIT = 4;
+
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({DO_AFTER_UPDATE_NOTHING, DO_AFTER_UPDATE_AUTO_UPDATE, DO_AFTER_UPDATE_ASK_FOR_UPDATE,
+           DO_AFTER_UPDATE_MIGRATE})
+  public @interface DoAfterUpdate {}
+
+  public static final int DO_AFTER_UPDATE_NOTHING = 0;
+  public static final int DO_AFTER_UPDATE_AUTO_UPDATE = 1;
+  public static final int DO_AFTER_UPDATE_ASK_FOR_UPDATE = 2;
+  public static final int DO_AFTER_UPDATE_MIGRATE = 3;
+
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({LOCAL_ADS_EVENT_SHOW_POINT, LOCAL_ADS_EVENT_OPEN_INFO, LOCAL_ADS_EVENT_CLICKED_PHONE,
+           LOCAL_ADS_EVENT_CLICKED_WEBSITE})
+  public @interface LocalAdsEventType {}
+
+  public static final int LOCAL_ADS_EVENT_SHOW_POINT = 0;
+  public static final int LOCAL_ADS_EVENT_OPEN_INFO = 1;
+  public static final int LOCAL_ADS_EVENT_CLICKED_PHONE = 2;
+  public static final int LOCAL_ADS_EVENT_CLICKED_WEBSITE = 3;
+
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({ROUTE_REBUILD_AFTER_POINTS_LOADING})
+  public @interface RouteRecommendationType {}
+
+  public static final int ROUTE_REBUILD_AFTER_POINTS_LOADING = 0;
+
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({ SOCIAL_TOKEN_FACEBOOK, SOCIAL_TOKEN_GOOGLE })
+  public @interface SocialTokenType {}
+
+  public static final int SOCIAL_TOKEN_FACEBOOK = 0;
+  public static final int SOCIAL_TOKEN_GOOGLE = 1;
 
   @SuppressWarnings("unused")
   public interface MapObjectListener
@@ -57,6 +106,12 @@ public class Framework
   public interface RoutingProgressListener
   {
     void onRouteBuildingProgress(float progress);
+  }
+
+  @SuppressWarnings("unused")
+  public interface RoutingRecommendationListener
+  {
+    void onRecommend(@RouteRecommendationType int recommendation);
   }
 
   public static class Params3dMode
@@ -101,11 +156,25 @@ public class Framework
     return Bitmap.createBitmap(altitudeChartBits, width, height, Bitmap.Config.ARGB_8888);
   }
 
+  public static void logLocalAdsEvent(@Framework.LocalAdsEventType int type,
+                                      @NonNull MapObject mapObject)
+  {
+    LocalAdInfo info = mapObject.getLocalAdInfo();
+    if (info == null || !info.isCustomer())
+      return;
+
+    Location location = LocationHelper.INSTANCE.getLastKnownLocation();
+    double lat = location != null ? location.getLatitude() : 0;
+    double lon = location != null ? location.getLongitude() : 0;
+    int accuracy = location != null ? (int) location.getAccuracy() : 0;
+    nativeLogLocalAdsEvent(type, lat, lon, accuracy);
+  }
+
   public static native void nativeShowTrackRect(int category, int track);
 
   public static native int nativeGetDrawScale();
   
-  public static native int nativeUpdateUserViewportChanged();
+  public static native int nativePokeSearchInViewport();
 
   @Size(2)
   public static native double[] nativeGetScreenRectCenter();
@@ -134,6 +203,14 @@ public class Framework
   @UiThread
   public static native String nativeGetOutdatedCountriesString();
 
+  @UiThread
+  @NonNull
+  public static native String[] nativeGetOutdatedCountries();
+
+  @UiThread
+  @DoAfterUpdate
+  public static native int nativeToDoAfterUpdate();
+
   public static native boolean nativeIsDataVersionChanged();
 
   public static native void nativeUpdateSavedDataVersion();
@@ -160,8 +237,6 @@ public class Framework
 
   public static native void nativeSetWritableDir(String newPath);
 
-  public static native void nativeLoadBookmarks();
-
   // Routing.
   public static native boolean nativeIsRoutingActive();
 
@@ -171,7 +246,9 @@ public class Framework
 
   public static native void nativeCloseRouting();
 
-  public static native void nativeBuildRoute(double startLat, double startLon, double finishLat, double finishLon, boolean isP2P);
+  public static native void nativeBuildRoute();
+
+  public static native void nativeRemoveRoute();
 
   public static native void nativeFollowRoute();
 
@@ -196,9 +273,14 @@ public class Framework
 
   public static native void nativeSetRouteProgressListener(RoutingProgressListener listener);
 
+  public static native void nativeSetRoutingRecommendationListener(RoutingRecommendationListener listener);
+
   public static native void nativeShowCountry(String countryId, boolean zoomToDownloadButton);
 
   public static native void nativeSetMapStyle(int mapStyle);
+
+  @MapStyle
+  public static native int nativeGetMapStyle();
 
   /**
    * This method allows to set new map style without immediate applying. It can be used before
@@ -213,12 +295,24 @@ public class Framework
   @RouterType
   public static native int nativeGetLastUsedRouter();
   @RouterType
-  public static native int nativeGetBestRouter(double srcLat, double srcLon, double dstLat, double dstLon);
+  public static native int nativeGetBestRouter(double srcLat, double srcLon,
+                                               double dstLat, double dstLon);
 
-  public static native void nativeSetRouteStartPoint(double lat, double lon, boolean valid);
+  public static native void nativeAddRoutePoint(String title, String subtitle,
+                                                @RoutePointInfo.RouteMarkType int markType,
+                                                int intermediateIndex, boolean isMyPosition,
+                                                double lat, double lon);
 
-  public static native void nativeSetRouteEndPoint(double lat, double lon, boolean valid);
+  public static native void nativeRemoveRoutePoint(@RoutePointInfo.RouteMarkType int markType,
+                                                   int intermediateIndex);
 
+  public static native void nativeRemoveIntermediateRoutePoints();
+
+  public static native boolean nativeCouldAddIntermediatePoint();
+  @NonNull
+  public static native RouteMarkData[] nativeGetRoutePoints();
+  @NonNull
+  public static native TransitRouteInfo nativeGetTransitRouteInfo();
   /**
    * Registers all maps(.mwms). Adds them to the models, generates indexes and does all necessary stuff.
    */
@@ -269,4 +363,27 @@ public class Framework
 
   // Navigation.
   public static native boolean nativeIsRouteFinished();
+
+  private static native void nativeLogLocalAdsEvent(@LocalAdsEventType int eventType,
+                                                   double lat, double lon, int accuracy);
+
+  public static native void nativeRunFirstLaunchAnimation();
+
+  public static native int nativeOpenRoutePointsTransaction();
+  public static native void nativeApplyRoutePointsTransaction(int transactionId);
+  public static native void nativeCancelRoutePointsTransaction(int transactionId);
+  public static native int nativeInvalidRoutePointsTransactionId();
+
+  public static native boolean nativeHasSavedRoutePoints();
+  public static native boolean nativeLoadRoutePoints();
+  public static native void nativeSaveRoutePoints();
+  public static native void nativeDeleteSavedRoutePoints();
+
+  public static native Banner[] nativeGetSearchBanners();
+
+  public static native void nativeAuthenticateUser(@NonNull String socialToken,
+                                                   @SocialTokenType int socialTokenType);
+  public static native boolean nativeIsUserAuthenticated();
+
+  public static native void nativeShowFeatureByLatLon(double lat, double lon);
 }

@@ -502,7 +502,7 @@ search::AddressInfo Framework::GetFeatureAddressInfo(FeatureType & ft) const
 
   // TODO(vng): Why AddressInfo is responsible for types and names? Refactor out.
   string defaultName, intName;
-  ft.GetPreferredNames(false /* allowTranslit */, defaultName, intName);
+  ft.GetPreferredNames(defaultName, intName);
   info.m_name = defaultName.empty() ? intName : defaultName;
   info.m_types = GetPrintableFeatureTypes(ft);
 
@@ -511,8 +511,6 @@ search::AddressInfo Framework::GetFeatureAddressInfo(FeatureType & ft) const
 
 vector<string> Framework::GetPrintableFeatureTypes(FeatureType const & ft) const
 {
-  ASSERT(m_searchEngine, ());
-
   vector<string> results;
   int8_t const locale = CategoriesHolder::MapLocaleToInteger(languages::GetCurrentOrig());
 

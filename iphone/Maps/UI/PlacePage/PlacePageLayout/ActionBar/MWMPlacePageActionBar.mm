@@ -1,13 +1,11 @@
 #import "MWMPlacePageActionBar.h"
-#import "MWMCommon.h"
+#import "AppInfo.h"
 #import "MWMActionBarButton.h"
+#import "MWMCircularProgress.h"
+#import "MWMNavigationDashboardManager.h"
 #import "MWMPlacePageProtocol.h"
+#import "MWMRouter.h"
 #import "MapViewController.h"
-#import "MapsAppDelegate.h"
-
-#include "Framework.h"
-
-#include "std/vector.hpp"
 
 extern NSString * const kAlohalyticsTapEventKey;
 
@@ -18,11 +16,11 @@ extern NSString * const kAlohalyticsTapEventKey;
 }
 
 @property(copy, nonatomic) IBOutletCollection(UIView) NSArray<UIView *> * buttons;
-@property(weak, nonatomic) IBOutlet UIImageView * separator;
-@property(nonatomic) BOOL isPrepareRouteMode;
 
 @property(weak, nonatomic) id<MWMActionBarSharedData> data;
 @property(weak, nonatomic) id<MWMActionBarProtocol> delegate;
+
+@property(nonatomic) NSLayoutConstraint * visibleConstraint;
 
 @end
 
@@ -31,18 +29,19 @@ extern NSString * const kAlohalyticsTapEventKey;
 + (MWMPlacePageActionBar *)actionBarWithDelegate:(id<MWMActionBarProtocol>)delegate
 {
   MWMPlacePageActionBar * bar =
-      [[NSBundle.mainBundle loadNibNamed:[self className] owner:nil options:nil] firstObject];
+      [NSBundle.mainBundle loadNibNamed:[self className] owner:nil options:nil].firstObject;
   bar.delegate = delegate;
+  bar.translatesAutoresizingMaskIntoConstraints = NO;
   return bar;
 }
 
 - (void)configureWithData:(id<MWMActionBarSharedData>)data
 {
   self.data = data;
-  self.isPrepareRouteMode = MapsAppDelegate.theApp.routingPlaneMode != MWMRoutingPlaneModeNone;
-  self.isBookmark = data.isBookmark;
+  self.isBookmark = [data isBookmark];
   [self configureButtons];
   self.autoresizingMask = UIViewAutoresizingNone;
+  [self setNeedsLayout];
 }
 
 - (void)configureButtons
@@ -50,59 +49,109 @@ extern NSString * const kAlohalyticsTapEventKey;
   m_visibleButtons.clear();
   m_additionalButtons.clear();
   auto data = self.data;
-  NSString * phone = data.phoneNumber;
 
-  BOOL const isIphone = [[UIDevice currentDevice].model isEqualToString:@"iPhone"];
-  BOOL const isPhoneNotEmpty = phone.length > 0;
-  BOOL const isBooking = data.isBooking;
-  BOOL const isOpentable = data.isOpentable;
-  BOOL const isBookingSearch = data.isBookingSearch;
-  BOOL const isSponsored = isBooking || isOpentable || isBookingSearch;
-  BOOL const itHasPhoneNumber = isIphone && isPhoneNotEmpty;
-  BOOL const isApi = data.isApi;
-  BOOL const isP2P = self.isPrepareRouteMode;
-  BOOL const isMyPosition = data.isMyPosition;
+  BOOL const isBooking = [data isBooking];
+  BOOL const isOpentable = [data isOpentable];
+  BOOL const isBookingSearch = [data isBookingSearch];
+  BOOL const isPartner = [data isPartner] && [data sponsoredURL] != nil;
+  int const partnerIndex = isPartner ? [data partnerIndex] : -1;
+  BOOL const isSponsored = isBooking || isOpentable || isBookingSearch || isPartner;
+  BOOL const isPhoneCallAvailable =
+      [AppInfo sharedInfo].canMakeCalls && [data phoneNumber].length > 0;
+  BOOL const isApi = [data isApi];
+  auto const navigationState = [MWMNavigationDashboardManager manager].state;
+  BOOL const isNavigationActive = navigationState == MWMNavigationDashboardStateNavigation;
+  BOOL const isP2P = !isNavigationActive && navigationState != MWMNavigationDashboardStateHidden;
+  BOOL const isMyPosition = [data isMyPosition];
+  BOOL const isRoutePoint = [data isRoutePoint];
+  BOOL const isNeedToAddIntermediatePoint = [MWMRouter canAddIntermediatePoint];
 
   EButton sponsoredButton = EButton::BookingSearch;
   if (isBooking)
     sponsoredButton = EButton::Booking;
   else if (isOpentable)
     sponsoredButton = EButton::Opentable;
+  else if (isPartner)
+    sponsoredButton = EButton::Partner;
+  BOOL thereAreExtraButtons = true;
 
-  if (self.isAreaNotDownloaded)
+  if (isRoutePoint)
   {
+    thereAreExtraButtons = false;
+    m_visibleButtons.push_back(EButton::RemoveStop);
+  }
+  else if (isNeedToAddIntermediatePoint)
+  {
+    thereAreExtraButtons = false;
+    if (!isNavigationActive)
+    {
+      m_visibleButtons.push_back(EButton::RouteFrom);
+      m_additionalButtons.push_back(EButton::Bookmark);
+    }
+    else
+    {
+      m_visibleButtons.push_back(EButton::Bookmark);
+    }
+    m_visibleButtons.push_back(EButton::RouteTo);
+    m_visibleButtons.push_back(EButton::AddStop);
+    m_visibleButtons.push_back(EButton::More);
+
+    if (isSponsored)
+      m_additionalButtons.push_back(sponsoredButton);
+    if (isPhoneCallAvailable)
+      m_additionalButtons.push_back(EButton::Call);
+    if (isApi)
+      m_additionalButtons.push_back(EButton::Api);
+    m_additionalButtons.push_back(EButton::Share);
+  }
+  else if (self.isAreaNotDownloaded)
+  {
+    thereAreExtraButtons = false;
     m_visibleButtons.push_back(EButton::Download);
     m_visibleButtons.push_back(EButton::Bookmark);
     m_visibleButtons.push_back(EButton::RouteTo);
     m_visibleButtons.push_back(EButton::Share);
   }
+  else if (isMyPosition && isP2P)
+  {
+    thereAreExtraButtons = false;
+    m_visibleButtons.push_back(EButton::Bookmark);
+    m_visibleButtons.push_back(EButton::RouteFrom);
+    m_visibleButtons.push_back(EButton::RouteTo);
+    m_visibleButtons.push_back(EButton::More);
+    m_additionalButtons.push_back(EButton::Share);
+  }
   else if (isMyPosition)
   {
-    m_visibleButtons.push_back(EButton::Spacer);
+    thereAreExtraButtons = false;
     m_visibleButtons.push_back(EButton::Bookmark);
+    if (!isNavigationActive)
+      m_visibleButtons.push_back(EButton::RouteFrom);
     m_visibleButtons.push_back(EButton::Share);
-    m_visibleButtons.push_back(EButton::Spacer);
   }
   else if (isApi && isSponsored)
   {
     m_visibleButtons.push_back(EButton::Api);
     m_visibleButtons.push_back(sponsoredButton);
     m_additionalButtons.push_back(EButton::Bookmark);
-    m_additionalButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_additionalButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Share);
   }
-  else if (isApi && itHasPhoneNumber)
+  else if (isApi && isPhoneCallAvailable)
   {
     m_visibleButtons.push_back(EButton::Api);
     m_visibleButtons.push_back(EButton::Call);
     m_additionalButtons.push_back(EButton::Bookmark);
-    m_additionalButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_additionalButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Share);
   }
   else if (isApi && isP2P)
   {
     m_visibleButtons.push_back(EButton::Api);
-    m_visibleButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_visibleButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Bookmark);
     m_additionalButtons.push_back(EButton::Share);
   }
@@ -110,20 +159,23 @@ extern NSString * const kAlohalyticsTapEventKey;
   {
     m_visibleButtons.push_back(EButton::Api);
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_additionalButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_additionalButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Share);
   }
   else if (isSponsored && isP2P)
   {
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_visibleButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_visibleButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(sponsoredButton);
     m_additionalButtons.push_back(EButton::Share);
   }
-  else if (itHasPhoneNumber && isP2P)
+  else if (isPhoneCallAvailable && isP2P)
   {
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_visibleButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_visibleButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Call);
     m_additionalButtons.push_back(EButton::Share);
   }
@@ -131,23 +183,27 @@ extern NSString * const kAlohalyticsTapEventKey;
   {
     m_visibleButtons.push_back(sponsoredButton);
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_additionalButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_additionalButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Share);
   }
-  else if (itHasPhoneNumber)
+  else if (isPhoneCallAvailable)
   {
     m_visibleButtons.push_back(EButton::Call);
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_additionalButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_additionalButtons.push_back(EButton::RouteFrom);
     m_additionalButtons.push_back(EButton::Share);
   }
   else
   {
     m_visibleButtons.push_back(EButton::Bookmark);
-    m_visibleButtons.push_back(EButton::RouteFrom);
+    if (!isNavigationActive)
+      m_visibleButtons.push_back(EButton::RouteFrom);
   }
 
-  if (!isMyPosition || !self.isAreaNotDownloaded)
+
+  if (thereAreExtraButtons)
   {
     m_visibleButtons.push_back(EButton::RouteTo);
     m_visibleButtons.push_back(m_additionalButtons.empty() ? EButton::Share : EButton::More);
@@ -156,11 +212,17 @@ extern NSString * const kAlohalyticsTapEventKey;
   for (UIView * v in self.buttons)
   {
     [v.subviews makeObjectsPerformSelector:@selector(removeFromSuperview)];
-    auto const type = m_visibleButtons[v.tag - 1];
+    auto const buttonIndex = v.tag - 1;
+    NSAssert(buttonIndex >= 0, @"Invalid button index.");
+    if (buttonIndex < 0 || buttonIndex >= m_visibleButtons.size())
+      continue;
+    auto const type = m_visibleButtons[buttonIndex];
+    auto const isSelected = (type == EButton::Bookmark ? self.isBookmark : NO);
     [MWMActionBarButton addButtonToSuperview:v
                                     delegate:self
                                   buttonType:type
-                                  isSelected:type == EButton::Bookmark ? self.isBookmark : NO];
+                                partnerIndex:partnerIndex
+                                  isSelected:isSelected];
   }
 }
 
@@ -181,9 +243,9 @@ extern NSString * const kAlohalyticsTapEventKey;
 
   for (UIView * view in self.buttons)
   {
-    NSAssert(view.subviews.count, @"Subviews can't be empty!");
-    MWMActionBarButton * button = view.subviews[0];
-    if (button.type != EButton::Download)
+    MWMActionBarButton * button = view.subviews.firstObject;
+    NSAssert(button, @"Subviews can't be empty!");
+    if (!button || [button type] != EButton::Download)
       continue;
 
     return button.mapDownloadProgress;
@@ -238,6 +300,9 @@ extern NSString * const kAlohalyticsTapEventKey;
   case EButton::RouteTo: [delegate routeTo]; break;
   case EButton::Share: [delegate share]; break;
   case EButton::More: [self showActionSheet]; break;
+  case EButton::AddStop: [delegate addStop]; break;
+  case EButton::RemoveStop: [delegate removeStop]; break;
+  case EButton::Partner: [delegate openPartner]; break;
   case EButton::Spacer: break;
   }
 }
@@ -248,16 +313,16 @@ extern NSString * const kAlohalyticsTapEventKey;
 {
   NSString * cancel = L(@"cancel");
   auto data = self.data;
-  BOOL const isTitleNotEmpty = data.title.length > 0;
-  NSString * title = isTitleNotEmpty ? data.title : data.subtitle;
-  NSString * subtitle = isTitleNotEmpty ? data.subtitle : nil;
+  BOOL const isTitleNotEmpty = [data title].length > 0;
+  NSString * title = isTitleNotEmpty ? [data title] : [data subtitle];
+  NSString * subtitle = isTitleNotEmpty ? [data subtitle] : nil;
 
   UIViewController * vc = static_cast<UIViewController *>([MapViewController controller]);
   NSMutableArray<NSString *> * titles = [@[] mutableCopy];
   for (auto const buttonType : m_additionalButtons)
   {
-    BOOL const isSelected = buttonType == EButton::Bookmark ? data.isBookmark : NO;
-    if (NSString * title = titleForButton(buttonType, isSelected))
+    BOOL const isSelected = buttonType == EButton::Bookmark ? [data isBookmark] : NO;
+    if (NSString * title = titleForButton(buttonType, [data partnerIndex], isSelected))
       [titles addObject:title];
     else
       NSAssert(false, @"Title can't be nil!");
@@ -292,17 +357,24 @@ extern NSString * const kAlohalyticsTapEventKey;
   [vc presentViewController:alertController animated:YES completion:nil];
 }
 
+- (void)setVisible:(BOOL)visible
+{
+  self.visibleConstraint.active = NO;
+  NSLayoutYAxisAnchor * bottomAnchor = self.superview.bottomAnchor;
+  if (@available(iOS 11.0, *))
+    bottomAnchor = self.superview.safeAreaLayoutGuide.bottomAnchor;
+  self.alpha = visible ? 1 : 0;
+  self.visibleConstraint =
+      [bottomAnchor constraintEqualToAnchor:visible ? self.bottomAnchor : self.topAnchor];
+  self.visibleConstraint.active = YES;
+}
+
 #pragma mark - Layout
 
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  self.width = self.superview.width;
-  if (IPAD)
-    self.maxY = self.superview.height;
-
-  self.separator.width = self.width;
-  CGFloat const buttonWidth = self.width / self.buttons.count;
+  CGFloat const buttonWidth = self.width / m_visibleButtons.size();
   for (UIView * button in self.buttons)
   {
     button.minX = buttonWidth * (button.tag - 1);

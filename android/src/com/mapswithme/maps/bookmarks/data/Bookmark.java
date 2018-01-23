@@ -5,10 +5,13 @@ import android.os.Parcel;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.text.TextUtils;
 
 import com.mapswithme.maps.Framework;
 import com.mapswithme.maps.ads.Banner;
+import com.mapswithme.maps.ads.LocalAdInfo;
+import com.mapswithme.maps.routing.RoutePointInfo;
+import com.mapswithme.maps.taxi.TaxiManager;
+import com.mapswithme.maps.ugc.UGC;
 import com.mapswithme.util.Constants;
 
 // TODO consider refactoring to remove hack with MapObject unmarshalling itself and Bookmark at the same time.
@@ -20,30 +23,35 @@ public class Bookmark extends MapObject
   private int mBookmarkId;
   private double mMerX;
   private double mMerY;
-  @Nullable
-  private final String mObjectTitle;
 
-  Bookmark(@IntRange(from = 0) int categoryId, @IntRange(from = 0) int bookmarkId, String title,
-           @Nullable String objectTitle, @Nullable Banner[] banners, boolean reachableByTaxi,
-           @Nullable String bookingSearchUrl)
+  public Bookmark(@NonNull FeatureId featureId, @IntRange(from = 0) int categoryId,
+                  @IntRange(from = 0) int bookmarkId, String title, @Nullable String secondaryTitle,
+                  @Nullable String subtitle, @Nullable String address, @Nullable Banner[] banners,
+                  @TaxiManager.TaxiType int[] reachableByTaxiTypes,
+                  @Nullable String bookingSearchUrl, @Nullable LocalAdInfo localAdInfo,
+                  @Nullable RoutePointInfo routePointInfo, boolean isExtendedView,
+                  boolean shouldShowUGC, boolean canBeRated, boolean canBeReviewed,
+                  @Nullable UGC.Rating[] ratings)
   {
-    super(BOOKMARK, title, "", "", 0, 0, "", banners, reachableByTaxi, bookingSearchUrl);
+    super(featureId, BOOKMARK, title, secondaryTitle, subtitle, address, 0, 0, "",
+          banners, reachableByTaxiTypes, bookingSearchUrl, localAdInfo, routePointInfo,
+          isExtendedView, shouldShowUGC, canBeRated, canBeReviewed, ratings);
 
     mCategoryId = categoryId;
     mBookmarkId = bookmarkId;
     mIcon = getIconInternal();
-    initXY();
-    mObjectTitle = objectTitle;
-  }
 
-  private void initXY()
-  {
     final ParcelablePointD ll = nativeGetXY(mCategoryId, mBookmarkId);
     mMerX = ll.x;
     mMerY = ll.y;
 
-    setLat(Math.toDegrees(2.0 * Math.atan(Math.exp(Math.toRadians(ll.y))) - Math.PI / 2.0));
-    setLon(ll.x);
+    initXY();
+  }
+
+  private void initXY()
+  {
+    setLat(Math.toDegrees(2.0 * Math.atan(Math.exp(Math.toRadians(mMerY))) - Math.PI / 2.0));
+    setLon(mMerX);
   }
 
   @Override
@@ -52,23 +60,23 @@ public class Bookmark extends MapObject
     super.writeToParcel(dest, flags);
     dest.writeInt(mCategoryId);
     dest.writeInt(mBookmarkId);
-    dest.writeString(mObjectTitle);
+    dest.writeString(mIcon.getType());
+    dest.writeDouble(mMerX);
+    dest.writeDouble(mMerY);
   }
 
-  protected Bookmark(Parcel source)
+  // Do not use Core while restoring from Parcel! In some cases this constructor is called before
+  // the App is completely initialized.
+  // TODO: Method restoreHasCurrentPermission causes this strange behaviour, needs to be investigated.
+  protected Bookmark(@MapObjectType int type, Parcel source)
   {
-    super(source);
+    super(type, source);
     mCategoryId = source.readInt();
     mBookmarkId = source.readInt();
-    mIcon = getIconInternal();
+    mIcon = BookmarkManager.getIconByType(source.readString());
+    mMerX = source.readDouble();
+    mMerY = source.readDouble();
     initXY();
-    mObjectTitle = source.readString();
-  }
-
-  @Override
-  public String getAddress()
-  {
-    return nativeGetAddress(mCategoryId, mBookmarkId);
   }
 
   @Override
@@ -99,15 +107,6 @@ public class Bookmark extends MapObject
     return MapObject.BOOKMARK;
   }
 
-  @Override
-  public String getSubtitle()
-  {
-    String subtitle = getCategoryName();
-    if (!TextUtils.isEmpty(mObjectTitle) && !mTitle.equals(mObjectTitle))
-      subtitle += " - " + mObjectTitle;
-    return subtitle;
-  }
-
   public String getCategoryName()
   {
     return getCategory().getName();
@@ -135,8 +134,8 @@ public class Bookmark extends MapObject
 
     if (!title.equals(getTitle()) || icon != mIcon || !description.equals(getBookmarkDescription()))
     {
-      nativeSetBookmarkParams(mCategoryId, mBookmarkId, title, icon.getType(), description);
-      mTitle = title;
+      nativeSetBookmarkParams(mCategoryId, mBookmarkId, title, icon != null ? icon.getType() : "",
+                              description);
     }
   }
 
@@ -172,8 +171,6 @@ public class Bookmark extends MapObject
   private native String nativeGetIcon(@IntRange(from = 0) int catId, @IntRange(from = 0) long bookmarkId);
 
   private native double nativeGetScale(@IntRange(from = 0) int catId, @IntRange(from = 0) long bookmarkId);
-
-  private native String nativeGetAddress(@IntRange(from = 0) int catId, @IntRange(from = 0) long bookmarkId);
 
   private native String nativeEncode2Ge0Url(@IntRange(from = 0) int catId, @IntRange(from = 0) long bookmarkId, boolean addName);
 

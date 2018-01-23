@@ -15,31 +15,31 @@ namespace drule { class BaseRule; }
 
 namespace df
 {
-
 class IsBuildingHasPartsChecker : public ftypes::BaseChecker
 {
   IsBuildingHasPartsChecker();
 public:
-  static IsBuildingHasPartsChecker const & Instance();
+  DECLARE_CHECKER_INSTANCE(IsBuildingHasPartsChecker);
 };
 
 class IsBuildingPartChecker : public ftypes::BaseChecker
 {
   IsBuildingPartChecker();
 public:
-  static IsBuildingPartChecker const & Instance();
+  DECLARE_CHECKER_INSTANCE(IsBuildingPartChecker);
 };
 
 class IsHatchingTerritoryChecker : public ftypes::BaseChecker
 {
   IsHatchingTerritoryChecker();
 public:
-  static IsHatchingTerritoryChecker const & Instance();
+  DECLARE_CHECKER_INSTANCE(IsHatchingTerritoryChecker);
 };
 
 struct CaptionDescription
 {
   void Init(FeatureType const & f,
+            int8_t deviceLang,
             int const zoomLevel,
             feature::EGeomType const type,
             drule::text_type_t const mainTextType,
@@ -48,7 +48,6 @@ struct CaptionDescription
   string const & GetMainText() const;
   string const & GetAuxText() const;
   string const & GetRoadNumber() const;
-  string GetPathName() const;
   bool IsNameExists() const;
 
 private:
@@ -82,10 +81,11 @@ public:
   bool IsEmpty() const;
 
 private:
-  friend bool InitStylist(FeatureType const &,
-                          int const,
+  friend bool InitStylist(FeatureType const & f,
+                          int8_t deviceLang,
+                          int const zoomLevel,
                           bool buildings3d,
-                          Stylist &);
+                          Stylist & s);
 
   void RaiseCoastlineFlag();
   void RaiseAreaStyleFlag();
@@ -103,6 +103,7 @@ private:
 };
 
 bool InitStylist(FeatureType const & f,
+                 int8_t deviceLang,
                  int const zoomLevel,
                  bool buildings3d,
                  Stylist & s);

@@ -1,23 +1,25 @@
 project(indexer)
 
-include_directories(${OMIM_ROOT}/3party/protobuf/src)
+include_directories(${OMIM_ROOT}/3party/protobuf/protobuf/src)
 
 set(
   SRC
   altitude_loader.cpp
   altitude_loader.hpp
-  categories_holder_loader.cpp
   categories_holder.cpp
   categories_holder.hpp
+  categories_holder_loader.cpp
   categories_index.cpp
   categories_index.hpp
   cell_coverer.hpp
   cell_id.hpp
   centers_table.cpp
   centers_table.hpp
+  cities_boundaries_serdes.hpp
+  city_boundary.hpp
+  classificator.cpp
   classificator_loader.cpp
   classificator_loader.hpp
-  classificator.cpp
   classificator.hpp
   coding_params.cpp
   coding_params.hpp
@@ -42,6 +44,8 @@ set(
   editable_map_object.hpp
   edits_migration.cpp
   edits_migration.hpp
+  fake_feature_ids.cpp
+  fake_feature_ids.hpp
   feature_algo.cpp
   feature_algo.hpp
   feature_altitude.hpp
@@ -70,8 +74,11 @@ set(
   features_offsets_table.hpp
   features_vector.cpp
   features_vector.hpp
+  ftraits.hpp
   ftypes_matcher.cpp
   ftypes_matcher.hpp
+  ftypes_sponsored.cpp
+  ftypes_sponsored.hpp
   geometry_coding.cpp
   geometry_coding.hpp
   geometry_serialization.cpp
@@ -110,6 +117,7 @@ set(
   scale_index.hpp
   scales.cpp
   scales.hpp
+  scales_patch.hpp
   search_delimiters.cpp     # it's in indexer because of CategoriesHolder dependency.
   search_delimiters.hpp       # it's in indexer because of CategoriesHolder dependency.
   search_string_utils.cpp   # it's in indexer because of CategoriesHolder dependency.

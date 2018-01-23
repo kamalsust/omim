@@ -56,7 +56,7 @@ private:
 };
 static_assert(sizeof(CellFeaturePair) == 12, "");
 #ifndef OMIM_OS_LINUX
-static_assert(is_trivially_copyable<CellFeaturePair>::value, "");
+static_assert(std::is_trivially_copyable<CellFeaturePair>::value, "");
 #endif
 
 class CellFeatureBucketTuple
@@ -82,7 +82,7 @@ private:
 };
 static_assert(sizeof(CellFeatureBucketTuple) == 16, "");
 #ifndef OMIM_OS_LINUX
-static_assert(is_trivially_copyable<CellFeatureBucketTuple>::value, "");
+static_assert(std::is_trivially_copyable<CellFeatureBucketTuple>::value, "");
 #endif
 
 /// Displacement manager filters incoming single-point features to simplify runtime
@@ -185,6 +185,8 @@ private:
       // Calculate depth field
       drule::KeysT keys;
       feature::GetDrawRule(ft, zoomLevel, keys);
+      // While the function has "runtime" in its name, it merely filters by metadata-based rules.
+      feature::FilterRulesByRuntimeSelector(ft, zoomLevel, keys);
       drule::MakeUnique(keys);
       float depth = 0;
       for (size_t i = 0, count = keys.size(); i < count; ++i)

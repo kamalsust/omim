@@ -1,29 +1,31 @@
 #import "MWMPlacePageManager.h"
-#import <Pushwoosh/PushNotificationManager.h>
 #import "CLLocation+Mercator.h"
 #import "MWMAPIBar.h"
 #import "MWMActivityViewController.h"
-#import "MWMCircularProgress.h"
-#import "MWMEditBookmarkController.h"
 #import "MWMFrameworkListener.h"
 #import "MWMFrameworkObservers.h"
+#import "MWMLocationHelpers.h"
 #import "MWMLocationManager.h"
 #import "MWMLocationObserver.h"
 #import "MWMPlacePageData.h"
 #import "MWMPlacePageLayout.h"
-#import "MWMRoutePoint.h"
+#import "MWMRoutePoint+CPP.h"
 #import "MWMRouter.h"
-#import "MWMSideButtons.h"
 #import "MWMStorage.h"
-#import "MWMViewController.h"
+#import "MWMUGCViewModel.h"
 #import "MapViewController.h"
 #import "Statistics.h"
+#import "Statistics+ConnectionTypeLogging.h"
 #import "SwiftBridge.h"
 
-#include "geometry/distance_on_sphere.hpp"
-#include "geometry/point2d.hpp"
+#include "Framework.h"
 
-#include "platform/measurement_utils.hpp"
+#include "map/bookmark.hpp"
+
+#include "geometry/distance_on_sphere.hpp"
+
+extern NSString * const kBookmarkDeletedNotification;
+extern NSString * const kBookmarkCategoryDeletedNotification;
 
 namespace
 {
@@ -44,6 +46,13 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
     stat[kStatRestaurant] = data.sponsoredId;
     stat[kStatRestaurantLocation] = makeLocationEventValue(latLon.lat, latLon.lon);
   }
+  else if (data.isPartner)
+  {
+    stat[kStatProvider] = data.partnerName;
+    stat[kStatCategory] = @(data.ratingRawValue);
+    stat[kStatObjectLat] = @(latLon.lat);
+    stat[kStatObjectLon] = @(latLon.lon);
+  }
   else
   {
     stat[kStatProvider] = kStatPlacePageHotelSearch;
@@ -62,12 +71,15 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
 
 @property(nonatomic) storage::NodeStatus currentDownloaderStatus;
 
+@property(nonatomic) BOOL isSponsoredOpenLogged;
+
 @end
 
 @implementation MWMPlacePageManager
 
 - (void)show:(place_page::Info const &)info
 {
+  self.isSponsoredOpenLogged = NO;
   self.currentDownloaderStatus = storage::NodeStatus::Undefined;
   [MWMFrameworkListener addObserver:self];
 
@@ -82,20 +94,65 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   }
 
   [MWMLocationManager addObserver:self];
-  [self.layout setDistanceToObject:self.distanceToObject];
+  [NSNotificationCenter.defaultCenter addObserver:self
+                                         selector:@selector(handleBookmarkDeleting:)
+                                             name:kBookmarkDeletedNotification
+                                           object:nil];
+
+  [NSNotificationCenter.defaultCenter addObserver:self
+                                         selector:@selector(handleBookmarkCategoryDeleting:)
+                                             name:kBookmarkCategoryDeletedNotification
+                                           object:nil];
+  [self setupSpeedAndDistance];
 
   [self.layout showWithData:self.data];
   
   // Call for the first time to produce changes
-  [self processCountryEvent:self.data.countryId];
+  [self processCountryEvent:[self.data countryId]];
 }
 
-- (void)close
+- (void)dismiss
 {
   [self.layout close];
   self.data = nil;
   [MWMLocationManager removeObserver:self];
   [MWMFrameworkListener removeObserver:self];
+  [NSNotificationCenter.defaultCenter removeObserver:self];
+}
+
+- (void)handleBookmarkDeleting:(NSNotification *)notification
+{
+  auto data = self.data;
+  NSAssert(data && self.layout, @"It must be openned place page!");
+  if (!data.isBookmark)
+    return;
+
+  auto value = static_cast<NSValue *>(notification.object);
+  auto deletedBookmarkAndCategory = BookmarkAndCategory();
+  [value getValue:&deletedBookmarkAndCategory];
+  NSAssert(deletedBookmarkAndCategory.IsValid(),
+           @"Place page must have valid bookmark and category.");
+  auto bookmarkAndCategory = data.bookmarkAndCategory;
+  if (bookmarkAndCategory.m_bookmarkIndex != deletedBookmarkAndCategory.m_bookmarkIndex ||
+      bookmarkAndCategory.m_categoryIndex != deletedBookmarkAndCategory.m_categoryIndex)
+    return;
+
+  [self closePlacePage];
+}
+
+- (void)handleBookmarkCategoryDeleting:(NSNotification *)notification
+{
+  auto data = self.data;
+  NSAssert(data && self.layout, @"It must be openned place page!");
+  if (!data.isBookmark)
+    return;
+
+  auto deletedIndex = static_cast<NSNumber *>(notification.object).integerValue;
+  auto index = data.bookmarkAndCategory.m_categoryIndex;
+  if (index != deletedIndex)
+    return;
+
+  [self closePlacePage];
 }
 
 #pragma mark - MWMPlacePageLayoutDataSource
@@ -105,7 +162,7 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   auto data = self.data;
   if (!data)
     return;
-  auto const & countryId = data.countryId;
+  auto const & countryId = [data countryId];
   NodeAttrs nodeAttrs;
   GetFramework().GetStorage().GetNodeAttrs(countryId, nodeAttrs);
   switch (nodeAttrs.m_status)
@@ -139,18 +196,18 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
 
 - (void)processCountryEvent:(TCountryId const &)countryId
 {
-  if (countryId == kInvalidCountryId)
+  auto data = self.data;
+  if (!data || [data countryId] != countryId)
+    return;
+
+  if ([data countryId] == kInvalidCountryId)
   {
     [self.layout processDownloaderEventWithStatus:storage::NodeStatus::Undefined progress:0];
     return;
   }
 
-  auto data = self.data;
-  if (!data || data.countryId != countryId)
-    return;
-
   NodeStatuses statuses;
-  GetFramework().GetStorage().GetNodeStatuses(countryId, statuses);
+  GetFramework().GetStorage().GetNodeStatuses([data countryId], statuses);
 
   auto const status = statuses.m_status;
   if (status == self.currentDownloaderStatus)
@@ -164,7 +221,7 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
               progress:(MapFilesDownloader::TProgress const &)progress
 {
   auto data = self.data;
-  if (!data || countryId == kInvalidCountryId || data.countryId != countryId)
+  if (!data || countryId == kInvalidCountryId || [data countryId] != countryId)
     return;
 
   [self.layout
@@ -172,16 +229,42 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
                               progress:static_cast<CGFloat>(progress.first) / progress.second];
 }
 
-#pragma mark - MWMPlacePageLayout
+#pragma mark - MWMPlacePageLayoutDelegate
 
 - (void)onPlacePageTopBoundChanged:(CGFloat)bound
 {
-  self.ownerViewController.visibleAreaBottomOffset = bound;
-  [[MWMSideButtons buttons] setBottomBound:self.ownerViewController.view.height - bound];
+  [self.ownerViewController setPlacePageTopBound:bound];
+  [self.layout checkCellsVisible];
 }
 
-- (void)shouldDestroyLayout { self.layout = nil; }
-- (void)shouldClose { GetFramework().DeactivateMapSelection(true); }
+- (void)destroyLayout { self.layout = nil; }
+- (void)closePlacePage { GetFramework().DeactivateMapSelection(true); }
+- (BOOL)isExpandedOnShow { return self.data.isPreviewExtended; }
+- (void)onExpanded
+{
+  if (self.isSponsoredOpenLogged)
+    return;
+  self.isSponsoredOpenLogged = YES;
+  auto data = self.data;
+  if (!data)
+    return;
+  NSMutableDictionary * parameters = [@{} mutableCopy];
+  if (data.isViator)
+    parameters[kStatProvider] = kStatViator;
+  else if (data.isBooking)
+    parameters[kStatProvider] = kStatBooking;
+  else if (data.isCian)
+    parameters[kStatProvider] = kStatCian;
+  else if (data.isPartner)
+    parameters[kStatProvider] = data.partnerName;
+  else if (data.isHolidayObject)
+    parameters[kStatProvider] = kStatHoliday;
+  
+  parameters[kStatConnection] = [Statistics connectionTypeToString:Platform::ConnectionStatus()];
+  parameters[kStatTags] = data.statisticsTags;
+  [Statistics logEvent:kStatPlacepageSponsoredOpen withParameters:parameters];
+}
+
 #pragma mark - MWMLocationObserver
 
 - (void)onHeadingUpdate:(location::CompassInfo const &)info
@@ -200,9 +283,16 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   [self.layout rotateDirectionArrowToAngle:angle];
 }
 
-- (void)onLocationUpdate:(location::GpsInfo const &)locationInfo
+- (void)setupSpeedAndDistance
 {
   [self.layout setDistanceToObject:self.distanceToObject];
+  if (self.data.isMyPosition)
+    [self.layout setSpeedAndAltitude:location_helpers::formattedSpeedAndAltitude(MWMLocationManager.lastLocation)];
+}
+
+- (void)onLocationUpdate:(location::GpsInfo const &)locationInfo
+{
+  [self setupSpeedAndDistance];
 }
 
 - (void)mwm_refreshUI { [self.layout mwm_refreshUI]; }
@@ -210,50 +300,105 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
 {
   [Statistics logEvent:kStatEventName(kStatPlacePage, kStatBuildRoute)
         withParameters:@{kStatValue : kStatSource}];
-  [[MWMRouter router] buildFromPoint:self.target bestRouter:YES];
-  [self close];
+
+  MWMRoutePoint * point = [self routePointWithType:MWMRoutePointTypeStart intermediateIndex:0];
+  [MWMRouter buildFromPoint:point bestRouter:YES];
+  [self closePlacePage];
 }
 
 - (void)routeTo
 {
   [Statistics logEvent:kStatEventName(kStatPlacePage, kStatBuildRoute)
         withParameters:@{kStatValue : kStatDestination}];
-  [[MWMRouter router] buildToPoint:self.target bestRouter:YES];
-  [self close];
+
+  MWMRoutePoint * point = [self routePointWithType:MWMRoutePointTypeFinish intermediateIndex:0];
+  [MWMRouter buildToPoint:point bestRouter:YES];
+  [self closePlacePage];
 }
 
-- (void)taxiTo
+- (void)addStop
+{
+  MWMRoutePoint * point =
+      [self routePointWithType:MWMRoutePointTypeIntermediate intermediateIndex:0];
+  [MWMRouter addPointAndRebuild:point];
+  [self closePlacePage];
+}
+
+- (void)removeStop
+{
+  auto data = self.data;
+  MWMRoutePoint * point = nil;
+  switch (data.routeMarkType)
+  {
+  case RouteMarkType::Start:
+    point =
+        [self routePointWithType:MWMRoutePointTypeStart intermediateIndex:data.intermediateIndex];
+    break;
+  case RouteMarkType::Finish:
+    point =
+        [self routePointWithType:MWMRoutePointTypeFinish intermediateIndex:data.intermediateIndex];
+    break;
+  case RouteMarkType::Intermediate:
+    point = [self routePointWithType:MWMRoutePointTypeIntermediate
+                   intermediateIndex:data.intermediateIndex];
+    break;
+  }
+  [MWMRouter removePointAndRebuild:point];
+  [self closePlacePage];
+}
+
+- (void)orderTaxi:(MWMPlacePageTaxiProvider)provider
 {
   auto data = self.data;
   if (!data)
     return;
+  NSString * providerString = nil;
+  switch (provider)
+  {
+  case MWMPlacePageTaxiProviderTaxi: providerString = kStatUnknown;
+  case MWMPlacePageTaxiProviderUber: providerString = kStatUber;
+  case MWMPlacePageTaxiProviderYandex: providerString = kStatYandex;
+  }
   [Statistics logEvent:kStatPlacePageTaxiClick
-        withParameters:@{kStatProvider : kStatUber, kStatTags : data.statisticsTags}];
-  auto router = [MWMRouter router];
-  router.type = MWMRouterTypeTaxi;
-  [router buildToPoint:self.target bestRouter:NO];
-  [self close];
+        withParameters:@{kStatProvider : providerString, kStatTags : data.statisticsTags}];
+  [MWMRouter setType:MWMRouterTypeTaxi];
+  MWMRoutePoint * point = [self routePointWithType:MWMRoutePointTypeFinish intermediateIndex:0];
+  [MWMRouter buildToPoint:point bestRouter:NO];
+  [self closePlacePage];
 }
 
-- (MWMRoutePoint *)target
+- (MWMRoutePoint *)routePointWithType:(MWMRoutePointType)type
+                    intermediateIndex:(size_t)intermediateIndex
 {
   auto data = self.data;
   if (!data)
-    return zeroRoutePoint();
-  NSString * name = nil;
-  if (data.title.length > 0)
-    name = data.title;
-  else if (data.address.length > 0)
-    name = data.address;
-  else if (data.subtitle.length > 0)
-    name = data.subtitle;
-  else if (data.isBookmark)
-    name = data.externalTitle;
-  else
-    name = L(@"placepage_unknown_place");
+    return nil;
 
-  m2::PointD const & org = data.mercator;
-  return data.isMyPosition ? routePoint(org) : routePoint(org, name);
+  if (data.isMyPosition)
+    return [[MWMRoutePoint alloc] initWithLastLocationAndType:type
+                                            intermediateIndex:intermediateIndex];
+
+  NSString * title = nil;
+  if (data.title.length > 0)
+    title = data.title;
+  else if (data.address.length > 0)
+    title = data.address;
+  else if (data.subtitle.length > 0)
+    title = data.subtitle;
+  else if (data.isBookmark)
+    title = data.externalTitle;
+  else
+    title = L(@"placepage_unknown_place");
+
+  NSString * subtitle = nil;
+  if (data.subtitle.length > 0 && ![title isEqualToString:data.subtitle])
+    subtitle = data.subtitle;
+
+  return [[MWMRoutePoint alloc] initWithPoint:data.mercator
+                                        title:title
+                                     subtitle:subtitle
+                                         type:type
+                            intermediateIndex:intermediateIndex];
 }
 
 - (void)share
@@ -355,6 +500,17 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   [self.ownerViewController openUrl:url];
 }
 
+- (void)openPartner
+{
+  auto data = self.data;
+  if (!data)
+    return;
+  logSponsoredEvent(data, kStatPlacePageSponsoredActionButtonClick);
+  NSURL * url = data.sponsoredURL;
+  NSAssert(url, @"Partner url can't be nil!");
+  [self.ownerViewController openUrl:url];
+}
+
 - (void)call
 {
   auto data = self.data;
@@ -364,7 +520,7 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   NSString * phoneNumber = [[@"telprompt:" stringByAppendingString:data.phoneNumber]
       stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
   NSURL * url = [NSURL URLWithString:phoneNumber];
-  [[UIApplication sharedApplication] openURL:url];
+  [UIApplication.sharedApplication openURL:url];
 }
 
 - (void)apiBack
@@ -374,7 +530,7 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
     return;
   [Statistics logEvent:kStatEventName(kStatPlacePage, kStatAPI)];
   NSURL * url = [NSURL URLWithString:data.apiURL];
-  [[UIApplication sharedApplication] openURL:url];
+  [UIApplication.sharedApplication openURL:url];
   [self.ownerViewController.apiBar back];
 }
 
@@ -395,7 +551,7 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   if (!data)
     return;
   logSponsoredEvent(self.data, kStatPlacePageHotelGallery);
-  auto galleryModel = [[MWMGalleryModel alloc] initWithTitle:self.hotelName items:self.data.photos];
+  auto galleryModel = [[MWMGalleryModel alloc] initWithTitle:self.hotelName items:data.photos];
   auto initialPhoto = galleryModel.items[index];
   auto photoVC = [[MWMPhotosViewController alloc] initWithPhotos:galleryModel
                                                     initialPhoto:initialPhoto
@@ -407,15 +563,51 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   [[MapViewController controller] presentViewController:photoVC animated:YES completion:nil];
 }
 
-- (void)showGalery
+- (void)showGallery
 {
   auto data = self.data;
   if (!data)
     return;
   logSponsoredEvent(self.data, kStatPlacePageHotelGallery);
-  auto galleryModel = [[MWMGalleryModel alloc] initWithTitle:self.hotelName items:self.data.photos];
+  auto galleryModel = [[MWMGalleryModel alloc] initWithTitle:self.hotelName items:data.photos];
   auto galleryVc = [MWMGalleryViewController instanceWithModel:galleryModel];
   [[MapViewController controller].navigationController pushViewController:galleryVc animated:YES];
+}
+
+- (void)showUGCAddReview:(MWMRatingSummaryViewValueType)value fromPreview:(BOOL)fromPreview
+{
+  auto data = self.data;
+  if (!data)
+    return;
+
+  NSMutableArray<MWMUGCRatingStars *> * ratings = [@[] mutableCopy];
+  for (auto & cat : data.ugcRatingCategories)
+    [ratings addObject:[[MWMUGCRatingStars alloc] initWithTitle:@(cat.c_str())
+                                                          value:value
+                                                       maxValue:5.0f]];
+  auto title = data.title;
+
+  [Statistics logEvent:kStatUGCReviewStart
+        withParameters:@{
+          kStatIsAuthenticated: @([MWMAuthorizationViewModel isAuthenticated]),
+          kStatIsOnline:
+              @(GetPlatform().ConnectionStatus() != Platform::EConnectionType::CONNECTION_NONE),
+          kStatMode: kStatAdd,
+          kStatFrom: fromPreview ? kStatPlacePagePreview : kStatPlacePage
+        }];
+  auto ugcReviewModel =
+      [[MWMUGCReviewModel alloc] initWithReviewValue:value ratings:ratings title:title text:@""];
+  auto ugcVC = [MWMUGCAddReviewController instanceWithModel:ugcReviewModel
+                                                     onSave:^(MWMUGCReviewModel * model) {
+                                                       auto data = self.data;
+                                                       if (!data)
+                                                       {
+                                                         NSAssert(false, @"");
+                                                         return;
+                                                       }
+                                                       [data setUGCUpdateFrom:model];
+                                                     }];
+  [[MapViewController controller].navigationController pushViewController:ugcVC animated:YES];
 }
 
 - (void)showAllFacilities
@@ -427,21 +619,51 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
   [self.ownerViewController openHotelFacilities];
 }
 
-- (void)viewWillTransitionToSize:(CGSize)size
-       withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
+- (void)openLocalAdsURL
 {
-  [coordinator
-      animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        [self.layout layoutWithSize:size];
-      }
-                      completion:^(id<UIViewControllerTransitionCoordinatorContext> context){
-                      }];
+  auto data = self.data;
+  if (!data)
+    return;
+  auto url = [NSURL URLWithString:data.localAdsURL];
+  if (!url)
+    return;
+
+  auto const & feature = [data featureId];
+  [Statistics logEvent:kStatPlacePageOwnershipButtonClick
+        withParameters:@{
+                         @"mwm_name" : @(feature.GetMwmName().c_str()),
+                         @"mwm_version" : @(feature.GetMwmVersion()),
+                         @"feature_id" : @(feature.m_index)
+                         }
+            atLocation:[MWMLocationManager lastLocation]];
+
+  [self.ownerViewController openUrl:url];
+}
+
+- (void)openSponsoredURL:(nullable NSURL *)url
+{
+  if (auto u = url ?: self.data.sponsoredURL)
+    [self.ownerViewController openUrl:u];
+}
+
+- (void)openReviews:(id<MWMReviewsViewModelProtocol> _Nonnull)reviewsViewModel
+{
+  auto reviewsVC = [[MWMReviewsViewController alloc] initWithViewModel:reviewsViewModel];
+  [[MapViewController controller].navigationController pushViewController:reviewsVC animated:YES];
+}
+
+#pragma mark - AvailableArea / PlacePageArea
+
+- (void)updateAvailableArea:(CGRect)frame
+{
+  auto data = self.data;
+  if (data)
+    [self.layout updateAvailableArea:frame];
 }
 
 #pragma mark - MWMFeatureHolder
 
-- (FeatureID const &)featureId { return self.data.featureId; }
-
+- (FeatureID const &)featureId { return [self.data featureId]; }
 #pragma mark - MWMBookingInfoHolder
 
 - (std::vector<booking::HotelFacility> const &)hotelFacilities { return self.data.facilities; }
@@ -451,26 +673,4 @@ void logSponsoredEvent(MWMPlacePageData * data, NSString * eventName)
 
 - (MapViewController *)ownerViewController { return [MapViewController controller]; }
 
-#pragma mark - Deprecated
-
-@synthesize leftBound = _leftBound;
-@synthesize topBound = _topBound;
-
-- (void)setTopBound:(CGFloat)topBound
-{
-  if (_topBound == topBound)
-    return;
-
-  _topBound = topBound;
-  [self.layout updateTopBound];
-}
-
-- (void)setLeftBound:(CGFloat)leftBound
-{
-  if (_leftBound == leftBound)
-    return;
-
-  _leftBound = leftBound;
-  [self.layout updateLeftBound];
-}
 @end

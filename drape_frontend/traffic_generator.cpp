@@ -2,6 +2,7 @@
 
 #include "drape_frontend/line_shape_helper.hpp"
 #include "drape_frontend/map_shape.hpp"
+#include "drape_frontend/shader_def.hpp"
 #include "drape_frontend/shape_view_params.hpp"
 #include "drape_frontend/tile_utils.hpp"
 #include "drape_frontend/traffic_renderer.hpp"
@@ -9,7 +10,6 @@
 
 #include "drape/attribute_provider.hpp"
 #include "drape/glsl_func.hpp"
-#include "drape/shader_def.hpp"
 #include "drape/texture_manager.hpp"
 
 #include "indexer/map_style_reader.hpp"
@@ -18,12 +18,14 @@
 
 #include "std/algorithm.hpp"
 
+#include <functional>
+
+using namespace std::placeholders;
+
 namespace df
 {
-
 namespace
 {
-
 // Values of the following arrays are based on traffic-arrow texture.
 static array<float, static_cast<size_t>(traffic::SpeedGroup::Count)> kCoordVOffsets =
 {{
@@ -32,7 +34,7 @@ static array<float, static_cast<size_t>(traffic::SpeedGroup::Count)> kCoordVOffs
   0.75f,  // G2
   0.5f,   // G3
   0.25f,  // G4
-  0.0f,   // G5
+  0.25f,  // G5
   0.75f,  // TempBlock
   0.0f,   // Unknown
 }};
@@ -130,15 +132,16 @@ void TrafficGenerator::FlushSegmentsGeometry(TileKey const & tileKey, TrafficSeg
   ASSERT(m_colorsCacheValid, ());
   auto const texture = m_colorsCache[static_cast<size_t>(traffic::SpeedGroup::G0)].GetTexture();
 
-  dp::GLState state(gpu::TRAFFIC_PROGRAM, dp::GLState::GeometryLayer);
+  auto state = CreateGLState(gpu::TRAFFIC_PROGRAM, RenderState::GeometryLayer);
   state.SetColorTexture(texture);
   state.SetMaskTexture(textures->GetTrafficArrowTexture());
 
-  dp::GLState lineState(gpu::TRAFFIC_LINE_PROGRAM, dp::GLState::GeometryLayer);
+  auto lineState = CreateGLState(gpu::TRAFFIC_LINE_PROGRAM, RenderState::GeometryLayer);
   lineState.SetColorTexture(texture);
   lineState.SetDrawAsLine(true);
 
-  static vector<RoadClass> const kRoadClasses = {RoadClass::Class0, RoadClass::Class1, RoadClass::Class2};
+  static vector<RoadClass> const kRoadClasses = {RoadClass::Class0, RoadClass::Class1,
+                                                 RoadClass::Class2};
   static float const kDepths[] = {2.0f, 1.0f, 0.0f};
   static vector<int> const kGenerateCapsZoomLevel = {14, 14, 16};
 
@@ -162,12 +165,14 @@ void TrafficGenerator::FlushSegmentsGeometry(TileKey const & tileKey, TrafficSeg
             continue;
 
           TrafficSegmentGeometry const & g = geomIt->second[i].second;
-          ref_ptr<dp::Batcher> batcher = m_batchersPool->GetBatcher(TrafficBatcherKey(geomIt->first, tileKey, g.m_roadClass));
+          ref_ptr<dp::Batcher> batcher =
+              m_batchersPool->GetBatcher(TrafficBatcherKey(geomIt->first, tileKey, g.m_roadClass));
 
           float const depth = kDepths[static_cast<size_t>(g.m_roadClass)];
 
           ASSERT(m_colorsCacheValid, ());
-          dp::TextureManager::ColorRegion const & colorRegion = m_colorsCache[static_cast<size_t>(segmentColoringIt->second)];
+          dp::TextureManager::ColorRegion const & colorRegion =
+              m_colorsCache[static_cast<size_t>(segmentColoringIt->second)];
           float const vOffset = kCoordVOffsets[static_cast<size_t>(segmentColoringIt->second)];
           float const minU = kMinCoordU[static_cast<size_t>(segmentColoringIt->second)];
 
@@ -175,7 +180,8 @@ void TrafficGenerator::FlushSegmentsGeometry(TileKey const & tileKey, TrafficSeg
           if (TrafficRenderer::CanBeRendereredAsLine(g.m_roadClass, tileKey.m_zoomLevel, width))
           {
             vector<TrafficLineStaticVertex> staticGeometry;
-            GenerateLineSegment(colorRegion, g.m_polyline, tileKey.GetGlobalRect().Center(), depth, staticGeometry);
+            GenerateLineSegment(colorRegion, g.m_polyline, tileKey.GetGlobalRect().Center(), depth,
+                                staticGeometry);
             if (staticGeometry.empty())
               continue;
 
@@ -189,9 +195,10 @@ void TrafficGenerator::FlushSegmentsGeometry(TileKey const & tileKey, TrafficSeg
           else
           {
             vector<TrafficStaticVertex> staticGeometry;
-            bool const generateCaps = (tileKey.m_zoomLevel > kGenerateCapsZoomLevel[static_cast<uint32_t>(g.m_roadClass)]);
-            GenerateSegment(colorRegion, g.m_polyline, tileKey.GetGlobalRect().Center(), generateCaps, depth,
-                            vOffset, minU, staticGeometry);
+            bool const generateCaps =
+                (tileKey.m_zoomLevel > kGenerateCapsZoomLevel[static_cast<uint32_t>(g.m_roadClass)]);
+            GenerateSegment(colorRegion, g.m_polyline, tileKey.GetGlobalRect().Center(),
+                            generateCaps, depth, vOffset, minU, staticGeometry);
             if (staticGeometry.empty())
               continue;
 
@@ -285,7 +292,7 @@ void TrafficGenerator::GenerateSegment(dp::TextureManager::ColorRegion const & c
     lastLeftNormal = leftNormal;
     lastRightNormal = rightNormal;
     lastPoint = p2;
-    float const maskSize = (path[i] - path[i - 1]).Length();
+    float const maskSize = static_cast<float>((path[i] - path[i - 1]).Length());
 
     glsl::vec3 const startPivot = glsl::vec3(p1, depth);
     glsl::vec3 const endPivot = glsl::vec3(p2, depth);
@@ -340,7 +347,16 @@ void TrafficGenerator::SetSimplifiedColorSchemeEnabled(bool enabled)
 }
 
 // static
-df::ColorConstant TrafficGenerator::GetColorBySpeedGroup(traffic::SpeedGroup const & speedGroup, bool route)
+traffic::SpeedGroup TrafficGenerator::CheckColorsSimplification(traffic::SpeedGroup speedGroup)
+{
+  // In simplified color scheme we reduce amount of speed groups visually.
+  if (m_simplifiedColorScheme && speedGroup == traffic::SpeedGroup::G4)
+    return traffic::SpeedGroup::G3;
+  return speedGroup;
+}
+
+// static
+df::ColorConstant TrafficGenerator::GetColorBySpeedGroup(traffic::SpeedGroup speedGroup, bool route)
 {
   size_t constexpr kSpeedGroupsCount = static_cast<size_t>(traffic::SpeedGroup::Count);
   static array<df::ColorConstant, kSpeedGroupsCount> const kColorMap
@@ -367,12 +383,7 @@ df::ColorConstant TrafficGenerator::GetColorBySpeedGroup(traffic::SpeedGroup con
     "TrafficUnknown",
   }};
 
-  traffic::SpeedGroup group = speedGroup;
-  // In simplified color scheme we reduce amount of speed groups visually.
-  if (m_simplifiedColorScheme && speedGroup == traffic::SpeedGroup::G4)
-    group = traffic::SpeedGroup::G3;
-
-  size_t const index = static_cast<size_t>(group);
+  size_t const index = static_cast<size_t>(CheckColorsSimplification(speedGroup));
   ASSERT_LESS(index, kSpeedGroupsCount, ());
   return route ? kColorMapRoute[index] : kColorMap[index];
 }

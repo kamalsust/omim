@@ -17,7 +17,9 @@ TwoLevelPOIChecker::TwoLevelPOIChecker() : ftypes::BaseChecker(2 /* level */)
                     {"waterway", "waterfall"},
                     {"natural", "volcano"},
                     {"natural", "cave_entrance"},
-                    {"natural", "beach"}};
+                    {"natural", "beach"},
+                    {"emergency", "defibrillator"},
+                    {"emergency", "fire_hydrant"}};
 
   for (size_t i = 0; i < ARRAY_SIZE(arr); ++i)
     m_types.push_back(c.GetTypeByPath(arr[i]));
@@ -74,65 +76,82 @@ public:
 private:
   CustomIsBuildingChecker() {}
 };
+
+class IsCianChecker
+{
+public:
+  static IsCianChecker const & Instance()
+  {
+    static const IsCianChecker instance;
+    return instance;
+  }
+
+  bool operator()(FeatureType const & ft) const
+  {
+    feature::TypesHolder th(ft);
+    return !ft.HasName() && th.Size() == 1 && th.Has(m_type);
+  }
+
+private:
+  IsCianChecker() { m_type = classif().GetTypeByPath({"building"}); }
+
+  uint32_t m_type;
+};
 }  // namespace
 
-// static
-SearchModel const & SearchModel::Instance()
-{
-  static SearchModel model;
-  return model;
-}
-
-SearchModel::SearchType SearchModel::GetSearchType(FeatureType const & feature) const
+Model::Type Model::GetType(FeatureType const & feature) const
 {
   static auto const & buildingChecker = CustomIsBuildingChecker::Instance();
+  static auto const & cianChecker = IsCianChecker::Instance();
   static auto const & streetChecker = IsStreetChecker::Instance();
   static auto const & localityChecker = IsLocalityChecker::Instance();
   static auto const & poiChecker = IsPoiChecker::Instance();
 
-  if (buildingChecker(feature))
-    return SEARCH_TYPE_BUILDING;
+  if (m_cianEnabled && cianChecker(feature))
+    return TYPE_BUILDING;
+
+  if (!m_cianEnabled && buildingChecker(feature))
+    return TYPE_BUILDING;
 
   if (streetChecker(feature))
-    return SEARCH_TYPE_STREET;
+    return TYPE_STREET;
 
   if (localityChecker(feature))
   {
-    Type type = localityChecker.GetType(feature);
+    auto const type = localityChecker.GetType(feature);
     switch (type)
     {
-    case NONE: ASSERT(false, ("Unknown locality.")); return SEARCH_TYPE_UNCLASSIFIED;
-    case STATE: return SEARCH_TYPE_STATE;
-    case COUNTRY: return SEARCH_TYPE_COUNTRY;
+    case NONE: ASSERT(false, ("Unknown locality.")); return TYPE_UNCLASSIFIED;
+    case STATE: return TYPE_STATE;
+    case COUNTRY: return TYPE_COUNTRY;
     case CITY:
-    case TOWN: return SEARCH_TYPE_CITY;
-    case VILLAGE: return SEARCH_TYPE_VILLAGE;
-    case LOCALITY_COUNT: return SEARCH_TYPE_UNCLASSIFIED;
+    case TOWN: return TYPE_CITY;
+    case VILLAGE: return TYPE_VILLAGE;
+    case LOCALITY_COUNT: return TYPE_UNCLASSIFIED;
     }
   }
 
   if (poiChecker(feature))
-    return SEARCH_TYPE_POI;
+    return TYPE_POI;
 
-  return SEARCH_TYPE_UNCLASSIFIED;
+  return TYPE_UNCLASSIFIED;
 }
 
-string DebugPrint(SearchModel::SearchType type)
+string DebugPrint(Model::Type type)
 {
   switch (type)
   {
-  case SearchModel::SEARCH_TYPE_POI: return "POI";
-  case SearchModel::SEARCH_TYPE_BUILDING: return "Building";
-  case SearchModel::SEARCH_TYPE_STREET: return "Street";
-  case SearchModel::SEARCH_TYPE_CITY: return "City";
-  case SearchModel::SEARCH_TYPE_VILLAGE: return "Village";
-  case SearchModel::SEARCH_TYPE_STATE: return "State";
-  case SearchModel::SEARCH_TYPE_COUNTRY: return "Country";
-  case SearchModel::SEARCH_TYPE_UNCLASSIFIED: return "Unclassified";
-  case SearchModel::SEARCH_TYPE_COUNT: return "Count";
+  case Model::TYPE_POI: return "POI";
+  case Model::TYPE_BUILDING: return "Building";
+  case Model::TYPE_STREET: return "Street";
+  case Model::TYPE_CITY: return "City";
+  case Model::TYPE_VILLAGE: return "Village";
+  case Model::TYPE_STATE: return "State";
+  case Model::TYPE_COUNTRY: return "Country";
+  case Model::TYPE_UNCLASSIFIED: return "Unclassified";
+  case Model::TYPE_COUNT: return "Count";
   }
   ASSERT(false, ("Unknown search type:", static_cast<int>(type)));
   return string();
 }
-
 }  // namespace search

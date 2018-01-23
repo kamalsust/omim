@@ -3,7 +3,15 @@
 #import "MWMButton.h"
 #import "MWMCircularProgress.h"
 
-NSString * titleForButton(EButton type, BOOL isSelected)
+NSString * titleForPartner(int partnerIndex)
+{
+  NSString * str = [NSString stringWithFormat:@"sponsored_partner%d_action", partnerIndex + 1];
+  NSString * localizedStr = L(str);
+  NSCAssert(![str isEqualToString:localizedStr], @"Localization is absent.");
+  return localizedStr;
+}
+
+NSString * titleForButton(EButton type, int partnerIndex, BOOL isSelected)
 {
   switch (type)
   {
@@ -28,20 +36,56 @@ NSString * titleForButton(EButton type, BOOL isSelected)
     return L(@"share");
   case EButton::More:
     return L(@"placepage_more_button");
+  case EButton::AddStop:
+    return L(@"placepage_add_stop");
+  case EButton::RemoveStop:
+    return L(@"placepage_remove_stop");
+  case EButton::Partner:
+    return titleForPartner(partnerIndex);
   case EButton::Spacer:
     return nil;
   }
 }
 
+NSString * imageNameForPartner(int partnerIndex)
+{
+  return [NSString stringWithFormat:@"ic_28px_logo_partner%d", partnerIndex + 1];
+}
+
+UIImage * imageForPartner(int partnerIndex)
+{
+  UIImage * img = [UIImage imageNamed:imageNameForPartner(partnerIndex)];
+  NSCAssert(img != nil, @"Partner image is absent.");
+  return img;
+}
+
+UIColor * textColorForPartner(int partnerIndex)
+{
+  NSString * textColor = [NSString stringWithFormat:@"partner%dTextColor", partnerIndex + 1];
+  UIColor * color = [UIColor colorWithName:textColor];
+  NSCAssert(color != nil, @"Partner text color is absent.");
+  return color;
+}
+
+UIColor * backgroundColorForPartner(int partnerIndex)
+{
+  NSString * colorName = [NSString stringWithFormat:@"partner%dBackground", partnerIndex + 1];
+  UIColor * color = [UIColor colorWithName:colorName];
+  NSCAssert(color != nil, @"Partner background color is absent.");
+  return color;
+}
+
 @interface MWMActionBarButton () <MWMCircularProgressProtocol>
 
-@property (weak, nonatomic) IBOutlet MWMButton * button;
-@property (weak, nonatomic) IBOutlet UILabel * label;
+@property(weak, nonatomic) IBOutlet MWMButton * button;
+@property(weak, nonatomic) IBOutlet UILabel * label;
 
-@property (weak, nonatomic) id<MWMActionBarButtonDelegate> delegate;
-@property (nonatomic) EButton type;
+@property(weak, nonatomic) id<MWMActionBarButtonDelegate> delegate;
+@property(nonatomic) EButton type;
 @property(nonatomic) MWMCircularProgress * mapDownloadProgress;
+@property(nonatomic) int partnerIndex;
 @property(nonatomic) UIView * progressWrapper;
+@property(weak, nonatomic) IBOutlet UIView * extraBackground;
 
 @end
 
@@ -56,7 +100,8 @@ NSString * titleForButton(EButton type, BOOL isSelected)
 
 - (void)configButton:(BOOL)isSelected
 {
-  self.label.text = titleForButton(self.type, isSelected);
+  self.label.text = titleForButton(self.type, self.partnerIndex, isSelected);
+  self.extraBackground.hidden = YES;
   switch (self.type)
   {
   case EButton::Api:
@@ -82,18 +127,33 @@ NSString * titleForButton(EButton type, BOOL isSelected)
   }
   case EButton::Booking:
     [self.button setImage:[UIImage imageNamed:@"ic_booking_logo"] forState:UIControlStateNormal];
-    self.label.textColor = [UIColor whiteColor];
+    self.label.textColor = UIColor.whiteColor;
     self.backgroundColor = [UIColor bookingBackground];
+    if (!IPAD)
+    {
+      self.extraBackground.backgroundColor = [UIColor bookingBackground];
+      self.extraBackground.hidden = NO;
+    }
     break;
   case EButton::BookingSearch:
-      [self.button setImage:[UIImage imageNamed:@"ic_booking_search"] forState:UIControlStateNormal];
-      self.label.textColor = [UIColor whiteColor];
-      self.backgroundColor = [UIColor bookingBackground];
-      break;
+    [self.button setImage:[UIImage imageNamed:@"ic_booking_search"] forState:UIControlStateNormal];
+    self.label.textColor = UIColor.whiteColor;
+    self.backgroundColor = [UIColor bookingBackground];
+    if (!IPAD)
+    {
+      self.extraBackground.backgroundColor = [UIColor bookingBackground];
+      self.extraBackground.hidden = NO;
+    }
+    break;
   case EButton::Opentable:
     [self.button setImage:[UIImage imageNamed:@"ic_opentable"] forState:UIControlStateNormal];
-    self.label.textColor = [UIColor whiteColor];
+    self.label.textColor = UIColor.whiteColor;
     self.backgroundColor = [UIColor opentableBackground];
+    if (!IPAD)
+    {
+      self.extraBackground.backgroundColor = [UIColor opentableBackground];
+      self.extraBackground.hidden = NO;
+    }
     break;
   case EButton::Call:
     [self.button setImage:[UIImage imageNamed:@"ic_placepage_phone_number"] forState:UIControlStateNormal];
@@ -113,9 +173,21 @@ NSString * titleForButton(EButton type, BOOL isSelected)
   case EButton::More:
     [self.button setImage:[UIImage imageNamed:@"ic_placepage_more"] forState:UIControlStateNormal];
     break;
+  case EButton::AddStop:
+    [self.button setImage:[UIImage imageNamed:@"ic_add_route_point"] forState:UIControlStateNormal];
+    break;
+  case EButton::RemoveStop:
+    [self.button setImage:[UIImage imageNamed:@"ic_remove_route_point"] forState:UIControlStateNormal];
+    break;
   case EButton::Spacer:
     [self.button removeFromSuperview];
     [self.label removeFromSuperview];
+    break;
+  case EButton::Partner:
+    [self.button setImage:imageForPartner(self.partnerIndex)
+                 forState:UIControlStateNormal];
+    self.label.textColor = textColorForPartner(self.partnerIndex);
+    self.backgroundColor = backgroundColorForPartner(self.partnerIndex);
     break;
   }
 }
@@ -123,13 +195,16 @@ NSString * titleForButton(EButton type, BOOL isSelected)
 + (void)addButtonToSuperview:(UIView *)view
                     delegate:(id<MWMActionBarButtonDelegate>)delegate
                   buttonType:(EButton)type
+                partnerIndex:(int)partnerIndex
                   isSelected:(BOOL)isSelected
 {
   if (view.subviews.count)
     return;
-  MWMActionBarButton * button = [[[NSBundle mainBundle] loadNibNamed:[self className] owner:nil options:nil] firstObject];
+  MWMActionBarButton * button =
+      [NSBundle.mainBundle loadNibNamed:[self className] owner:nil options:nil].firstObject;
   button.delegate = delegate;
   button.type = type;
+  button.partnerIndex = partnerIndex;
   [view addSubview:button];
   [button configButton:isSelected];
 }

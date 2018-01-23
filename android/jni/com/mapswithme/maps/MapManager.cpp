@@ -1,9 +1,10 @@
 #include "Framework.hpp"
 
-#include "../core/jni_helper.hpp"
+#include "com/mapswithme/core/jni_helper.hpp"
 
 #include "coding/internal/file_data.hpp"
 
+#include "storage/country_info_getter.hpp"
 #include "storage/storage.hpp"
 #include "storage/storage_helpers.hpp"
 
@@ -12,14 +13,18 @@
 #include "platform/local_country_file_utils.hpp"
 #include "platform/mwm_version.hpp"
 
-#include "std/bind.hpp"
-#include "std/shared_ptr.hpp"
-#include "std/unordered_map.hpp"
+#include <functional>
+#include <memory>
+#include <unordered_map>
+
+using namespace std::placeholders;
 
 namespace
 {
-
 using namespace storage;
+
+// The last 5% are left for applying diffs.
+float const kMaxProgress = 95.0f;
 
 enum ItemCategory : uint32_t
 {
@@ -101,7 +106,7 @@ Java_com_mapswithme_maps_downloader_MapManager_nativeHasSpaceForMigration(JNIEnv
 JNIEXPORT jboolean JNICALL
 Java_com_mapswithme_maps_downloader_MapManager_nativeHasSpaceToDownloadAmount(JNIEnv * env, jclass clazz, jlong bytes)
 {
-  return IsEnoughSpaceForDownload(bytes);
+  return IsEnoughSpaceForDownload(bytes, GetStorage().GetMaxMwmSizeBytes());
 }
 
 // static boolean nativeHasSpaceToDownloadCountry(String root);
@@ -204,8 +209,8 @@ Java_com_mapswithme_maps_downloader_MapManager_nativeMigrate(JNIEnv * env, jclas
 
   g_migrationListener = env->NewGlobalRef(listener);
 
-  TCountryId id = g_framework->PreMigrate(position, bind(&MigrationStatusChangedCallback, _1, keepOldMaps),
-                                                    bind(&MigrationProgressCallback, _1, _2));
+  TCountryId id = g_framework->PreMigrate(position, std::bind(&MigrationStatusChangedCallback, _1, keepOldMaps),
+                                                    std::bind(&MigrationProgressCallback, _1, _2));
   if (id != kInvalidCountryId)
   {
     NodeAttrs attrs;
@@ -333,7 +338,7 @@ static void UpdateItem(JNIEnv * env, jobject item, NodeAttrs const & attrs)
   // Progress
   int progress = 0;
   if (attrs.m_downloadingProgress.second)
-    progress = (int)(attrs.m_downloadingProgress.first * 100.0 / attrs.m_downloadingProgress.second);
+    progress = (int)(attrs.m_downloadingProgress.first * kMaxProgress / attrs.m_downloadingProgress.second);
 
   env->SetIntField(item, countryItemFieldProgress, progress);
 }
@@ -533,7 +538,7 @@ Java_com_mapswithme_maps_downloader_MapManager_nativeDelete(JNIEnv * env, jclass
   EndBatchingCallbacks(env);
 }
 
-static void StatusChangedCallback(shared_ptr<jobject> const & listenerRef, TCountryId const & countryId)
+static void StatusChangedCallback(std::shared_ptr<jobject> const & listenerRef, TCountryId const & countryId)
 {
   NodeStatuses ns;
   GetStorage().GetNodeStatuses(countryId, ns);
@@ -545,7 +550,7 @@ static void StatusChangedCallback(shared_ptr<jobject> const & listenerRef, TCoun
     EndBatchingCallbacks(jni::GetEnv());
 }
 
-static void ProgressChangedCallback(shared_ptr<jobject> const & listenerRef, TCountryId const & countryId, TLocalAndRemoteSize const & sizes)
+static void ProgressChangedCallback(std::shared_ptr<jobject> const & listenerRef, TCountryId const & countryId, TLocalAndRemoteSize const & sizes)
 {
   JNIEnv * env = jni::GetEnv();
 
@@ -558,8 +563,8 @@ JNIEXPORT jint JNICALL
 Java_com_mapswithme_maps_downloader_MapManager_nativeSubscribe(JNIEnv * env, jclass clazz, jobject listener)
 {
   PrepareClassRefs(env);
-  return GetStorage().Subscribe(bind(&StatusChangedCallback, jni::make_global_ref(listener), _1),
-                                bind(&ProgressChangedCallback, jni::make_global_ref(listener), _1, _2));
+  return GetStorage().Subscribe(std::bind(&StatusChangedCallback, jni::make_global_ref(listener), _1),
+                                std::bind(&ProgressChangedCallback, jni::make_global_ref(listener), _1, _2));
 }
 
 // static void nativeUnsubscribe(int slot);
@@ -636,7 +641,7 @@ Java_com_mapswithme_maps_downloader_MapManager_nativeGetOverallProgress(JNIEnv *
 
   int res = 0;
   if (progress.second)
-    res = (jint) (progress.first * 100.0 / progress.second);
+    res = (jint) (progress.first * kMaxProgress / progress.second);
 
   return res;
 }
@@ -666,7 +671,7 @@ Java_com_mapswithme_maps_downloader_MapManager_nativeEnableDownloadOn3g(JNIEnv *
 JNIEXPORT jstring JNICALL
 Java_com_mapswithme_maps_downloader_MapManager_nativeGetSelectedCountry(JNIEnv * env, jclass clazz)
 {
-  storage::TCountryId const & res = g_framework->GetPlacePageInfo().m_countryId;
+  storage::TCountryId const & res = g_framework->GetPlacePageInfo().GetCountryId();
   return (res == storage::kInvalidCountryId ? nullptr : jni::ToJavaString(env, res));
 }
 

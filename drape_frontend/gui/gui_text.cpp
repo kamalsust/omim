@@ -1,13 +1,13 @@
-#include "gui_text.hpp"
+#include "drape_frontend/gui/gui_text.hpp"
 
+#include "drape_frontend/shader_def.hpp"
 #include "drape_frontend/visual_params.hpp"
 
 #include "base/string_utils.hpp"
 #include "base/stl_add.hpp"
 
-#include "drape/fribidi.hpp"
+#include "drape/bidi.hpp"
 #include "drape/glsl_func.hpp"
-#include "drape/shader_def.hpp"
 
 #include "std/algorithm.hpp"
 #include "std/type_traits.hpp"
@@ -105,7 +105,9 @@ dp::BindingInfo const & StaticLabel::Vertex::GetBindingInfo()
   return *info.get();
 }
 
-StaticLabel::LabelResult::LabelResult() : m_state(gpu::TEXT_OUTLINED_GUI_PROGRAM, dp::GLState::Gui) {}
+StaticLabel::LabelResult::LabelResult()
+  : m_state(df::CreateGLState(gpu::TEXT_OUTLINED_GUI_PROGRAM, df::RenderState::GuiLayer))
+{}
 
 char const * StaticLabel::DefaultDelim = "\n";
 
@@ -118,7 +120,7 @@ void StaticLabel::CacheStaticText(string const & text, char const * delim,
   dp::TextureManager::TMultilineText textParts;
   strings::Tokenize(text, delim, [&textParts](string const & part)
   {
-    textParts.push_back(fribidi::log2vis(strings::MakeUniString(part)));
+    textParts.push_back(bidi::log2vis(strings::MakeUniString(part)));
   });
 
   ASSERT(!textParts.empty(), ());
@@ -281,7 +283,9 @@ dp::BindingInfo const & MutableLabel::DynamicVertex::GetBindingInfo()
   return *info.get();
 }
 
-MutableLabel::PrecacheResult::PrecacheResult() : m_state(gpu::TEXT_OUTLINED_GUI_PROGRAM, dp::GLState::Gui) {}
+MutableLabel::PrecacheResult::PrecacheResult()
+  : m_state(df::CreateGLState(gpu::TEXT_OUTLINED_GUI_PROGRAM, df::RenderState::GuiLayer))
+{}
 
 MutableLabel::MutableLabel(dp::Anchor anchor)
   : m_anchor(anchor)
@@ -370,7 +374,7 @@ void MutableLabel::SetText(LabelResult & result, string text) const
   if (text.size() > m_maxLength)
     text = text.erase(m_maxLength - 3) + "...";
 
-  strings::UniString uniText = fribidi::log2vis(strings::MakeUniString(text));
+  strings::UniString uniText = bidi::log2vis(strings::MakeUniString(text));
 
   float maxHeight = 0.0f;
   float length = 0.0f;

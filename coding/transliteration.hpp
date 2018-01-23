@@ -1,27 +1,33 @@
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
 
-namespace icu
-{
-class Transliterator;
-}
-
 class Transliteration
 {
 public:
+  enum class Mode
+  {
+    Enabled,
+    Disabled
+  };
+
   ~Transliteration();
 
   static Transliteration & Instance();
 
   void Init(std::string const & icuDataDir);
 
+  void SetMode(Mode mode);
   bool Transliterate(std::string const & str, int8_t langCode, std::string & out) const;
 
 private:
-  Transliteration() = default;
+  Transliteration();
 
-  std::map<std::string, std::unique_ptr<icu::Transliterator>> m_transliterators;
+  std::atomic<Mode> m_mode;
+
+  struct TransliteratorInfo;
+  std::map<std::string, std::unique_ptr<TransliteratorInfo>> m_transliterators;
 };
