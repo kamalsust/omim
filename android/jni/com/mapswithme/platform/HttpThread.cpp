@@ -1,5 +1,5 @@
 #include "Platform.hpp"
-#include "com/mapswithme/core/jni_helper.hpp"
+#include "../core/jni_helper.hpp"
 
 #include "base/logging.hpp"
 #include "platform/http_thread_callback.hpp"
@@ -10,12 +10,12 @@ private:
   jobject m_self;
 
 public:
-  HttpThread(std::string const & url,
+  HttpThread(string const & url,
              downloader::IHttpThreadCallback & cb,
              int64_t beg,
              int64_t end,
              int64_t expectedFileSize,
-             std::string const & pb)
+             string const & pb)
   {
     JNIEnv * env = jni::GetEnv();
 
@@ -26,7 +26,7 @@ public:
     static jmethodID const startMethodId = env->GetMethodID(klass, "start", "()V");
 
     // User id is always the same, so do not waste time on every chunk call
-    static std::string const uniqueUserId = GetPlatform().UniqueClientId();
+    static string const uniqueUserId = GetPlatform().UniqueClientId();
 
     jni::TScopedLocalByteArrayRef postBody(env, nullptr);
     size_t const postBodySize = pb.size();
@@ -64,12 +64,12 @@ public:
 
 namespace downloader
 {
-  HttpThread * CreateNativeHttpThread(std::string const & url,
+  HttpThread * CreateNativeHttpThread(string const & url,
                                       downloader::IHttpThreadCallback & cb,
                                       int64_t beg,
                                       int64_t end,
                                       int64_t size,
-                                      std::string const & pb)
+                                      string const & pb)
   {
     return new HttpThread(url, cb, beg, end, size, pb);
   }

@@ -239,7 +239,7 @@ public:
 
     // Called when a map is updated to a newer version. Feel free to
     // treat it as combined OnMapRegistered(newFile) +
-    // OnMapDeregistered(oldFile).
+    // OnMapRegistered(oldFile).
     virtual void OnMapUpdated(platform::LocalCountryFile const & /*newFile*/,
                               platform::LocalCountryFile const & /*oldFile*/) {}
 
@@ -367,7 +367,7 @@ protected:
   mutable mutex m_lock;
 
 private:
-  base::ObserverListSafe<Observer> m_observers;
+  my::ObserverList<Observer> m_observers;
 };
 
 string DebugPrint(MwmSet::RegResult result);

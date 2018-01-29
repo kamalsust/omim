@@ -33,7 +33,4 @@
 + (BOOL)largeFontSize;
 + (void)setLargeFontSize:(BOOL)largeFontSize;
 
-+ (BOOL)transliteration;
-+ (void)setTransliteration:(BOOL)transliteration;
-
 @end

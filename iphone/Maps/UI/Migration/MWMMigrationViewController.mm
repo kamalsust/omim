@@ -1,4 +1,6 @@
+#import "MapsAppDelegate.h"
 #import "MWMAlertViewController.h"
+#import "MWMCircularProgress.h"
 #import "MWMLocationManager.h"
 #import "MWMMapDownloaderViewController.h"
 #import "MWMMigrationView.h"
@@ -7,6 +9,9 @@
 #import "Statistics.h"
 
 #include "Framework.h"
+
+#include "platform/platform.hpp"
+#include "storage/storage.hpp"
 
 namespace
 {
@@ -172,8 +177,7 @@ using namespace storage;
   if ([segue.identifier isEqualToString:kDownloaderSegue])
   {
     MWMMapDownloaderViewController * dvc = segue.destinationViewController;
-    [dvc setParentCountryId:@(GetFramework().GetStorage().GetRootId().c_str())
-                       mode:MWMMapDownloaderModeDownloaded];
+    [dvc setParentCountryId:@(GetFramework().GetStorage().GetRootId().c_str()) mode:mwm::DownloaderMode::Downloaded];
   }
 }
 

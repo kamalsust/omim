@@ -7,17 +7,17 @@
 #include "base/logging.hpp"
 #include "base/stl_add.hpp"
 
-#include <algorithm>
-#include <vector>
+#include "std/algorithm.hpp"
+#include "std/vector.hpp"
 
 
-void UnpackMwm(std::string const & filePath)
+void UnpackMwm(string const & filePath)
 {
   LOG(LINFO, ("Unpacking mwm sections..."));
 
   FilesContainerR container(filePath);
-  std::vector<std::string> tags;
-  container.ForEachTag(MakeBackInsertFunctor<std::vector<std::string> >(tags));
+  vector<string> tags;
+  container.ForEachTag(MakeBackInsertFunctor<vector<string> >(tags));
 
   for (size_t i = 0; i < tags.size(); ++i)
   {
@@ -32,7 +32,7 @@ void UnpackMwm(std::string const & filePath)
   LOG(LINFO, ("Unpacking done."));
 }
 
-void DeleteSection(std::string const & filePath, std::string const & tag)
+void DeleteSection(string const & filePath, string const & tag)
 {
   FilesContainerW(filePath, FileWriter::OP_WRITE_EXISTING).DeleteSection(tag);
 }

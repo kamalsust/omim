@@ -4,13 +4,11 @@
 
 #include "indexer/feature.hpp"
 #include "indexer/feature_algo.hpp"
-#include "indexer/search_string_utils.hpp"
 
 #include "base/string_utils.hpp"
 
 #include "geometry/mercator.hpp"
 
-#include "base/control_flow.hpp"
 #include "base/stl_add.hpp"
 
 namespace search
@@ -52,9 +50,16 @@ void Matcher::Match(std::vector<Sample::Result> const & golden, std::vector<Resu
   }
 }
 
-bool Matcher::Matches(Sample::Result const & golden, FeatureType & ft)
+bool Matcher::Matches(Sample::Result const & golden, search::Result const & actual)
 {
   static double constexpr kToleranceMeters = 50;
+
+  if (actual.GetResultType() != Result::RESULT_FEATURE)
+    return false;
+
+  FeatureType ft;
+  if (!m_loader.Load(actual.GetFeatureID(), ft))
+    return false;
 
   auto const houseNumber = ft.GetHouseNumber();
   auto const center = feature::GetCenter(ft);
@@ -67,33 +72,16 @@ bool Matcher::Matches(Sample::Result const & golden, FeatureType & ft)
   else
   {
     ft.ForEachName([&golden, &nameMatches](int8_t /* lang */, string const & name) {
-      if (NormalizeAndSimplifyString(ToUtf8(golden.m_name)) == NormalizeAndSimplifyString(name))
+      if (golden.m_name == strings::MakeUniString(name))
       {
         nameMatches = true;
-        return base::ControlFlow::Break;
+        return false;  // breaks the loop
       }
-      return base::ControlFlow::Continue;
+      return true;  // continues the loop
     });
   }
 
-  bool houseNumberMatches = true;
-  if (!golden.m_houseNumber.empty() && !houseNumber.empty())
-    houseNumberMatches = golden.m_houseNumber == houseNumber;
-
-  return nameMatches && houseNumberMatches &&
-         MercatorBounds::DistanceOnEarth(golden.m_pos, center) <
-             kToleranceMeters;
-}
-
-bool Matcher::Matches(Sample::Result const & golden, search::Result const & actual)
-{
-  if (actual.GetResultType() != Result::Type::Feature)
-    return false;
-
-  FeatureType ft;
-  if (!m_loader.Load(actual.GetFeatureID(), ft))
-    return false;
-
-  return Matches(golden, ft);
+  return nameMatches && golden.m_houseNumber == houseNumber &&
+         MercatorBounds::DistanceOnEarth(golden.m_pos, center) < kToleranceMeters;
 }
 }  // namespace search

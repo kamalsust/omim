@@ -10,6 +10,7 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.AnyRes;
@@ -19,6 +20,7 @@ import android.support.annotation.DimenRes;
 import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
+import android.support.annotation.StyleRes;
 import android.support.design.widget.TextInputLayout;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -27,7 +29,6 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.view.TouchDelegate;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -37,12 +38,10 @@ import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.taxi.TaxiManager;
 
 public final class UiUtils
 {
@@ -116,12 +115,12 @@ public final class UiUtils
     });
   }
 
-  public static void hide(@NonNull View view)
+  public static void hide(View view)
   {
     view.setVisibility(View.GONE);
   }
 
-  public static void hide(@NonNull View... views)
+  public static void hide(View... views)
   {
     for (final View v : views)
       v.setVisibility(View.GONE);
@@ -221,17 +220,6 @@ public final class UiUtils
       show(views);
     else
       hide(views);
-  }
-
-  public static void showIf(boolean condition, View parent, @IdRes int... viewIds)
-  {
-    for (@IdRes int id : viewIds)
-    {
-      if (condition)
-        show(parent.findViewById(id));
-      else
-        hide(parent.findViewById(id));
-    }
   }
 
   public static void setTextAndShow(TextView tv, CharSequence text)
@@ -479,55 +467,6 @@ public final class UiUtils
   public static void setBackgroundDrawable(View view, @AttrRes int res)
   {
     view.setBackgroundResource(getStyledResourceId(view.getContext(), res));
-  }
-
-  public static void expandTouchAreaForView(@NonNull final View view, final int extraArea)
-  {
-    final View parent = (View) view.getParent();
-    parent.post(new Runnable()
-    {
-      @Override
-      public void run()
-      {
-        Rect rect = new Rect();
-        view.getHitRect(rect);
-        rect.top -= extraArea;
-        rect.left -= extraArea;
-        rect.right += extraArea;
-        rect.bottom += extraArea;
-        parent.setTouchDelegate(new TouchDelegate(rect, view));
-      }
-    });
-  }
-
-  public static void showTaxiIcon(@NonNull ImageView logo, @TaxiManager.TaxiType int type)
-  {
-    switch (type)
-    {
-      case TaxiManager.PROVIDER_UBER:
-        logo.setImageResource(R.drawable.ic_logo_uber);
-        break;
-      case TaxiManager.PROVIDER_YANDEX:
-        logo.setImageResource(R.drawable.ic_logo_yandex_taxi);
-        break;
-      default:
-        throw new AssertionError("Unsupported taxi type: " + type);
-    }
-  }
-
-  public static void showTaxiTitle(@NonNull TextView title, @TaxiManager.TaxiType int type)
-  {
-    switch (type)
-    {
-      case TaxiManager.PROVIDER_UBER:
-        title.setText(R.string.uber);
-        break;
-      case TaxiManager.PROVIDER_YANDEX:
-        title.setText(R.string.yandex_taxi_title);
-        break;
-      default:
-        throw new AssertionError("Unsupported taxi type: " + type);
-    }
   }
 
   // utility class

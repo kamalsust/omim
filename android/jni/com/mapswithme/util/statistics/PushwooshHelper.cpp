@@ -1,4 +1,4 @@
-#include "com/mapswithme/core/jni_helper.hpp"
+#include "../../core/jni_helper.hpp"
 
 #include "platform/platform.hpp"
 

@@ -98,7 +98,7 @@ EditorDialog::EditorDialog(QWidget * parent, osm::EditableMapObject & emo)
         street += " / " + nearbyStreets[i].m_localizedName;
       cmb->addItem(street.c_str());
       if (emo.GetStreet() == nearbyStreets[i])
-        cmb->setCurrentIndex(static_cast<int>(i));
+        cmb->setCurrentIndex(i);
     }
     cmb->setObjectName(kStreetObjectName);
     grid->addWidget(cmb, row++, 1);
@@ -152,7 +152,6 @@ EditorDialog::EditorDialog(QWidget * parent, osm::EditableMapObject & emo)
     case osm::Props::Wikipedia: v = emo.GetWikipedia(); break;
     case osm::Props::Flats: v = emo.GetFlats(); break;
     case osm::Props::BuildingLevels: v = emo.GetBuildingLevels(); break;
-    case osm::Props::Level: v = emo.GetLevel(); break;
     }
     QString const fieldName = QString::fromStdString(DebugPrint(prop));
     grid->addWidget(new QLabel(fieldName), row, 0);
@@ -270,7 +269,6 @@ void EditorDialog::OnSave()
     case osm::Props::Wikipedia: m_feature.SetWikipedia(v); break;
     case osm::Props::Flats: m_feature.SetFlats(v); break;
     case osm::Props::BuildingLevels: m_feature.SetBuildingLevels(v); break;
-    case osm::Props::Level: m_feature.SetLevel(v); break;
     }
   }
   accept();

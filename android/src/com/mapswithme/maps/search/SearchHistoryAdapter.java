@@ -35,7 +35,6 @@ class SearchHistoryAdapter extends RecyclerView.Adapter<SearchHistoryAdapter.Vie
 
   public SearchHistoryAdapter(SearchToolbarController searchToolbarController)
   {
-    SearchRecents.refresh();
     mSearchToolbarController = searchToolbarController;
     mShowMyPosition = (RoutingController.get().isWaitingPoiPick() &&
                        LocationHelper.INSTANCE.getMyPosition() != null);

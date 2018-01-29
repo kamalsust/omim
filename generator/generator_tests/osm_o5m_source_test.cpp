@@ -2,15 +2,13 @@
 
 #include "generator/osm_o5m_source.hpp"
 
-#include <iterator>
-#include <set>
-#include <utility>
-#include <vector>
+#include "std/iterator.hpp"
+#include "std/set.hpp"
+#include "std/utility.hpp"
+#include "std/vector.hpp"
 
 #include "source_data.hpp"
 
-
-using namespace std;
 
 UNIT_TEST(OSM_O5M_Source_Node_read_test)
 {

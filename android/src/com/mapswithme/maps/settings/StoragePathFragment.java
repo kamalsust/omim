@@ -16,6 +16,7 @@ import java.util.Locale;
 
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.base.OnBackPressListener;
+import com.mapswithme.maps.widget.BaseShadowController;
 import com.mapswithme.util.Constants;
 import com.mapswithme.util.Utils;
 
@@ -33,6 +34,12 @@ public class StoragePathFragment extends BaseSettingsFragment
   protected int getLayoutRes()
   {
     return R.layout.fragment_prefs_storage;
+  }
+
+  @Override
+  protected BaseShadowController createShadowController()
+  {
+    return null;
   }
 
   @Override
@@ -141,6 +148,13 @@ public class StoragePathFragment extends BaseSettingsFragment
   @Override
   public boolean onBackPressed()
   {
+    SettingsActivity activity = (SettingsActivity)getActivity();
+    if (activity.onIsMultiPane())
+    {
+      activity.switchToHeader(R.id.group_map);
+      return true;
+    }
+
     return false;
   }
 }

@@ -17,7 +17,7 @@ using TGenerateIDFn = function<FeatureID()>;
 
 /// Tries to match xml feature with one on a new mwm and retruns FeatrueID
 /// of a found feature, thows MigrationError if migration fails.
-FeatureID MigrateFeatureIndex(osm::Editor::ForEachFeaturesNearByFn & forEach,
+FeatureID MigrateFeatureIndex(osm::Editor::TForEachFeaturesNearByFn & forEach,
                               XMLFeature const & xml,
                               osm::Editor::FeatureStatus const featureStatus,
                               TGenerateIDFn const & generateID);

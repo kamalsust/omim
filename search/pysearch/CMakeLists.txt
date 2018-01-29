@@ -18,18 +18,16 @@ omim_link_libraries(
   editor
   geometry
   platform
-  mwm_diff
   coding
   base
-  bsdiff
-  icu
+  opening_hours
+  succinct
+  pugixml
+  protobuf
   jansson
   oauthcpp
-  opening_hours
-  protobuf
-  pugixml
   stats_client
-  succinct
+  icu
   ${PYTHON_LIBRARIES}
   ${Boost_LIBRARIES}
   ${LIBZ}

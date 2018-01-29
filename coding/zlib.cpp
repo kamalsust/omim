@@ -6,18 +6,14 @@ namespace coding
 {
 namespace
 {
-int constexpr kGzipBits = 16;
-int constexpr kBothBits = 32;
-
-int ToInt(ZLib::Deflate::Level level)
+int ToInt(ZLib::Level level)
 {
-  using Level = ZLib::Deflate::Level;
   switch (level)
   {
-  case Level::NoCompression: return Z_NO_COMPRESSION;
-  case Level::BestSpeed: return Z_BEST_SPEED;
-  case Level::BestCompression: return Z_BEST_COMPRESSION;
-  case Level::DefaultCompression: return Z_DEFAULT_COMPRESSION;
+  case ZLib::Level::NoCompression: return Z_NO_COMPRESSION;
+  case ZLib::Level::BestSpeed: return Z_BEST_SPEED;
+  case ZLib::Level::BestCompression: return Z_BEST_COMPRESSION;
+  case ZLib::Level::DefaultCompression: return Z_DEFAULT_COMPRESSION;
   }
 }
 }  // namespace
@@ -54,20 +50,10 @@ bool ZLib::Processor::BufferIsFull() const
 }
 
 // ZLib::Deflate -----------------------------------------------------------------------------------
-ZLib::DeflateProcessor::DeflateProcessor(Deflate::Format format, Deflate::Level level,
-                                         void const * data, size_t size) noexcept
+ZLib::DeflateProcessor::DeflateProcessor(void const * data, size_t size, ZLib::Level level) noexcept
   : Processor(data, size)
 {
-  auto bits = MAX_WBITS;
-  switch (format)
-  {
-  case Deflate::Format::ZLib: break;
-  case Deflate::Format::GZip: bits = bits | kGzipBits; break;
-  }
-
-  int const ret =
-      deflateInit2(&m_stream, ToInt(level) /* level */, Z_DEFLATED /* method */,
-                   bits /* windowBits */, 8 /* memLevel */, Z_DEFAULT_STRATEGY /* strategy */);
+  int const ret = deflateInit(&m_stream, ToInt(level));
   m_init = (ret == Z_OK);
 }
 
@@ -84,18 +70,10 @@ int ZLib::DeflateProcessor::Process(int flush)
 }
 
 // ZLib::Inflate -----------------------------------------------------------------------------------
-ZLib::InflateProcessor::InflateProcessor(Inflate::Format format, void const * data,
-                                         size_t size) noexcept
+ZLib::InflateProcessor::InflateProcessor(void const * data, size_t size) noexcept
   : Processor(data, size)
 {
-  auto bits = MAX_WBITS;
-  switch (format)
-  {
-  case Inflate::Format::ZLib: break;
-  case Inflate::Format::GZip: bits = bits | kGzipBits; break;
-  case Inflate::Format::Both: bits = bits | kBothBits; break;
-  }
-  int const ret = inflateInit2(&m_stream, bits);
+  int const ret = inflateInit(&m_stream);
   m_init = (ret == Z_OK);
 }
 

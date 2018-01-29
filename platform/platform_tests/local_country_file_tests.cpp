@@ -112,7 +112,7 @@ UNIT_TEST(LocalCountryFile_DiskFiles)
 
     string const mapFileName = GetFileName(countryFile.GetName(), MapOptions::Map,
                                            version::FOR_TESTING_TWO_COMPONENT_MWM1);
-    ScopedFile testMapFile(mapFileName, ScopedFile::Mode::Create);
+    ScopedFile testMapFile(mapFileName, "map");
 
     localFile.SyncWithDisk();
     TEST(localFile.OnDisk(MapOptions::Map), ());
@@ -122,7 +122,7 @@ UNIT_TEST(LocalCountryFile_DiskFiles)
 
     string const routingFileName = GetFileName(countryFile.GetName(), MapOptions::CarRouting,
                                                version::FOR_TESTING_TWO_COMPONENT_MWM1);
-    ScopedFile testRoutingFile(routingFileName, ScopedFile::Mode::Create);
+    ScopedFile testRoutingFile(routingFileName, "routing");
 
     localFile.SyncWithDisk();
     TEST(localFile.OnDisk(MapOptions::Map), ());
@@ -158,13 +158,13 @@ UNIT_TEST(LocalCountryFile_CleanupMapFiles)
   CountryFile irelandFile("Ireland");
 
   LocalCountryFile japanLocalFile(mapsDir, japanFile, 0 /* version */);
-  ScopedFile japanMapFile("Japan.mwm", ScopedFile::Mode::Create);
+  ScopedFile japanMapFile("Japan.mwm", "Japan");
 
   LocalCountryFile brazilLocalFile(mapsDir, brazilFile, 0 /* version */);
-  ScopedFile brazilMapFile("Brazil.mwm", ScopedFile::Mode::Create);
+  ScopedFile brazilMapFile("Brazil.mwm", "Brazil");
 
   LocalCountryFile irelandLocalFile(dir4.GetFullPath(), irelandFile, 4 /* version */);
-  ScopedFile irelandMapFile(dir4, irelandFile, MapOptions::Map);
+  ScopedFile irelandMapFile(dir4, irelandFile, MapOptions::Map, "Ireland");
 
   // Check FindAllLocalMaps()
   vector<LocalCountryFile> localFiles;
@@ -202,18 +202,18 @@ UNIT_TEST(LocalCountryFile_CleanupPartiallyDownloadedFiles)
   ScopedDir latestDir("101010");
 
   ScopedFile toBeDeleted[] = {
-      {"Ireland.mwm.ready", ScopedFile::Mode::Create},
-      {"Netherlands.mwm.routing.downloading2", ScopedFile::Mode::Create},
-      {"Germany.mwm.ready3", ScopedFile::Mode::Create},
-      {"UK_England.mwm.resume4", ScopedFile::Mode::Create},
+      {"Ireland.mwm.ready", "Ireland"},
+      {"Netherlands.mwm.routing.downloading2", "Netherlands"},
+      {"Germany.mwm.ready3", "Germany"},
+      {"UK_England.mwm.resume4", "UK"},
       {my::JoinFoldersToPath(oldDir.GetRelativePath(), "Russia_Central.mwm.downloading"),
-       ScopedFile::Mode::Create}};
+       "Central Russia map"}};
   ScopedFile toBeKept[] = {
-      {"Italy.mwm", ScopedFile::Mode::Create},
-      {"Spain.mwm", ScopedFile::Mode::Create},
-      {"Spain.mwm.routing", ScopedFile::Mode::Create},
+      {"Italy.mwm", "Italy"},
+      {"Spain.mwm", "Spain map"},
+      {"Spain.mwm.routing", "Spain routing"},
       {my::JoinFoldersToPath(latestDir.GetRelativePath(), "Russia_Southern.mwm.downloading"),
-       ScopedFile::Mode::Create}};
+       "Southern Russia map"}};
 
   CleanupMapsDirectory(101010 /* latestVersion */);
 
@@ -244,9 +244,10 @@ UNIT_TEST(LocalCountryFile_DirectoryLookup)
 
   ScopedDir testDir("test-dir");
 
-  ScopedFile testIrelandMapFile(testDir, irelandFile, MapOptions::Map);
-  ScopedFile testNetherlandsMapFile(testDir, netherlandsFile, MapOptions::Map);
-  ScopedFile testNetherlandsRoutingFile(testDir, netherlandsFile, MapOptions::CarRouting);
+  ScopedFile testIrelandMapFile(testDir, irelandFile, MapOptions::Map, "Ireland-map");
+  ScopedFile testNetherlandsMapFile(testDir, netherlandsFile, MapOptions::Map, "Netherlands-map");
+  ScopedFile testNetherlandsRoutingFile(testDir, netherlandsFile, MapOptions::CarRouting,
+                                        "Netherlands-routing");
 
   vector<LocalCountryFile> localFiles;
   FindAllLocalMapsInDirectoryAndCleanup(testDir.GetFullPath(), 150309 /* version */,
@@ -278,7 +279,7 @@ UNIT_TEST(LocalCountryFile_AllLocalFilesLookup)
 
   settings::Delete("LastMigration");
 
-  ScopedFile testItalyMapFile(testDir, italyFile, MapOptions::Map);
+  ScopedFile testItalyMapFile(testDir, italyFile, MapOptions::Map, "Italy-map");
 
   vector<LocalCountryFile> localFiles;
   FindAllLocalMapsAndCleanup(10101 /* latestVersion */, localFiles);

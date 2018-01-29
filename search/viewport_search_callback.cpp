@@ -6,9 +6,9 @@
 
 namespace search
 {
-ViewportSearchCallback::ViewportSearchCallback(Delegate & delegate, OnResults const & onResults)
+ViewportSearchCallback::ViewportSearchCallback(Delegate & delegate, TOnResults onResults)
   : m_delegate(delegate)
-  , m_onResults(onResults)
+  , m_onResults(move(onResults))
   , m_hotelsModeSet(false)
   , m_firstCall(true)
   , m_lastResultsSize(0)
@@ -19,6 +19,7 @@ void ViewportSearchCallback::operator()(Results const & results)
 {
   ASSERT_LESS_OR_EQUAL(m_lastResultsSize, results.GetCount(), ());
   m_hotelsClassif.Add(results.begin() + m_lastResultsSize, results.end());
+  m_lastResultsSize = results.GetCount();
 
   if (!m_hotelsModeSet && m_hotelsClassif.IsHotelResults())
   {
@@ -26,41 +27,25 @@ void ViewportSearchCallback::operator()(Results const & results)
     m_hotelsModeSet = true;
   }
 
-  // We need to clear old results and show a new bunch of results when
-  // the search is completed normally (note that there may be empty
-  // set of results), or when the search is not completed and there is
-  // something in results.
-  //
-  // We don't need to clear old results or show current results if the
-  // search is cancelled, because:
-  //
-  // * current request is cancelled because of the next
-  // search-in-viewport request - in this case it is the
-  // responsibility of the next search request to clean up old results
-  // and there is no need to clean up current results. We don't want
-  // to show blinking results.
-  //
-  // * search in viewport may be cancelled completely - it is the
-  // responsibility of the user of this class to handle this case and
-  // clean up results.
-  if (results.IsEndedNormal() || (!results.IsEndMarker() && results.GetCount() != 0))
+  if (!results.IsEndMarker())
   {
     auto & delegate = m_delegate;
     bool const firstCall = m_firstCall;
 
-    auto const lastResultsSize = m_lastResultsSize;
-    m_delegate.RunUITask([&delegate, firstCall, results, lastResultsSize]() {
+    m_delegate.RunUITask([&delegate, firstCall, results]() {
       if (!delegate.IsViewportSearchActive())
         return;
-      delegate.ShowViewportSearchResults(firstCall, results.begin() + lastResultsSize,
-                                         results.end());
+
+      if (firstCall)
+        delegate.ClearViewportSearchResults();
+
+      delegate.ShowViewportSearchResults(results);
     });
   }
 
-  m_lastResultsSize = results.GetCount();
-  m_firstCall = false;
-
   if (m_onResults)
     m_onResults(results);
+
+  m_firstCall = false;
 }
 }  // namespace search

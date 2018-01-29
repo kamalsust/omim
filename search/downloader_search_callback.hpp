@@ -2,8 +2,6 @@
 
 #include "storage/downloader_search_params.hpp"
 
-#include <functional>
-
 class Index;
 
 namespace storage
@@ -27,7 +25,7 @@ public:
   public:
     virtual ~Delegate() = default;
 
-    virtual void RunUITask(std::function<void()> fn) = 0;
+    virtual void RunUITask(function<void()> fn) = 0;
   };
 
   DownloaderSearchCallback(Delegate & delegate, Index const & index,

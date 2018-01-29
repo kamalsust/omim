@@ -6,9 +6,9 @@
 
 #include "base/string_utils.hpp"
 
-#include <limits>
-#include <string>
-#include <vector>
+#include "std/limits.hpp"
+#include "std/string.hpp"
+#include "std/vector.hpp"
 
 class TownsDumper
 {
@@ -23,10 +23,10 @@ public:
     uint64_t population = 1;
     bool town = false;
     bool capital = false;
-    int admin_level = std::numeric_limits<int>::max();
+    int admin_level = numeric_limits<int>::max();
     for (auto const & tag : em.Tags())
     {
-      std::string key(tag.key), value(tag.value);
+      string key(tag.key), value(tag.value);
       if (key == "population")
       {
         if (!strings::to_uint64(value, population))
@@ -55,7 +55,7 @@ public:
       m_records.emplace_back(em.lat, em.lon, em.id, capital, population);
   }
 
-  void Dump(std::string const & filePath);
+  void Dump(string const & filePath);
 
 private:
   void FilterTowns();
@@ -79,5 +79,5 @@ private:
     }
   };
 
-  std::vector<Town> m_records;
+  vector<Town> m_records;
 };

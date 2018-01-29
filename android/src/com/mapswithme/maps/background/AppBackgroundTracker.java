@@ -23,8 +23,7 @@ public final class AppBackgroundTracker
   private static final String TAG = AppBackgroundTracker.class.getSimpleName();
   private static final int TRANSITION_DELAY_MS = 1000;
 
-  private final Listeners<OnTransitionListener> mTransitionListeners = new Listeners<>();
-  private final Listeners<OnVisibleAppLaunchListener> mVisibleAppLaunchListeners = new Listeners<>();
+  private final Listeners<OnTransitionListener> mListeners = new Listeners<>();
   private SparseArray<WeakReference<Activity>> mActivities = new SparseArray<>();
   private boolean mForeground;
 
@@ -48,7 +47,7 @@ public final class AppBackgroundTracker
       mForeground = (mActivities.size() > 0);
 
       if (mForeground != old)
-        notifyTransitionListeners();
+        notifyListeners();
     }
   };
 
@@ -65,8 +64,6 @@ public final class AppBackgroundTracker
     public void onActivityStarted(Activity activity)
     {
       LOGGER.d(TAG, "onActivityStarted activity = " + activity);
-      if (mActivities.size() == 0)
-        notifyVisibleAppLaunchListeners();
       mActivities.put(activity.hashCode(), new WeakReference<>(activity));
       onActivityChanged();
     }
@@ -115,11 +112,6 @@ public final class AppBackgroundTracker
     void onTransit(boolean foreground);
   }
 
-  public interface OnVisibleAppLaunchListener
-  {
-    void onVisibleAppLaunch();
-  }
-
   public AppBackgroundTracker()
   {
     MwmApplication.get().registerActivityLifecycleCallbacks(mAppLifecycleCallbacks);
@@ -130,38 +122,21 @@ public final class AppBackgroundTracker
     return mForeground;
   }
 
-  private void notifyTransitionListeners()
+  private void notifyListeners()
   {
-    for (OnTransitionListener listener : mTransitionListeners)
+    for (OnTransitionListener listener : mListeners)
       listener.onTransit(mForeground);
-    mTransitionListeners.finishIterate();
-  }
-
-  private void notifyVisibleAppLaunchListeners()
-  {
-    for (OnVisibleAppLaunchListener listener : mVisibleAppLaunchListeners)
-      listener.onVisibleAppLaunch();
-    mVisibleAppLaunchListeners.finishIterate();
+    mListeners.finishIterate();
   }
 
   public void addListener(OnTransitionListener listener)
   {
-    mTransitionListeners.register(listener);
+    mListeners.register(listener);
   }
 
   public void removeListener(OnTransitionListener listener)
   {
-    mTransitionListeners.unregister(listener);
-  }
-
-  public void addListener(OnVisibleAppLaunchListener listener)
-  {
-    mVisibleAppLaunchListeners.register(listener);
-  }
-
-  public void removeListener(OnVisibleAppLaunchListener listener)
-  {
-    mVisibleAppLaunchListeners.unregister(listener);
+    mListeners.unregister(listener);
   }
 
   @android.support.annotation.UiThread

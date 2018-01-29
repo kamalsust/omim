@@ -14,6 +14,16 @@
 
 @implementation MWMSearchCell
 
+- (void)awakeFromNib
+{
+  [super awakeFromNib];
+  if (IPAD)
+    self.contentView.backgroundColor = [UIColor white];
+  CALayer * sl = self.layer;
+  sl.shouldRasterize = YES;
+  sl.rasterizationScale = UIScreen.mainScreen.scale;
+}
+
 - (void)config:(search::Result const &)result
 {
   NSString * title = @(result.GetString().c_str());
@@ -51,8 +61,6 @@
   }
   self.titleLabel.attributedText = attributedTitle;
   [self.titleLabel sizeToFit];
-
-  self.backgroundColor = [UIColor white];
 }
 
 - (NSDictionary *)selectedTitleAttributes

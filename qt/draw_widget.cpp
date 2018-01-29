@@ -7,6 +7,8 @@
 
 #include "map/framework.hpp"
 
+#include "drape_frontend/visual_params.hpp"
+
 #include "search/result.hpp"
 
 #include "storage/index.hpp"
@@ -26,6 +28,7 @@
 #include <QtWidgets/QMenu>
 
 #include <QtCore/QLocale>
+#include <QtCore/QDateTime>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
 
@@ -33,8 +36,8 @@ using namespace qt::common;
 
 namespace qt
 {
-DrawWidget::DrawWidget(Framework & framework, bool apiOpenGLES3, QWidget * parent)
-  : TBase(framework, apiOpenGLES3, parent)
+DrawWidget::DrawWidget(Framework & framework, QWidget * parent)
+  : TBase(framework, parent)
   , m_rubberBand(nullptr)
   , m_emulatingLocation(false)
 {
@@ -42,14 +45,8 @@ DrawWidget::DrawWidget(Framework & framework, bool apiOpenGLES3, QWidget * paren
       [this](place_page::Info const & info) { ShowPlacePage(info); },
       [](bool /* switchFullScreenMode */) {});  // Empty deactivation listener.
 
-  m_framework.GetRoutingManager().SetRouteBuildingListener(
+  m_framework.SetRouteBuildingListener(
       [](routing::IRouter::ResultCode, storage::TCountriesVec const &) {});
-
-  m_framework.GetRoutingManager().SetRouteRecommendationListener(
-    [this](RoutingManager::Recommendation r)
-  {
-    OnRouteRecommendation(r);
-  });
 
   m_framework.SetCurrentCountryChangedListener([this](storage::TCountryId const & countryId) {
     m_countryId = countryId;
@@ -115,17 +112,6 @@ void DrawWidget::RetryToDownloadCountry(storage::TCountryId const & countryId)
 
 void DrawWidget::PrepareShutdown()
 {
-  auto & routingManager = m_framework.GetRoutingManager();
-  if (routingManager.IsRoutingActive() && routingManager.IsRoutingFollowing())
-  {
-    routingManager.SaveRoutePoints();
-
-    auto style = m_framework.GetMapStyle();
-    if (style == MapStyle::MapStyleVehicleClear)
-      m_framework.MarkMapStyle(MapStyle::MapStyleClear);
-    else if (style == MapStyle::MapStyleVehicleDark)
-      m_framework.MarkMapStyle(MapStyle::MapStyleDark);
-  }
 }
 
 void DrawWidget::UpdateAfterSettingsChanged()
@@ -154,12 +140,8 @@ void DrawWidget::ChoosePositionModeDisable()
 
 void DrawWidget::initializeGL()
 {
-  m_framework.LoadBookmarks();
   MapWidget::initializeGL();
-
-  auto & routingManager = m_framework.GetRoutingManager();
-  if (routingManager.LoadRoutePoints())
-    routingManager.BuildRoute(0 /* timeoutSec */);
+  m_framework.LoadBookmarks();
 }
 
 void DrawWidget::mousePressEvent(QMouseEvent * e)
@@ -179,11 +161,7 @@ void DrawWidget::mousePressEvent(QMouseEvent * e)
   }
   else if (IsRightButton(e))
   {
-    if (IsAltModifier(e))
-    {
-      SubmitBookmark(pt);
-    }
-    else if (!m_selectionMode || IsCommandModifier(e))
+    if (!m_selectionMode || IsCommandModifier(e))
     {
       ShowInfoPopup(e, pt);
     }
@@ -277,12 +255,11 @@ bool DrawWidget::Search(search::EverywhereSearchParams const & params)
 string DrawWidget::GetDistance(search::Result const & res) const
 {
   string dist;
-  if (auto const position = m_framework.GetCurrentPosition())
+  double lat, lon;
+  if (m_framework.GetCurrentPosition(lat, lon))
   {
-    auto const ll = MercatorBounds::ToLatLon(*position);
     double dummy;
-    (void)m_framework.GetDistanceAndAzimut(res.GetFeatureCenter(), ll.lat, ll.lon, -1.0, dist,
-                                           dummy);
+    (void) m_framework.GetDistanceAndAzimut(res.GetFeatureCenter(), lat, lon, -1.0, dist, dummy);
   }
   return dist;
 }
@@ -327,13 +304,20 @@ void DrawWidget::SetMapStyle(MapStyle mapStyle)
 void DrawWidget::SubmitFakeLocationPoint(m2::PointD const & pt)
 {
   m_emulatingLocation = true;
-  auto const point = m_framework.P3dtoG(pt);
-  m_framework.OnLocationUpdate(qt::common::MakeGpsInfo(point));
+  m2::PointD const point = m_framework.PtoG(pt);
 
-  if (m_framework.GetRoutingManager().IsRoutingActive())
+  location::GpsInfo info;
+  info.m_latitude = MercatorBounds::YToLat(point.y);
+  info.m_longitude = MercatorBounds::XToLon(point.x);
+  info.m_horizontalAccuracy = 10;
+  info.m_timestamp = QDateTime::currentMSecsSinceEpoch() / 1000.0;
+
+  m_framework.OnLocationUpdate(info);
+
+  if (m_framework.IsRoutingActive())
   {
     location::FollowingInfo loc;
-    m_framework.GetRoutingManager().GetRouteFollowingInfo(loc);
+    m_framework.GetRouteFollowingInfo(loc);
     LOG(LDEBUG, ("Distance:", loc.m_distToTarget, loc.m_targetUnitsSuffix, "Time:", loc.m_time,
                  "Turn:", routing::turns::GetTurnString(loc.m_turn), "(", loc.m_distToTurn, loc.m_turnUnitsSuffix,
                  ") Roundabout exit number:", loc.m_exitNum));
@@ -342,93 +326,10 @@ void DrawWidget::SubmitFakeLocationPoint(m2::PointD const & pt)
 
 void DrawWidget::SubmitRoutingPoint(m2::PointD const & pt)
 {
-  auto & routingManager = m_framework.GetRoutingManager();
-  auto const pointsCount = routingManager.GetRoutePoints().size();
-
-  // Check if limit of intermediate points is reached.
-  if (m_routePointAddMode == RouteMarkType::Intermediate && !routingManager.CouldAddIntermediatePoint())
-    routingManager.RemoveRoutePoint(RouteMarkType::Intermediate, 0);
-
-  // Insert implicit start point.
-  if (m_routePointAddMode == RouteMarkType::Finish && pointsCount == 0)
-  {
-    RouteMarkData startPoint;
-    startPoint.m_pointType = RouteMarkType::Start;
-    startPoint.m_isMyPosition = true;
-    routingManager.AddRoutePoint(std::move(startPoint));
-  }
-
-  RouteMarkData point;
-  point.m_pointType = m_routePointAddMode;
-  point.m_isMyPosition = false;
-  point.m_position = m_framework.P3dtoG(pt);
-  routingManager.AddRoutePoint(std::move(point));
-
-  if (routingManager.GetRoutePoints().size() >= 2)
-    routingManager.BuildRoute(0 /* timeoutSec */);
-}
-
-void DrawWidget::SubmitBookmark(m2::PointD const & pt)
-{
-  size_t categoryIndex = 0;
-  auto category = m_framework.GetBookmarkManager().GetBmCategory(categoryIndex);
-  if (category == nullptr)
-    categoryIndex = m_framework.GetBookmarkManager().CreateBmCategory("Desktop_bookmarks");
-  BookmarkData data("", "placemark-red");
-  m_framework.GetBookmarkManager().AddBookmark(categoryIndex, m_framework.P3dtoG(pt), data);
-}
-
-void DrawWidget::FollowRoute()
-{
-  auto & routingManager = m_framework.GetRoutingManager();
-
-  auto const points = routingManager.GetRoutePoints();
-  if (points.size() < 2)
-    return;
-  if (!points.front().m_isMyPosition && !points.back().m_isMyPosition)
-    return;
-  if (routingManager.IsRoutingActive() && !routingManager.IsRoutingFollowing())
-  {
-    routingManager.FollowRoute();
-    auto style = m_framework.GetMapStyle();
-    if (style == MapStyle::MapStyleClear)
-      SetMapStyle(MapStyle::MapStyleVehicleClear);
-    else if (style == MapStyle::MapStyleDark)
-      SetMapStyle(MapStyle::MapStyleVehicleDark);
-  }
-}
-
-void DrawWidget::ClearRoute()
-{
-  auto & routingManager = m_framework.GetRoutingManager();
-
-  bool const wasActive = routingManager.IsRoutingActive() && routingManager.IsRoutingFollowing();
-  routingManager.CloseRouting(true /* remove route points */);
-
-  if (wasActive)
-  {
-    auto style = m_framework.GetMapStyle();
-    if (style == MapStyle::MapStyleVehicleClear)
-      SetMapStyle(MapStyle::MapStyleClear);
-    else if (style == MapStyle::MapStyleVehicleDark)
-      SetMapStyle(MapStyle::MapStyleDark);
-  }
-}
-
-void DrawWidget::OnRouteRecommendation(RoutingManager::Recommendation recommendation)
-{
-  if (recommendation == RoutingManager::Recommendation::RebuildAfterPointsLoading)
-  {
-    auto & routingManager = m_framework.GetRoutingManager();
-
-    RouteMarkData startPoint;
-    startPoint.m_pointType = RouteMarkType::Start;
-    startPoint.m_isMyPosition = true;
-    routingManager.AddRoutePoint(std::move(startPoint));
-
-    if (routingManager.GetRoutePoints().size() >= 2)
-      routingManager.BuildRoute(0 /* timeoutSec */);
-  }
+  if (m_framework.IsRoutingActive())
+    m_framework.CloseRouting();
+  else
+    m_framework.BuildRoute(m_framework.PtoG(pt), 0 /* timeoutSec */);
 }
 
 void DrawWidget::ShowPlacePage(place_page::Info const & info)
@@ -498,40 +399,7 @@ void DrawWidget::ShowInfoPopup(QMouseEvent * e, m2::PointD const & pt)
 
 void DrawWidget::SetRouter(routing::RouterType routerType)
 {
-  m_framework.GetRoutingManager().SetRouter(routerType);
+  m_framework.SetRouter(routerType);
 }
-
 void DrawWidget::SetSelectionMode(bool mode) { m_selectionMode = mode; }
-
-// static
-void DrawWidget::SetDefaultSurfaceFormat(bool apiOpenGLES3)
-{
-  QSurfaceFormat fmt;
-  fmt.setAlphaBufferSize(8);
-  fmt.setBlueBufferSize(8);
-  fmt.setGreenBufferSize(8);
-  fmt.setRedBufferSize(8);
-  fmt.setStencilBufferSize(0);
-  fmt.setSamples(0);
-  fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
-  fmt.setSwapInterval(1);
-  fmt.setDepthBufferSize(16);
-  if (apiOpenGLES3)
-  {
-    fmt.setProfile(QSurfaceFormat::CoreProfile);
-    fmt.setVersion(3, 2);
-  }
-  else
-  {
-    fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
-    fmt.setVersion(2, 1);
-  }
-  //fmt.setOption(QSurfaceFormat::DebugContext);
-  QSurfaceFormat::setDefaultFormat(fmt);
 }
-
-void DrawWidget::RefreshDrawingRules()
-{
-  SetMapStyle(MapStyleClear);
-}
-}  // namespace qt

@@ -5,18 +5,14 @@
 #include "coding/writer.hpp"
 
 #include "base/assert.hpp"
-#include "base/control_flow.hpp"
 
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <string>
-#include <utility>
+#include "std/array.hpp"
+#include "std/string.hpp"
 
 namespace utils
 {
 template <class TSink, bool EnableExceptions = false>
-void WriteString(TSink & sink, std::string const & s)
+void WriteString(TSink & sink, string const & s)
 {
   if (EnableExceptions && s.empty())
     MYTHROW(Writer::WriteException, ("String is empty"));
@@ -29,7 +25,7 @@ void WriteString(TSink & sink, std::string const & s)
 }
 
 template <class TSource, bool EnableExceptions = false>
-void ReadString(TSource & src, std::string & s)
+void ReadString(TSource & src, string & s)
 {
   uint32_t const sz = ReadVarUint<uint32_t>(src) + 1;
   s.resize(sz);
@@ -44,7 +40,19 @@ void ReadString(TSource & src, std::string & s)
 
 class StringUtf8Multilang
 {
+  string m_s;
+
+  size_t GetNextIndex(size_t i) const;
+
 public:
+  static int8_t constexpr kUnsupportedLanguageCode = -1;
+  static int8_t constexpr kDefaultCode = 0;
+  static int8_t constexpr kEnglishCode = 1;
+  static int8_t constexpr kInternationalCode = 7;
+  /// How many languages we support on indexing stage. See full list in cpp file.
+  /// TODO(AlexZ): Review and replace invalid languages by valid ones.
+  static int8_t constexpr kMaxSupportedLanguages = 64;
+
   struct Lang
   {
     /// OSM language code (e.g. for name:en it's "en" part).
@@ -54,16 +62,7 @@ public:
     /// Transliterator to latin id.
     char const * m_transliteratorId;
   };
-
-  static int8_t constexpr kUnsupportedLanguageCode = -1;
-  static int8_t constexpr kDefaultCode = 0;
-  static int8_t constexpr kEnglishCode = 1;
-  static int8_t constexpr kInternationalCode = 7;
-  /// How many languages we support on indexing stage. See full list in cpp file.
-  /// TODO(AlexZ): Review and replace invalid languages by valid ones.
-  static int8_t constexpr kMaxSupportedLanguages = 64;
-
-  using Languages = std::array<Lang, kMaxSupportedLanguages>;
+  using Languages = array<Lang, kMaxSupportedLanguages>;
 
   static Languages const & GetSupportedLanguages();
 
@@ -76,8 +75,15 @@ public:
   /// @returns empty string if langCode is invalid.
   static char const * GetTransliteratorIdByCode(int8_t langCode);
 
-  inline bool operator==(StringUtf8Multilang const & rhs) const { return m_s == rhs.m_s; }
-  inline bool operator!=(StringUtf8Multilang const & rhs) const { return !(*this == rhs); }
+  inline bool operator== (StringUtf8Multilang const & rhs) const
+  {
+    return (m_s == rhs.m_s);
+  }
+
+  inline bool operator!= (StringUtf8Multilang const & rhs) const
+  {
+    return !(*this == rhs);
+  }
 
   inline void Clear() { m_s.clear(); }
   inline bool IsEmpty() const { return m_s.empty(); }
@@ -90,17 +96,15 @@ public:
       AddString(l, utf8s);
   }
 
-  // Calls |fn| for each pair of |lang| and |utf8s| stored in this multilang string.
-  template <typename Fn>
-  void ForEach(Fn && fn) const
+  template <class T>
+  void ForEach(T && fn) const
   {
     size_t i = 0;
     size_t const sz = m_s.size();
-    base::ControlFlowWrapper<Fn> wrapper(std::forward<Fn>(fn));
     while (i < sz)
     {
       size_t const next = GetNextIndex(i);
-      if (wrapper((m_s[i] & 0x3F), m_s.substr(i + 1, next - i - 1)) == base::ControlFlow::Break)
+      if (!fn((m_s[i] & 0x3F), m_s.substr(i + 1, next - i - 1)))
         return;
       i = next;
     }
@@ -120,22 +124,15 @@ public:
 
   int8_t FindString(string const & utf8s) const;
 
-  template <class TSink>
-  void Write(TSink & sink) const
+  template <class TSink> void Write(TSink & sink) const
   {
     utils::WriteString(sink, m_s);
   }
 
-  template <class TSource>
-  void Read(TSource & src)
+  template <class TSource> void Read(TSource & src)
   {
     utils::ReadString(src, m_s);
   }
-
-private:
-  size_t GetNextIndex(size_t i) const;
-
-  std::string m_s;
 };
 
-std::string DebugPrint(StringUtf8Multilang const & s);
+string DebugPrint(StringUtf8Multilang const & s);

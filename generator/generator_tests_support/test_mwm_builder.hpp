@@ -1,10 +1,8 @@
 #pragma once
 
-#include "generator/cities_boundaries_builder.hpp"
-
 #include "indexer/data_header.hpp"
 
-#include <memory>
+#include "std/unique_ptr.hpp"
 
 namespace feature
 {
@@ -37,8 +35,7 @@ public:
 private:
   platform::LocalCountryFile & m_file;
   feature::DataHeader::MapType m_type;
-  std::unique_ptr<feature::FeaturesCollector> m_collector;
-  TestIdToBoundariesTable m_boundariesTable;
+  unique_ptr<feature::FeaturesCollector> m_collector;
 };
 }  // namespace tests_support
 }  // namespace generator

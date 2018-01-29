@@ -4,8 +4,8 @@
 
 #include "base/assert.hpp"
 #include "base/exception.hpp"
-
-#include <vector>
+#include "base/logging.hpp"
+#include "std/vector.hpp"
 
 static JavaVM * g_jvm = 0;
 extern JavaVM * GetJVM()
@@ -15,7 +15,6 @@ extern JavaVM * GetJVM()
 
 // Caching is necessary to create class from native threads.
 jclass g_mapObjectClazz;
-jclass g_featureIdClazz;
 jclass g_bookmarkClazz;
 jclass g_myTrackerClazz;
 jclass g_httpClientClazz;
@@ -24,7 +23,6 @@ jclass g_httpHeaderClazz;
 jclass g_platformSocketClazz;
 jclass g_utilsClazz;
 jclass g_bannerClazz;
-jclass g_ratingClazz;
 jclass g_arrayListClazz;
 jclass g_loggerFactoryClazz;
 
@@ -39,7 +37,6 @@ JNI_OnLoad(JavaVM * jvm, void *)
 
   JNIEnv * env = jni::GetEnv();
   g_mapObjectClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/bookmarks/data/MapObject");
-  g_featureIdClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/bookmarks/data/FeatureId");
   g_bookmarkClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/bookmarks/data/Bookmark");
   g_myTrackerClazz = jni::GetGlobalClassRef(env, "com/my/tracker/MyTracker");
   g_httpClientClazz = jni::GetGlobalClassRef(env, "com/mapswithme/util/HttpClient");
@@ -48,7 +45,6 @@ JNI_OnLoad(JavaVM * jvm, void *)
   g_platformSocketClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/location/PlatformSocket");
   g_utilsClazz = jni::GetGlobalClassRef(env, "com/mapswithme/util/Utils");
   g_bannerClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/ads/Banner");
-  g_ratingClazz = jni::GetGlobalClassRef(env, "com/mapswithme/maps/ugc/UGC$Rating");
   g_loggerFactoryClazz = jni::GetGlobalClassRef(env, "com/mapswithme/util/log/LoggerFactory");
 
   return JNI_VERSION_1_6;
@@ -60,7 +56,6 @@ JNI_OnUnload(JavaVM *, void *)
   g_jvm = 0;
   JNIEnv * env = jni::GetEnv();
   env->DeleteGlobalRef(g_mapObjectClazz);
-  env->DeleteGlobalRef(g_featureIdClazz);
   env->DeleteGlobalRef(g_bookmarkClazz);
   env->DeleteGlobalRef(g_myTrackerClazz);
   env->DeleteGlobalRef(g_httpClientClazz);
@@ -69,7 +64,6 @@ JNI_OnUnload(JavaVM *, void *)
   env->DeleteGlobalRef(g_platformSocketClazz);
   env->DeleteGlobalRef(g_utilsClazz);
   env->DeleteGlobalRef(g_bannerClazz);
-  env->DeleteGlobalRef(g_ratingClazz);
   env->DeleteGlobalRef(g_loggerFactoryClazz);
 }
 } // extern "C"
@@ -110,13 +104,6 @@ jmethodID GetStaticMethodID(JNIEnv * env, jclass clazz, char const * name, char 
   return mid;
 }
 
-jfieldID GetStaticFieldID(JNIEnv * env, jclass clazz, char const * name, char const * signature)
-{
-  jfieldID fid = env->GetStaticFieldID(clazz, name, signature);
-  ASSERT(fid, ("Can't get static field ID", name, signature, DescribeException()));
-  return fid;
-}
-
 jmethodID GetConstructorID(JNIEnv * env, jclass clazz, char const * signature)
 {
   jmethodID const ctorID = env->GetMethodID(clazz, "<init>", signature);
@@ -131,9 +118,9 @@ jclass GetGlobalClassRef(JNIEnv * env, char const * sig)
   return static_cast<jclass>(env->NewGlobalRef(klass));
 }
 
-std::string ToNativeString(JNIEnv * env, jstring str)
+string ToNativeString(JNIEnv * env, jstring str)
 {
-  std::string result;
+  string result;
   char const * utfBuffer = env->GetStringUTFChars(str, 0);
   if (utfBuffer)
   {
@@ -143,12 +130,12 @@ std::string ToNativeString(JNIEnv * env, jstring str)
   return result;
 }
 
-std::string ToNativeString(JNIEnv * env, jbyteArray const & bytes)
+string ToNativeString(JNIEnv * env, jbyteArray const & bytes)
 {
   int const len = env->GetArrayLength(bytes);
-  std::vector<char> buffer(len);
+  vector<char> buffer(len);
   env->GetByteArrayRegion(bytes, 0, len, reinterpret_cast<jbyte *>(buffer.data()));
-  return std::string(buffer.data(), len);
+  return string(buffer.data(), len);
 }
 
 jstring ToJavaString(JNIEnv * env, char const * s)
@@ -156,10 +143,10 @@ jstring ToJavaString(JNIEnv * env, char const * s)
   return env->NewStringUTF(s);
 }
 
-jobjectArray ToJavaStringArray(JNIEnv * env, std::vector<std::string> const & src)
+jobjectArray ToJavaStringArray(JNIEnv * env, vector<string> const & src)
 {
   return ToJavaArray(env, GetStringClass(env), src,
-                     [](JNIEnv * env, std::string const & item)
+                     [](JNIEnv * env, string const & item)
                      {
                        return ToJavaString(env, item.c_str());
                      });
@@ -184,14 +171,14 @@ struct global_ref_deleter
   }
 };
 
-std::shared_ptr<jobject> make_global_ref(jobject obj)
+shared_ptr<jobject> make_global_ref(jobject obj)
 {
   jobject * ref = new jobject;
   *ref = GetEnv()->NewGlobalRef(obj);
-  return std::shared_ptr<jobject>(ref, global_ref_deleter());
+  return shared_ptr<jobject>(ref, global_ref_deleter());
 }
 
-std::string ToNativeString(JNIEnv * env, const jthrowable & e)
+string ToNativeString(JNIEnv * env, const jthrowable & e)
 {
   jni::TScopedLocalClassRef logClassRef(env, env->FindClass("android/util/Log"));
   ASSERT(logClassRef.get(), ());
@@ -211,30 +198,13 @@ bool HandleJavaException(JNIEnv * env)
      const jthrowable e = env->ExceptionOccurred();
      env->ExceptionDescribe();
      env->ExceptionClear();
-     my::LogLevel level = GetLogLevelForException(env, e);
-     LOG(level, (ToNativeString(env, e)));
+     LOG(LERROR, (ToNativeString(env, e)));
      return true;
    }
    return false;
 }
 
-my::LogLevel GetLogLevelForException(JNIEnv * env, const jthrowable & e)
-{
-  static jclass const errorClass = jni::GetGlobalClassRef(env, "java/lang/Error");
-  ASSERT(errorClass, (jni::DescribeException()));
-  static jclass const runtimeExceptionClass =
-    jni::GetGlobalClassRef(env, "java/lang/RuntimeException");
-  ASSERT(runtimeExceptionClass, (jni::DescribeException()));
-  // If Unchecked Exception or Error is occurred during Java call the app should fail immediately.
-  // In other cases, just a warning message about exception (Checked Exception)
-  // will be written into LogCat.
-  if (env->IsInstanceOf(e, errorClass) || env->IsInstanceOf(e, runtimeExceptionClass))
-    return LERROR;
-
-  return LWARNING;
-}
-
-std::string DescribeException()
+string DescribeException()
 {
   JNIEnv * env = GetEnv();
 

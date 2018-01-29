@@ -13,7 +13,9 @@
 
 #include "Framework.h"
 
-#include "indexer/new_feature_categories.hpp"
+#include "indexer/search_string_utils.hpp"
+
+#include "platform/platform.hpp"
 
 using namespace osm;
 
@@ -23,7 +25,7 @@ NSString * const kToEditorSegue = @"CategorySelectorToEditorSegue";
 
 string locale()
 {
-  return locale_translator::bcp47ToTwineLanguage(NSLocale.currentLocale.localeIdentifier);
+  return locale_translator::bcp47ToTwineLanguage([NSLocale currentLocale].localeIdentifier);
 }
 
 }  // namespace
@@ -98,7 +100,7 @@ string locale()
 {
   if ([MWMToast affectsStatusBar])
     return [MWMToast preferredStatusBarStyle];
-  setStatusBarBackgroundColor(UIColor.clearColor);
+  setStatusBarBackgroundColor([UIColor clearColor]);
   return UIStatusBarStyleLightContent;
 }
 
@@ -136,10 +138,10 @@ string locale()
   auto const & featureID = object.GetID();
   [Statistics logEvent:kStatEditorAddStart
         withParameters:@{
-          kStatIsAuthenticated: @(AuthorizationHaveCredentials()),
-          kStatIsOnline: Platform::IsConnected() ? kStatYes : kStatNo,
-          kStatEditorMWMName: @(featureID.GetMwmName().c_str()),
-          kStatEditorMWMVersion: @(featureID.GetMwmVersion())
+          kStatEditorIsAuthenticated : @(AuthorizationHaveCredentials()),
+          kStatIsOnline : Platform::IsConnected() ? kStatYes : kStatNo,
+          kStatEditorMWMName : @(featureID.GetMwmName().c_str()),
+          kStatEditorMWMVersion : @(featureID.GetMwmVersion())
         }];
 }
 
@@ -239,7 +241,7 @@ string locale()
   }
 
   self.isSearch = YES;
-  string const query{[searchText lowercaseStringWithLocale:NSLocale.currentLocale].UTF8String};
+  string const query{[searchText lowercaseStringWithLocale:[NSLocale currentLocale]].UTF8String};
   m_filteredCategories = m_categories.Search(query, locale());
   [self.tableView reloadData];
 }

@@ -140,15 +140,14 @@ void UserStatsLoader::Update(string const & userName, UpdatePolicy const policy,
 
   if (nothingToUpdate)
   {
-    GetPlatform().RunTask(Platform::Thread::Gui, fn);
+    GetPlatform().RunOnGuiThread(fn);
     return;
   }
 
-  GetPlatform().RunTask(Platform::Thread::Network, [this, userName, fn]
-  {
+  threads::SimpleThread([this, userName, fn] {
     if (Update(userName))
-      GetPlatform().RunTask(Platform::Thread::Gui, fn);
-  });
+      GetPlatform().RunOnGuiThread(fn);
+  }).detach();
 }
 
 void UserStatsLoader::Update(string const & userName, TOnUpdateCallback fn)

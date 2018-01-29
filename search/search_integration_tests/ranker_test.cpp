@@ -4,7 +4,6 @@
 #include "search/search_tests_support/test_results_matching.hpp"
 
 #include "generator/generator_tests_support/test_feature.hpp"
-#include "generator/generator_tests_support/test_mwm_builder.hpp"
 
 using namespace generator::tests_support;
 using namespace search::tests_support;

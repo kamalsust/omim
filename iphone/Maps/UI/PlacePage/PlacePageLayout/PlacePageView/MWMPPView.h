@@ -2,7 +2,7 @@
 
 @protocol MWMPlacePageViewUpdateProtocol<NSObject>
 
-- (void)updateLayout;
+- (void)updateWithHeight:(CGFloat)height;
 
 @end
 

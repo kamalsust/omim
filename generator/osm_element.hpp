@@ -3,13 +3,13 @@
 #include "base/math.hpp"
 #include "base/string_utils.hpp"
 
-#include <exception>
-#include <functional>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
+#include "std/exception.hpp"
+#include "std/function.hpp"
+#include "std/iomanip.hpp"
+#include "std/iostream.hpp"
+#include "std/map.hpp"
+#include "std/string.hpp"
+#include "std/vector.hpp"
 
 struct OsmElement
 {
@@ -29,10 +29,10 @@ struct OsmElement
   {
     uint64_t ref = 0;
     EntityType type = EntityType::Unknown;
-    std::string role;
+    string role;
 
     Member() = default;
-    Member(uint64_t ref, EntityType type, std::string const & role)
+    Member(uint64_t ref, EntityType type, string const & role)
     : ref(ref), type(type), role(role)
     {}
 
@@ -44,11 +44,11 @@ struct OsmElement
 
   struct Tag
   {
-    std::string key;
-    std::string value;
+    string key;
+    string value;
 
     Tag() = default;
-    Tag(std::string const & k, std::string const & v) : key(k), value(v) {}
+    Tag(string const & k, string const & v) : key(k), value(v) {}
 
     bool operator == (Tag const & e) const
     {
@@ -67,14 +67,14 @@ struct OsmElement
   double lon = 0;
   double lat = 0;
   uint64_t ref = 0;
-  std::string k;
-  std::string v;
+  string k;
+  string v;
   EntityType memberType = EntityType::Unknown;
-  std::string role;
+  string role;
 
-  std::vector<uint64_t> m_nds;
-  std::vector<Member> m_members;
-  std::vector<Tag> m_tags;
+  vector<uint64_t> m_nds;
+  vector<Member> m_members;
+  vector<Tag> m_tags;
 
   void Clear()
   {
@@ -93,13 +93,13 @@ struct OsmElement
     m_tags.clear();
   }
 
-  std::string ToString(std::string const & shift = std::string()) const;
+  string ToString(string const & shift = string()) const;
 
-  inline std::vector<uint64_t> const & Nodes() const { return m_nds; }
-  inline std::vector<Member> const & Members() const { return m_members; }
-  inline std::vector<Tag> const & Tags() const { return m_tags; }
+  inline vector<uint64_t> const & Nodes() const { return m_nds; }
+  inline vector<Member> const & Members() const { return m_members; }
+  inline vector<Tag> const & Tags() const { return m_tags; }
 
-  static EntityType StringToEntityType(std::string const & t)
+  static EntityType StringToEntityType(string const & t)
   {
     if (t == "way")
       return EntityType::Way;
@@ -130,13 +130,13 @@ struct OsmElement
   }
 
   void AddNd(uint64_t ref) { m_nds.emplace_back(ref); }
-  void AddMember(uint64_t ref, EntityType type, std::string const & role)
+  void AddMember(uint64_t ref, EntityType type, string const & role)
   {
     m_members.emplace_back(ref, type, role);
   }
 
-  void AddTag(std::string const & k, std::string const & v);
-  template <class TFn> void UpdateTag(std::string const & k, TFn && fn)
+  void AddTag(string const & k, string const & v);
+  template <class TFn> void UpdateTag(string const & k, TFn && fn)
   {
     for (auto & tag : m_tags)
     {
@@ -147,15 +147,15 @@ struct OsmElement
       }
     }
 
-    std::string v;
+    string v;
     fn(v);
     if (!v.empty())
       AddTag(k, v);
   }
 
-  std::string GetTag(std::string const & key) const;
+  string GetTag(string const & key) const;
 };
 
-std::string DebugPrint(OsmElement const & e);
-std::string DebugPrint(OsmElement::EntityType e);
-std::string DebugPrint(OsmElement::Tag const & tag);
+string DebugPrint(OsmElement const & e);
+string DebugPrint(OsmElement::EntityType e);
+string DebugPrint(OsmElement::Tag const & tag);

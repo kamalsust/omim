@@ -1,8 +1,8 @@
 package com.mapswithme.maps.search;
 
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.support.annotation.DrawableRes;
-import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.RecyclerView;
@@ -12,7 +12,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.widget.placepage.Sponsored;
 import com.mapswithme.util.ThemeUtils;
 import com.mapswithme.util.statistics.Statistics;
 
@@ -48,19 +47,7 @@ class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.ViewHolde
 
       mCategoryResIds[i] = resources.getIdentifier(key, "string", packageName);
       if (mCategoryResIds[i] == 0)
-      {
-        // TODO: remove this code after "cian" feature is obsoleted.
-        if (key.equals("cian"))
-        {
-          Statistics.INSTANCE.trackSponsoredEventByType(
-              Statistics.EventName.SEARCH_SPONSOR_CATEGORY_SHOWN, Sponsored.TYPE_CIAN);
-          mCategoryResIds[i] = R.string.real_estate;
-        }
-        else
-        {
-          throw new IllegalStateException("Can't get string resource id for category:" + key);
-        }
-      }
+        throw new IllegalStateException("Can't get string resource id for category:" + key);
 
       String iconId = "ic_category_" + key;
       if (isNightTheme)
@@ -77,25 +64,10 @@ class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.ViewHolde
   }
 
   @Override
-  public int getItemViewType(int position)
-  {
-    if (mCategoryResIds[position] == R.string.real_estate)
-      return R.layout.item_search_category_cian;
-    return R.layout.item_search_category;
-  }
-
-  @Override
   public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType)
   {
-    final View view;
-    if (viewType == R.layout.item_search_category_cian)
-    {
-      view = mInflater.inflate(R.layout.item_search_category_cian, parent, false);
-      return new ViewHolder(view, (TextView) view.findViewById(R.id.tv__category));
-    }
-
-    view = mInflater.inflate(R.layout.item_search_category, parent, false);
-    return new ViewHolder(view, (TextView)view);
+    final View view = mInflater.inflate(R.layout.item_search_category, parent, false);
+    return new ViewHolder(view);
   }
 
   @Override
@@ -112,21 +84,18 @@ class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.ViewHolde
 
   private String getSuggestionFromCategory(int resId)
   {
-    if (resId == R.string.real_estate)
-      return "cian ";
     return mResources.getString(resId) + ' ';
   }
 
   public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener
   {
-    @NonNull
     private final TextView mTitle;
 
-    ViewHolder(@NonNull View v, @NonNull TextView tv)
+    ViewHolder(View v)
     {
       super(v);
       v.setOnClickListener(this);
-      mTitle = tv;
+      mTitle = (TextView) v;
     }
 
     @Override

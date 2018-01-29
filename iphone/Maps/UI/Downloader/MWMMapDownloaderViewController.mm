@@ -1,9 +1,13 @@
 #import "MWMMapDownloaderViewController.h"
+#import "MWMCommon.h"
 #import "MWMMapDownloaderExtendedDataSourceWithAds.h"
 #import "MWMMapDownloaderSearchDataSource.h"
+#import "MWMNoMapsViewController.h"
 #import "SwiftBridge.h"
 
 #include "Framework.h"
+
+#include "storage/downloader_search_params.hpp"
 
 namespace
 {
@@ -21,7 +25,7 @@ using namespace storage;
 @property(nonatomic) MWMMapDownloaderDataSource * defaultDataSource;
 
 @property(nonatomic, readonly) NSString * parentCountryId;
-@property(nonatomic, readonly) MWMMapDownloaderMode mode;
+@property(nonatomic, readonly) mwm::DownloaderMode mode;
 
 @property(nonatomic) BOOL showAllMapsButtons;
 
@@ -93,7 +97,7 @@ using namespace storage;
 
   BOOL const noResults =
       self.dataSource == self.searchDataSource && self.searchDataSource.isEmpty;
-  BOOL const isModeAvailable = self.mode == MWMMapDownloaderModeAvailable;
+  BOOL const isModeAvailable = self.mode == mwm::DownloaderMode::Available;
   BOOL const haveActiveMaps = s.HaveDownloadedCountries() || s.IsDownloadInProgress();
 
   if (noResults)
@@ -190,7 +194,7 @@ using namespace storage;
 
 #pragma mark - Configuration
 
-- (void)setParentCountryId:(NSString *)parentId mode:(MWMMapDownloaderMode)mode
+- (void)setParentCountryId:(NSString *)parentId mode:(mwm::DownloaderMode)mode
 {
   self.defaultDataSource =
       [[MWMMapDownloaderExtendedDataSourceWithAds alloc] initForRootCountryId:parentId

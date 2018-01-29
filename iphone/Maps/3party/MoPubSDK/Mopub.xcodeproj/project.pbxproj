@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		347D15C11F822BEB00E86251 /* FBAudienceNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34F407691E9E1DA400E57AC0 /* FBAudienceNetwork.framework */; };
 		34F408E51E9E1DA400E57AC0 /* FacebookBannerCustomEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407611E9E1DA400E57AC0 /* FacebookBannerCustomEvent.m */; };
 		34F408E61E9E1DA400E57AC0 /* FacebookInterstitialCustomEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407631E9E1DA400E57AC0 /* FacebookInterstitialCustomEvent.m */; };
 		34F408E71E9E1DA400E57AC0 /* FacebookNativeAdAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407651E9E1DA400E57AC0 /* FacebookNativeAdAdapter.m */; };
 		34F408E81E9E1DA400E57AC0 /* FacebookNativeCustomEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407671E9E1DA400E57AC0 /* FacebookNativeCustomEvent.m */; };
+		34F408E91E9E1DA400E57AC0 /* FBAudienceNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 34F407691E9E1DA400E57AC0 /* FBAudienceNetwork.framework */; };
 		34F408EB1E9E1DA400E57AC0 /* MPBannerAdManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F4076E1E9E1DA400E57AC0 /* MPBannerAdManager.m */; };
 		34F408EC1E9E1DA400E57AC0 /* MPBannerCustomEventAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407711E9E1DA400E57AC0 /* MPBannerCustomEventAdapter.m */; };
 		34F408ED1E9E1DA400E57AC0 /* MPBaseBannerAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = 34F407731E9E1DA400E57AC0 /* MPBaseBannerAdapter.m */; };
@@ -563,7 +563,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				347D15C11F822BEB00E86251 /* FBAudienceNetwork.framework in Frameworks */,
+				34F408E91E9E1DA400E57AC0 /* FBAudienceNetwork.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1357,113 +1357,13 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		341EF4731EA0C459001FC0AA /* AdHoc */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 34F4098F1E9E27DB00E57AC0 /* common-release.xcconfig */;
-			buildSettings = {
-				DEVELOPMENT_TEAM = L2QFT5NA2Q;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				MACH_O_TYPE = staticlib;
-				ONLY_ACTIVE_ARCH = NO;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-			};
-			name = AdHoc;
-		};
-		341EF4741EA0C459001FC0AA /* AdHoc */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
-				);
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = AdHoc;
-		};
-		341EF4751EA0C482001FC0AA /* Production Full */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 34F4098F1E9E27DB00E57AC0 /* common-release.xcconfig */;
-			buildSettings = {
-				DEVELOPMENT_TEAM = N9X2A789QT;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				MACH_O_TYPE = staticlib;
-				ONLY_ACTIVE_ARCH = NO;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-			};
-			name = "Production Full";
-		};
-		341EF4761EA0C482001FC0AA /* Production Full */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
-				);
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = "Production Full";
-		};
-		341EF4771EA0C49B001FC0AA /* Simulator Release */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 34F4098F1E9E27DB00E57AC0 /* common-release.xcconfig */;
-			buildSettings = {
-				DEVELOPMENT_TEAM = 3T6FSDE8C7;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				MACH_O_TYPE = staticlib;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-			};
-			name = "Simulator Release";
-		};
-		341EF4781EA0C49B001FC0AA /* Simulator Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
-				);
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = "Simulator Release";
-		};
-		341EF4791EA0C4A3001FC0AA /* Simulator */ = {
-			isa = XCBuildConfiguration;
-			baseConfigurationReference = 34F4098E1E9E27DB00E57AC0 /* common-debug.xcconfig */;
-			buildSettings = {
-				DEVELOPMENT_TEAM = 3T6FSDE8C7;
-				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
-				MACH_O_TYPE = staticlib;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-			};
-			name = Simulator;
-		};
-		341EF47A1EA0C4A3001FC0AA /* Simulator */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
-				);
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = Simulator;
-		};
 		34F407531E9E1D3500E57AC0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 34F4098E1E9E27DB00E57AC0 /* common-debug.xcconfig */;
 			buildSettings = {
-				DEVELOPMENT_TEAM = 3T6FSDE8C7;
+				BUILD_DIR = "$(OMIM_ROOT)/../../../omim-build/xcode";
 				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
 				MACH_O_TYPE = staticlib;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 			};
 			name = Debug;
 		};
@@ -1471,11 +1371,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 34F4098F1E9E27DB00E57AC0 /* common-release.xcconfig */;
 			buildSettings = {
-				DEVELOPMENT_TEAM = 3T6FSDE8C7;
+				BUILD_DIR = "$(OMIM_ROOT)/../../../omim-build/xcode";
 				GCC_WARN_INHIBIT_ALL_WARNINGS = YES;
 				MACH_O_TYPE = staticlib;
-				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 			};
 			name = Release;
 		};
@@ -1487,7 +1385,6 @@
 					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
@@ -1499,7 +1396,6 @@
 					"$(PROJECT_DIR)/AdNetworkSupport/Facebook/SDK",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
@@ -1510,27 +1406,19 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				34F407531E9E1D3500E57AC0 /* Debug */,
-				341EF4791EA0C4A3001FC0AA /* Simulator */,
 				34F407541E9E1D3500E57AC0 /* Release */,
-				341EF4771EA0C49B001FC0AA /* Simulator Release */,
-				341EF4751EA0C482001FC0AA /* Production Full */,
-				341EF4731EA0C459001FC0AA /* AdHoc */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = AdHoc;
+			defaultConfigurationName = Release;
 		};
 		34F407551E9E1D3500E57AC0 /* Build configuration list for PBXNativeTarget "Mopub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				34F407561E9E1D3500E57AC0 /* Debug */,
-				341EF47A1EA0C4A3001FC0AA /* Simulator */,
 				34F407571E9E1D3500E57AC0 /* Release */,
-				341EF4781EA0C49B001FC0AA /* Simulator Release */,
-				341EF4761EA0C482001FC0AA /* Production Full */,
-				341EF4741EA0C459001FC0AA /* AdHoc */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = AdHoc;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

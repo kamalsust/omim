@@ -1,12 +1,9 @@
 #import "MWMPlacePageRegularCell.h"
 #import "MWMCommon.h"
-#import "MWMLocationManager.h"
 #import "MapViewController.h"
 #import "MapsAppDelegate.h"
 #import "Statistics.h"
 #import "UIImageView+Coloring.h"
-
-#include "local_ads/event.hpp"
 
 #include "platform/measurement_utils.hpp"
 #include "platform/settings.hpp"
@@ -81,8 +78,7 @@
     break;
   case MetainfoRows::ExtendedOpeningHours:
   case MetainfoRows::OpeningHours:
-  case MetainfoRows::LocalAdsCandidate:
-  case MetainfoRows::LocalAdsCustomer: break;
+  case MetainfoRows::Taxi: NSAssert(false, @"Incorrect cell type!"); break;
   }
   [self configWithIconName:name data:[data stringForRow:row]];
 }
@@ -134,16 +130,13 @@
 - (IBAction)cellTap
 {
   using place_page::MetainfoRows;
-  auto data = self.data;
   switch (self.rowType)
   {
   case MetainfoRows::Phone:
     [Statistics logEvent:kStatEventName(kStatPlacePage, kStatCallPhoneNumber)];
-    [data logLocalAdsEvent:local_ads::EventType::ClickedPhone];
     break;
   case MetainfoRows::Website:
     [Statistics logEvent:kStatEventName(kStatPlacePage, kStatOpenSite)];
-    [data logLocalAdsEvent:local_ads::EventType::ClickedWebsite];
     break;
   case MetainfoRows::Email:
     [Statistics logEvent:kStatEventName(kStatPlacePage, kStatSendEmail)];
@@ -151,7 +144,7 @@
   case MetainfoRows::Coordinate:
     [Statistics logEvent:kStatEventName(kStatPlacePage, kStatToggleCoordinates)];
     [MWMPlacePageData toggleCoordinateSystem];
-    [self changeText:[data stringForRow:self.rowType]];
+    [self changeText:[self.data stringForRow:self.rowType]];
     break;
   case MetainfoRows::ExtendedOpeningHours:
   case MetainfoRows::Cuisine:
@@ -159,8 +152,7 @@
   case MetainfoRows::OpeningHours:
   case MetainfoRows::Address:
   case MetainfoRows::Internet:
-  case MetainfoRows::LocalAdsCustomer: 
-  case MetainfoRows::LocalAdsCandidate: break;
+  case MetainfoRows::Taxi: break;
   }
 }
 

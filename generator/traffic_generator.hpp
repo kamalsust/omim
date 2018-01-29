@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
+#include "std/string.hpp"
 
 namespace traffic
 {
-bool GenerateTrafficKeysFromDataFile(std::string const & mwmPath);
+bool GenerateTrafficKeysFromDataFile(string const & mwmPath);
 }  // namespace traffic

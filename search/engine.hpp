@@ -1,11 +1,13 @@
 #pragma once
 
-#include "search/bookmarks/processor.hpp"
+#include "search/processor_factory.hpp"
 #include "search/result.hpp"
 #include "search/search_params.hpp"
 #include "search/suggest.hpp"
 
 #include "indexer/categories_holder.hpp"
+
+#include "geometry/rect2d.hpp"
 
 #include "coding/reader.hpp"
 
@@ -13,15 +15,15 @@
 #include "base/mutex.hpp"
 #include "base/thread.hpp"
 
-#include <condition_variable>
-#include <cstddef>
-#include <functional>
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <string>
-#include <utility>
-#include <vector>
+#include "std/atomic.hpp"
+#include "std/condition_variable.hpp"
+#include "std/function.hpp"
+#include "std/mutex.hpp"
+#include "std/queue.hpp"
+#include "std/string.hpp"
+#include "std/unique_ptr.hpp"
+#include "std/vector.hpp"
+#include "std/weak_ptr.hpp"
 
 class Index;
 
@@ -64,7 +66,7 @@ private:
 
   Processor * m_processor;
   bool m_cancelled;
-  std::mutex m_mu;
+  mutex m_mu;
 
   DISALLOW_COPY_AND_MOVE(ProcessorHandle);
 };
@@ -79,9 +81,9 @@ public:
   struct Params
   {
     Params();
-    Params(std::string const & locale, size_t numThreads);
+    Params(string const & locale, size_t numThreads);
 
-    std::string m_locale;
+    string m_locale;
 
     // This field controls number of threads SearchEngine will create
     // to process queries. Use this field wisely as large values may
@@ -91,32 +93,26 @@ public:
 
   // Doesn't take ownership of index and categories.
   Engine(Index & index, CategoriesHolder const & categories,
-         storage::CountryInfoGetter const & infoGetter, Params const & params);
+         storage::CountryInfoGetter const & infoGetter, unique_ptr<ProcessorFactory> factory,
+         Params const & params);
   ~Engine();
 
   // Posts search request to the queue and returns its handle.
-  std::weak_ptr<ProcessorHandle> Search(SearchParams const & params);
+  weak_ptr<ProcessorHandle> Search(SearchParams const & params, m2::RectD const & viewport);
+
+  // Posts request to support old format to the queue.
+  void SetSupportOldFormat(bool support);
 
   // Sets default locale on all query processors.
-  void SetLocale(std::string const & locale);
+  void SetLocale(string const & locale);
 
   // Posts request to clear caches to the queue.
   void ClearCaches();
 
-  // Posts request to reload cities boundaries tables.
-  void LoadCitiesBoundaries();
-
-  // Posts request to load countries tree.
-  void LoadCountriesTree();
-
-  void OnBookmarksCreated(std::vector<std::pair<bookmarks::Id, bookmarks::Doc>> const & marks);
-  void OnBookmarksUpdated(std::vector<std::pair<bookmarks::Id, bookmarks::Doc>> const & marks);
-  void OnBookmarksDeleted(std::vector<bookmarks::Id> const & marks);
-
 private:
   struct Message
   {
-    using Fn = std::function<void(Processor & processor)>;
+    using TFn = function<void(Processor & processor)>;
 
     enum Type
     {
@@ -124,28 +120,27 @@ private:
       TYPE_BROADCAST
     };
 
-    template <typename Gn>
-    Message(Type type, Gn && gn) : m_type(type), m_fn(std::forward<Gn>(gn)) {}
+    Message(Type type, TFn && fn) : m_type(type), m_fn(move(fn)) {}
 
     void operator()(Processor & processor) { m_fn(processor); }
 
     Type m_type;
-    Fn m_fn;
+    TFn m_fn;
   };
 
   // alignas() is used here to prevent false-sharing between different
   // threads.
-  struct Context
+  struct alignas(64 /* the most common cache-line size */) Context
   {
     // This field *CAN* be accessed by other threads, so |m_mu| must
     // be taken before access this queue.  Messages are ordered here
     // by a timestamp and all timestamps are less than timestamps in
     // the global |m_messages| queue.
-    std::queue<Message> m_messages;
+    queue<Message> m_messages;
 
     // This field is thread-specific and *CAN NOT* be accessed by
     // other threads.
-    std::unique_ptr<Processor> m_processor;
+    unique_ptr<Processor> m_processor;
   };
 
   // *ALL* following methods are executed on the m_threads threads.
@@ -156,20 +151,20 @@ private:
   // |tasks| and |broadcast|.
   void MainLoop(Context & context);
 
-  template <typename... Args>
-  void PostMessage(Args &&... args);
+  template <typename... TArgs>
+  void PostMessage(TArgs &&... args);
 
-  void DoSearch(SearchParams const & params, std::shared_ptr<ProcessorHandle> handle,
-                Processor & processor);
+  void DoSearch(SearchParams const & params, m2::RectD const & viewport,
+                shared_ptr<ProcessorHandle> handle, Processor & processor);
 
-  std::vector<Suggest> m_suggests;
+  vector<Suggest> m_suggests;
 
   bool m_shutdown;
-  std::mutex m_mu;
-  std::condition_variable m_cv;
+  mutex m_mu;
+  condition_variable m_cv;
 
-  std::queue<Message> m_messages;
-  std::vector<Context> m_contexts;
-  std::vector<threads::SimpleThread> m_threads;
+  queue<Message> m_messages;
+  vector<Context> m_contexts;
+  vector<threads::SimpleThread> m_threads;
 };
 }  // namespace search

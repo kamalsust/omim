@@ -1,16 +1,17 @@
 #import "MWMTrafficManager.h"
+#import "MWMCommon.h"
 
 #include "Framework.h"
 
 namespace
 {
-using Observer = id<MWMTrafficManagerObserver>;
-using Observers = NSHashTable<Observer>;
+using TObserver = id<MWMTrafficManagerObserver>;
+using TObservers = NSHashTable<__kindof TObserver>;
 }  // namespace
 
 @interface MWMTrafficManager ()
 
-@property(nonatomic) Observers * observers;
+@property(nonatomic) TObservers * observers;
 
 @property(nonatomic) TrafficManager::TrafficState state;
 
@@ -35,12 +36,14 @@ using Observers = NSHashTable<Observer>;
   self = [super init];
   if (self)
   {
-    _observers = [Observers weakObjectsHashTable];
+    _observers = [TObservers weakObjectsHashTable];
     auto & m = GetFramework().GetTrafficManager();
     m.SetStateListener([self](TrafficManager::TrafficState state) {
-      self.state = state;
-      for (Observer observer in self.observers)
-        [observer onTrafficStateUpdated];
+      runAsyncOnMainQueue(^{
+        self.state = state;
+        for (TObserver observer in self.observers)
+          [observer onTrafficStateUpdated];
+      });
     });
   }
   return self;
@@ -48,31 +51,17 @@ using Observers = NSHashTable<Observer>;
 
 #pragma mark - Add/Remove Observers
 
-+ (void)addObserver:(Observer)observer
++ (void)addObserver:(TObserver)observer
 {
   [[MWMTrafficManager manager].observers addObject:observer];
 }
 
-+ (void)removeObserver:(Observer)observer
++ (void)removeObserver:(TObserver)observer
 {
   [[MWMTrafficManager manager].observers removeObject:observer];
 }
 
-+ (MWMTrafficManagerState)state
-{
-  switch ([MWMTrafficManager manager].state)
-  {
-  case TrafficManager::TrafficState::Disabled: return MWMTrafficManagerStateDisabled;
-  case TrafficManager::TrafficState::Enabled: return MWMTrafficManagerStateEnabled;
-  case TrafficManager::TrafficState::WaitingData: return MWMTrafficManagerStateWaitingData;
-  case TrafficManager::TrafficState::Outdated: return MWMTrafficManagerStateOutdated;
-  case TrafficManager::TrafficState::NoData: return MWMTrafficManagerStateNoData;
-  case TrafficManager::TrafficState::NetworkError: return MWMTrafficManagerStateNetworkError;
-  case TrafficManager::TrafficState::ExpiredData: return MWMTrafficManagerStateExpiredData;
-  case TrafficManager::TrafficState::ExpiredApp: return MWMTrafficManagerStateExpiredApp;
-  }
-}
-
++ (TrafficManager::TrafficState)state { return [MWMTrafficManager manager].state; }
 + (void)enableTraffic:(BOOL)enable
 {
   auto & f = GetFramework();

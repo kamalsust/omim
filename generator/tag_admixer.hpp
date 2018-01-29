@@ -6,26 +6,26 @@
 #include "base/stl_add.hpp"
 #include "base/string_utils.hpp"
 
-#include <fstream>
-#include <map>
-#include <set>
-#include <string>
-#include <utility>
+#include "std/fstream.hpp"
+#include "std/map.hpp"
+#include "std/set.hpp"
+#include "std/string.hpp"
+#include "std/utility.hpp"
 
 
 class WaysParserHelper
 {
 public:
-  WaysParserHelper(std::map<uint64_t, std::string> & ways) : m_ways(ways) {}
+  WaysParserHelper(map<uint64_t, string> & ways) : m_ways(ways) {}
 
   void ParseStream(istream & input)
   {
-    std::string oneLine;
-    while (std::getline(input, oneLine, '\n'))
+    string oneLine;
+    while (getline(input, oneLine, '\n'))
     {
       // String format: <<id;tag>>.
       auto pos = oneLine.find(';');
-      if (pos != std::string::npos)
+      if (pos != string::npos)
       {
         uint64_t wayId;
         CHECK(strings::to_uint64(oneLine.substr(0, pos), wayId),());
@@ -35,32 +35,32 @@ public:
   }
 
 private:
-  std::map<uint64_t, std::string> & m_ways;
+  map<uint64_t, string> & m_ways;
 };
 
 class CapitalsParserHelper
 {
 public:
-  CapitalsParserHelper(std::set<uint64_t> & capitals) : m_capitals(capitals) {}
+  CapitalsParserHelper(set<uint64_t> & capitals) : m_capitals(capitals) {}
 
   void ParseStream(istream & input)
   {
-    std::string oneLine;
-    while (std::getline(input, oneLine, '\n'))
+    string oneLine;
+    while (getline(input, oneLine, '\n'))
     {
       // String format: <<lat;lon;id;is_capital>>.
       // First ';'.
       auto pos = oneLine.find(";");
-      if (pos != std::string::npos)
+      if (pos != string::npos)
       {
         // Second ';'.
         pos = oneLine.find(";", pos + 1);
-        if (pos != std::string::npos)
+        if (pos != string::npos)
         {
           uint64_t nodeId;
           // Third ';'.
           auto endPos = oneLine.find(";", pos + 1);
-          if (endPos != std::string::npos)
+          if (endPos != string::npos)
           {
             if (strings::to_uint64(oneLine.substr(pos + 1, endPos - pos - 1), nodeId))
               m_capitals.insert(nodeId);
@@ -71,21 +71,21 @@ public:
   }
 
 private:
-  std::set<uint64_t> & m_capitals;
+  set<uint64_t> & m_capitals;
 };
 
 class TagAdmixer
 {
 public:
-  TagAdmixer(std::string const & waysFile, std::string const & capitalsFile) : m_ferryTag("route", "ferry")
+  TagAdmixer(string const & waysFile, string const & capitalsFile) : m_ferryTag("route", "ferry")
   {
     try
     {
-      std::ifstream reader(waysFile);
+      ifstream reader(waysFile);
       WaysParserHelper parser(m_ways);
       parser.ParseStream(reader);
     }
-    catch (std::ifstream::failure const &)
+    catch (ifstream::failure const &)
     {
       LOG(LWARNING, ("Can't read the world level ways file! Generating world without roads. Path:", waysFile));
       return;
@@ -93,11 +93,11 @@ public:
 
     try
     {
-      std::ifstream reader(capitalsFile);
+      ifstream reader(capitalsFile);
       CapitalsParserHelper parser(m_capitals);
       parser.ParseStream(reader);
     }
-    catch (std::ifstream::failure const &)
+    catch (ifstream::failure const &)
     {
       LOG(LWARNING, ("Can't read the world level capitals file! Generating world without towns admixing. Path:", capitalsFile));
       return;
@@ -117,7 +117,7 @@ public:
       // Our goal here - to make some capitals visible in World map.
       // The simplest way is to upgrade population to 45000,
       // according to our visibility rules in mapcss files.
-      e->UpdateTag("population", [] (std::string & v)
+      e->UpdateTag("population", [] (string & v)
       {
         uint64_t n;
         if (!strings::to_uint64(v, n) || n < 45000)
@@ -127,22 +127,22 @@ public:
   }
 
 private:
-  std::map<uint64_t, std::string> m_ways;
-  std::set<uint64_t> m_capitals;
+  map<uint64_t, string> m_ways;
+  set<uint64_t> m_capitals;
   OsmElement::Tag const m_ferryTag;
 };
 
 class TagReplacer
 {
-  std::map<OsmElement::Tag, std::vector<std::string>> m_entries;
+  map<OsmElement::Tag, vector<string>> m_entries;
 public:
-  TagReplacer(std::string const & filePath)
+  TagReplacer(string const & filePath)
   {
-    std::ifstream stream(filePath);
+    ifstream stream(filePath);
 
     OsmElement::Tag tag;
-    std::vector<std::string> values;
-    std::string line;
+    vector<string> values;
+    string line;
     while (std::getline(stream, line))
     {
       if (line.empty())
@@ -185,15 +185,15 @@ public:
 
 class OsmTagMixer
 {
-  std::map<std::pair<OsmElement::EntityType, uint64_t>, std::vector<OsmElement::Tag>> m_elements;
+  map<pair<OsmElement::EntityType, uint64_t>, vector<OsmElement::Tag>> m_elements;
 
 public:
-  OsmTagMixer(std::string const & filePath)
+  OsmTagMixer(string const & filePath)
   {
-    std::ifstream stream(filePath);
-    std::vector<std::string> values;
-    std::vector<OsmElement::Tag> tags;
-    std::string line;
+    ifstream stream(filePath);
+    vector<string> values;
+    vector<OsmElement::Tag> tags;
+    string line;
     while (std::getline(stream, line))
     {
       if (line.empty() || line.front() == '#')
@@ -211,13 +211,13 @@ public:
       for (size_t i = 2; i < values.size(); ++i)
       {
         auto p = values[i].find('=');
-        if (p != std::string::npos)
+        if (p != string::npos)
           tags.push_back(OsmElement::Tag(values[i].substr(0, p), values[i].substr(p + 1)));
       }
 
       if (!tags.empty())
       {
-        std::pair<OsmElement::EntityType, uint64_t> elementPair = {entityType, id};
+        pair<OsmElement::EntityType, uint64_t> elementPair = {entityType, id};
         m_elements[elementPair].swap(tags);
       }
     }
@@ -225,7 +225,7 @@ public:
 
   void operator()(OsmElement * p)
   {
-    std::pair<OsmElement::EntityType, uint64_t> elementId = {p->type, p->id};
+    pair<OsmElement::EntityType, uint64_t> elementId = {p->type, p->id};
     auto elements = m_elements.find(elementId);
     if (elements != m_elements.end())
     {

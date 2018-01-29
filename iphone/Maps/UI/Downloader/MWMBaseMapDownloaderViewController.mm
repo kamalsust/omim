@@ -1,8 +1,7 @@
-#import "MWMBaseMapDownloaderViewController.h"
+#import "MWMAlertViewController.h"
 #import "MWMButton.h"
 #import "MWMCommon.h"
 #import "MWMFrameworkListener.h"
-#import "MWMFrameworkObservers.h"
 #import "MWMMapDownloaderAdsTableViewCell.h"
 #import "MWMMapDownloaderCellHeader.h"
 #import "MWMMapDownloaderDefaultDataSource.h"
@@ -11,15 +10,20 @@
 #import "MWMMapDownloaderPlaceTableViewCell.h"
 #import "MWMMapDownloaderSubplaceTableViewCell.h"
 #import "MWMMapDownloaderTableViewCell.h"
+#import "MWMMapDownloaderViewController.h"
 #import "MWMMigrationViewController.h"
 #import "MWMMyTarget.h"
 #import "MWMSegue.h"
 #import "MWMStorage.h"
 #import "MWMToast.h"
+#import "MapsAppDelegate.h"
+#import "Statistics.h"
 #import "SwiftBridge.h"
 #import "UIViewController+Navigation.h"
 
 #include "Framework.h"
+
+#include "storage/index.hpp"
 
 namespace
 {
@@ -54,6 +58,7 @@ NSString * const kControllerIdentifier = @"MWMMapDownloaderViewController";
 } // namespace
 
 using namespace storage;
+using namespace mwm;
 
 @interface MWMBaseMapDownloaderViewController ()<UIScrollViewDelegate, MWMFrameworkStorageObserver,
                                                  MWMMyTargetDelegate>
@@ -77,7 +82,7 @@ using namespace storage;
 @property (nonatomic) BOOL forceFullReload;
 
 @property (nonatomic, readonly) NSString * parentCountryId;
-@property(nonatomic, readonly) MWMMapDownloaderMode mode;
+@property (nonatomic, readonly) DownloaderMode mode;
 
 @property (nonatomic) BOOL showAllMapsButtons;
 
@@ -99,6 +104,13 @@ using namespace storage;
 - (void)viewWillAppear:(BOOL)animated
 {
   [super viewWillAppear:animated];
+  UINavigationBar * navBar = [UINavigationBar appearance];
+  self.navBarBackground = [navBar backgroundImageForBarMetrics:UIBarMetricsDefault];
+  self.navBarShadow = navBar.shadowImage;
+  UIColor * searchBarColor = [UIColor primary];
+  [navBar setBackgroundImage:[UIImage imageWithColor:searchBarColor]
+               forBarMetrics:UIBarMetricsDefault];
+  navBar.shadowImage = [[UIImage alloc] init];
   [MWMFrameworkListener addObserver:self];
   [self configViews];
 }
@@ -106,6 +118,9 @@ using namespace storage;
 - (void)viewWillDisappear:(BOOL)animated
 {
   [super viewWillDisappear:animated];
+  UINavigationBar * navBar = [UINavigationBar appearance];
+  [navBar setBackgroundImage:self.navBarBackground forBarMetrics:UIBarMetricsDefault];
+  navBar.shadowImage = self.navBarShadow;
   [MWMFrameworkListener removeObserver:self];
   [self notifyParentController];
 }
@@ -117,7 +132,7 @@ using namespace storage;
 
 - (void)configNavBar
 {
-  BOOL const downloaded = self.mode == MWMMapDownloaderModeDownloaded;
+  BOOL const downloaded = self.mode == DownloaderMode::Downloaded;
   if (self.dataSource.isParentRoot)
   {
     self.title = downloaded ? L(@"downloader_my_maps_title") : L(@"download_maps");
@@ -245,7 +260,7 @@ using namespace storage;
   {
     self.showAllMapsButtons = NO;
   }
-  else if (self.mode == MWMMapDownloaderModeDownloaded)
+  else if (self.mode == DownloaderMode::Downloaded)
   {
     Storage::UpdateInfo updateInfo{};
     s.GetUpdateInfo(parentCountryId, updateInfo);
@@ -277,7 +292,8 @@ using namespace storage;
         self.allMapsButton.hidden = NO;
         [self.allMapsButton
          setTitle:[NSString stringWithFormat:kAllMapsLabelFormat, kDownloadAllActionTitle,
-                   formattedSize(nodeAttrs.m_mwmSize)]
+                   formattedSize(nodeAttrs.m_mwmSize -
+                                 nodeAttrs.m_localMwmSize)]
          forState:UIControlStateNormal];
         self.allMapsCancelButton.hidden = YES;
       }
@@ -342,7 +358,7 @@ using namespace storage;
 {
   self.skipCountryEventProcessing = YES;
   TCountryId const parentCountryId = self.parentCountryId.UTF8String;
-  if (self.mode == MWMMapDownloaderModeDownloaded)
+  if (self.mode == DownloaderMode::Downloaded)
   {
     [Statistics logEvent:kStatDownloaderMapAction
           withParameters:@{
@@ -554,7 +570,7 @@ using namespace storage;
     s.GetNodeAttrs(m_actionSheetId, nodeAttrs);
     NSString * prefix = nodeAttrs.m_mwmCounter == 1 ? kDownloadActionTitle : kDownloadAllActionTitle;
     NSString * title = [NSString stringWithFormat:kAllMapsLabelFormat, prefix,
-                        formattedSize(nodeAttrs.m_mwmSize)];
+                        formattedSize(nodeAttrs.m_mwmSize - nodeAttrs.m_localMwmSize)];
     UIAlertAction * action = [UIAlertAction actionWithTitle:title
                                                       style:UIAlertActionStyleDefault
                                                     handler:^(UIAlertAction * action)
@@ -615,7 +631,7 @@ using namespace storage;
   BOOL const isParentRoot = [self.parentCountryId isEqualToString:@(GetFramework().GetStorage().GetRootId().c_str())];
   NSString * identifier = isParentRoot ? kControllerIdentifier : kBaseControllerIdentifier;
   MWMBaseMapDownloaderViewController * vc = [self.storyboard instantiateViewControllerWithIdentifier:identifier];
-  [vc setParentCountryId:self.parentCountryId mode:MWMMapDownloaderModeAvailable];
+  [vc setParentCountryId:self.parentCountryId mode:DownloaderMode::Available];
   [MWMSegue segueFrom:self to:vc];
 }
 
@@ -714,13 +730,13 @@ using namespace storage;
 {
   if ([MWMToast affectsStatusBar])
     return [MWMToast preferredStatusBarStyle];
-  setStatusBarBackgroundColor(UIColor.clearColor);
+  setStatusBarBackgroundColor([UIColor clearColor]);
   return UIStatusBarStyleLightContent;
 }
 
 #pragma mark - Configuration
 
-- (void)setParentCountryId:(NSString *)parentId mode:(MWMMapDownloaderMode)mode
+- (void)setParentCountryId:(NSString *)parentId mode:(DownloaderMode)mode
 {
   self.defaultDataSource = [[MWMMapDownloaderDefaultDataSource alloc] initForRootCountryId:parentId
                                                                                   delegate:self
@@ -746,7 +762,12 @@ using namespace storage;
 {
   return self.dataSource.parentCountryId;
 }
-- (MWMMapDownloaderMode)mode { return self.dataSource.mode; }
+
+- (DownloaderMode)mode
+{
+  return self.dataSource.mode;
+}
+
 - (void)setDataSource:(MWMMapDownloaderDataSource *)dataSource
 {
   self.forceFullReload = YES;

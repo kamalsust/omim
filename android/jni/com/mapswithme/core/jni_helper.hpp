@@ -4,15 +4,12 @@
 
 #include "ScopedLocalRef.hpp"
 
-#include "base/logging.hpp"
-
 #include "geometry/point2d.hpp"
 
-#include <memory>
-#include <string>
+#include "std/string.hpp"
+#include "std/shared_ptr.hpp"
 
 extern jclass g_mapObjectClazz;
-extern jclass g_featureIdClazz;
 extern jclass g_bookmarkClazz;
 extern jclass g_myTrackerClazz;
 extern jclass g_httpClientClazz;
@@ -21,7 +18,6 @@ extern jclass g_httpHeaderClazz;
 extern jclass g_platformSocketClazz;
 extern jclass g_utilsClazz;
 extern jclass g_bannerClazz;
-extern jclass g_ratingClazz;
 extern jclass g_loggerFactoryClazz;
 
 namespace jni
@@ -32,17 +28,16 @@ JavaVM * GetJVM();
 jmethodID GetMethodID(JNIEnv * env, jobject obj, char const * name, char const * signature);
 jmethodID GetStaticMethodID(JNIEnv * env, jclass clazz, char const * name, char const * signature);
 jmethodID GetConstructorID(JNIEnv * env, jclass clazz, char const * signature);
-jfieldID GetStaticFieldID(JNIEnv * env, jclass clazz, char const * name, char const * signature);
 
 // Result value should be DeleteGlobalRef`ed by caller
 jclass GetGlobalClassRef(JNIEnv * env, char const * s);
 
-std::string ToNativeString(JNIEnv * env, jstring str);
+string ToNativeString(JNIEnv * env, jstring str);
 // Converts UTF-8 array to native UTF-8 string. Result differs from simple GetStringUTFChars call for characters greater than U+10000,
 // since jni uses modified UTF (MUTF-8) for strings.
-std::string ToNativeString(JNIEnv * env, jbyteArray const & utfBytes);
+string ToNativeString(JNIEnv * env, jbyteArray const & utfBytes);
 jstring ToJavaString(JNIEnv * env, char const * s);
-inline jstring ToJavaString(JNIEnv * env, std::string const & s)
+inline jstring ToJavaString(JNIEnv * env, string const & s)
 {
   return ToJavaString(env, s.c_str());
 }
@@ -50,11 +45,10 @@ inline jstring ToJavaString(JNIEnv * env, std::string const & s)
 jclass GetStringClass(JNIEnv * env);
 char const * GetStringClassName();
 
-std::string DescribeException();
+string DescribeException();
 bool HandleJavaException(JNIEnv * env);
-my::LogLevel GetLogLevelForException(JNIEnv * env, const jthrowable & e);
 
-std::shared_ptr<jobject> make_global_ref(jobject obj);
+shared_ptr<jobject> make_global_ref(jobject obj);
 using TScopedLocalRef = ScopedLocalRef<jobject>;
 using TScopedLocalClassRef = ScopedLocalRef<jclass>;
 using TScopedLocalObjectArrayRef = ScopedLocalRef<jobjectArray>;

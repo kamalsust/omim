@@ -1,37 +1,46 @@
 #pragma once
 
+#include "indexer/index.hpp"
+
+#include "geometry/rect2d.hpp"
+
 #include "search/engine.hpp"
 
-#include "storage/country_info_getter.hpp"
+#include "std/string.hpp"
+#include "std/unique_ptr.hpp"
+#include "std/weak_ptr.hpp"
 
-#include <memory>
-#include <string>
+class Platform;
 
-class Index;
+namespace storage
+{
+class CountryInfoGetter;
+}
 
 namespace search
 {
-struct SearchParams;
+class SearchParams;
 
 namespace tests_support
 {
-class TestSearchEngine
+class TestSearchEngine : public Index
 {
 public:
-  TestSearchEngine(Index & index, std::unique_ptr<storage::CountryInfoGetter> infoGetter,
-                   Engine::Params const & params);
-  TestSearchEngine(Index & index, Engine::Params const & params);
+  TestSearchEngine(unique_ptr<storage::CountryInfoGetter> infoGetter,
+                   unique_ptr<search::ProcessorFactory> factory, Engine::Params const & params);
+  TestSearchEngine(unique_ptr<::search::ProcessorFactory> factory, Engine::Params const & params);
+  ~TestSearchEngine() override;
 
-  void SetLocale(std::string const & locale) { m_engine.SetLocale(locale); }
+  inline void SetLocale(string const & locale) { m_engine.SetLocale(locale); }
 
-  void LoadCitiesBoundaries() { m_engine.LoadCitiesBoundaries(); }
-
-  std::weak_ptr<search::ProcessorHandle> Search(search::SearchParams const & params);
+  weak_ptr<search::ProcessorHandle> Search(search::SearchParams const & params,
+                                           m2::RectD const & viewport);
 
   storage::CountryInfoGetter & GetCountryInfoGetter() { return *m_infoGetter; }
 
 private:
-  std::unique_ptr<storage::CountryInfoGetter> m_infoGetter;
+  Platform & m_platform;
+  unique_ptr<storage::CountryInfoGetter> m_infoGetter;
   search::Engine m_engine;
 };
 }  // namespace tests_support

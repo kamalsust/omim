@@ -45,9 +45,8 @@ class MyTargetAdsLoader extends CachingNativeAdLoader implements NativeAd.Native
   public void onNoAd(String s, NativeAd nativeAd)
   {
     LOGGER.w(TAG, "onNoAd s = " + s);
-    CustomParams params = nativeAd.getCustomParams();
-    String bannerId = params.getCustomParam(ZONE_KEY_PARAMETER);
-    onError(bannerId, getProvider(), new MyTargetAdError(s));
+    CachedMwmNativeAd ad = new MyTargetNativeAd(nativeAd, 0 /* timestamp */);
+    onError(ad.getBannerId(), ad, new MyTargetAdError(s));
   }
 
   @Override
@@ -56,12 +55,6 @@ class MyTargetAdsLoader extends CachingNativeAdLoader implements NativeAd.Native
     CustomParams params = nativeAd.getCustomParams();
     String bannerId = params.getData().get(ZONE_KEY_PARAMETER);
     onAdClicked(bannerId);
-  }
-
-  @Override
-  public void onShow(NativeAd nativeAd)
-  {
-    // No op.
   }
 
   @NonNull

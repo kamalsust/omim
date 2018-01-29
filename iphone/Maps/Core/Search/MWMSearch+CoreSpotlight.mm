@@ -8,6 +8,8 @@
 
 #include "Framework.h"
 
+#include "search/displayed_categories.hpp"
+
 @implementation MWMSearch (CoreSpotlight)
 
 + (void)addCategoriesToSpotlight

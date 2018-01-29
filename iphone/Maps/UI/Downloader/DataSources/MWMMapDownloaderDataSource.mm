@@ -1,15 +1,18 @@
 #import "MWMMapDownloaderDataSource.h"
+#import "MWMCommon.h"
+#import "MWMMapDownloaderLargeCountryTableViewCell.h"
 #import "MWMMapDownloaderPlaceTableViewCell.h"
 #import "MWMMapDownloaderSubplaceTableViewCell.h"
+#import "MWMMapDownloaderTypes.h"
 #import "SwiftBridge.h"
+
+#include "Framework.h"
 
 using namespace storage;
 
 @implementation MWMMapDownloaderDataSource
 
-- (instancetype)
-initWithDelegate:(id<MWMMapDownloaderProtocol, MWMMapDownloaderButtonTableViewCellProtocol>)delegate
-            mode:(MWMMapDownloaderMode)mode
+- (instancetype)initWithDelegate:(id<MWMMapDownloaderProtocol, MWMMapDownloaderButtonTableViewCellProtocol>)delegate mode:(mwm::DownloaderMode)mode
 {
   self = [super init];
   if (self)

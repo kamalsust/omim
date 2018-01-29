@@ -21,8 +21,6 @@ using namespace storage;
 
 namespace
 {
-static FrameworkParams const kFrameworkParams(false /* m_enableLocalAds */, false /* m_enableDiffs */);
-
 string const kCountriesTxtFile = COUNTRIES_FILE;
 
 string const kMwmVersion1 = "160316";
@@ -89,7 +87,7 @@ UNIT_TEST(SmallMwms_Update_Test)
   TEST(DownloadFile(GetCountriesTxtWebUrl(kMwmVersion1), GetCountriesTxtFilePath(), kCountriesTxtFileSize1), ());
 
   {
-    Framework f(kFrameworkParams);
+    Framework f;
     auto & storage = f.GetStorage();
     string const version = strings::to_string(storage.GetCurrentDataVersion());
     TEST(version::IsSingleMwm(storage.GetCurrentDataVersion()), ());
@@ -127,7 +125,7 @@ UNIT_TEST(SmallMwms_Update_Test)
   TEST(DownloadFile(GetCountriesTxtWebUrl(kMwmVersion2), GetCountriesTxtFilePath(), kCountriesTxtFileSize2), ());
 
   {
-    Framework f(kFrameworkParams);
+    Framework f;
     auto & storage = f.GetStorage();
     string const version = strings::to_string(storage.GetCurrentDataVersion());
     TEST(version::IsSingleMwm(storage.GetCurrentDataVersion()), ());

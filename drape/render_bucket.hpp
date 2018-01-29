@@ -37,7 +37,6 @@ public:
 
   void Update(ScreenBase const & modelView);
   void CollectOverlayHandles(ref_ptr<OverlayTree> tree);
-  bool HasOverlayHandles() const;
   void RemoveOverlayHandles(ref_ptr<OverlayTree> tree);
   void Render(bool drawAsLine);
 
@@ -54,9 +53,6 @@ public:
 
   void SetFeatureMinZoom(int minZoom);
   int GetMinZoom() const { return m_featuresMinZoom; }
-
-private:
-  void BeforeUpdate();
 
 private:
   int m_featuresMinZoom = numeric_limits<int>::max();

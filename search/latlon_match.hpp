@@ -1,9 +1,11 @@
 #pragma once
+#include "std/string.hpp"
 
-#include <string>
 
 namespace search
 {
-// Parses input query for most input coordinates cases.
-bool MatchLatLonDegree(std::string const & query, double & lat, double & lon);
+
+/// Parse input query for most input coordinates cases.
+bool MatchLatLonDegree(string const & query, double & lat, double & lon);
+
 }  // namespace search

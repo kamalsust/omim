@@ -1,6 +1,5 @@
 #pragma once
 
-#include "search/doc_vec.hpp"
 #include "search/model.hpp"
 #include "search/token_range.hpp"
 
@@ -16,22 +15,24 @@
 
 namespace search
 {
-class IdfMap;
-
 struct Locality
 {
+  Locality() = default;
+
   Locality(MwmSet::MwmId const & countryId, uint32_t featureId, TokenRange const & tokenRange,
-           QueryVec const & queryVec)
-    : m_countryId(countryId), m_featureId(featureId), m_tokenRange(tokenRange), m_queryVec(queryVec)
+           double prob)
+    : m_countryId(countryId), m_featureId(featureId), m_tokenRange(tokenRange), m_prob(prob)
   {
   }
-
-  double QueryNorm() { return m_queryVec.Norm(); }
 
   MwmSet::MwmId m_countryId;
   uint32_t m_featureId = 0;
   TokenRange m_tokenRange;
-  QueryVec m_queryVec;
+
+  // Measures our belief in the fact that tokens in the range
+  // [m_startToken, m_endToken) indeed specify a locality. Currently
+  // it is set only for villages.
+  double m_prob = 0.0;
 };
 
 // This struct represents a country or US- or Canadian- state.  It
@@ -47,7 +48,7 @@ struct Region : public Locality
 
   Region(Locality const & locality, Type type) : Locality(locality), m_center(0, 0), m_type(type) {}
 
-  static Model::Type ToModelType(Type type);
+  static SearchModel::SearchType ToSearchType(Type type);
 
   storage::CountryInfoGetter::TRegionIdSet m_ids;
   std::string m_defaultName;
@@ -62,12 +63,12 @@ struct Region : public Locality
 // states and Locality for smaller settlements.
 struct City : public Locality
 {
-  City(Locality const & locality, Model::Type type) : Locality(locality), m_type(type)
+  City(Locality const & locality, SearchModel::SearchType type) : Locality(locality), m_type(type)
   {
   }
 
   m2::RectD m_rect;
-  Model::Type m_type;
+  SearchModel::SearchType m_type;
 
 #if defined(DEBUG)
   std::string m_defaultName;

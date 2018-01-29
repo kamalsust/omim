@@ -29,7 +29,7 @@ class SensorHelper implements SensorEventListener
   @Override
   public void onSensorChanged(SensorEvent event)
   {
-    if (!MwmApplication.get().arePlatformAndCoreInitialized())
+    if (!MwmApplication.get().isFrameworkInitialized())
       return;
 
     boolean hasOrientation = false;

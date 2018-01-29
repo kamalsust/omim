@@ -1,5 +1,7 @@
 project(routing_tests)
 
+include_directories(${OMIM_ROOT}/3party/osrm/osrm-backend/include)
+
 set(
   SRC
   applying_traffic_test.cpp
@@ -7,24 +9,24 @@ set(
   astar_progress_test.cpp
   astar_router_test.cpp
   async_router_test.cpp
-  checkpoint_predictor_test.cpp
   coding_test.cpp
   cross_mwm_connector_test.cpp
+  cross_routing_tests.cpp
   cumulative_restriction_test.cpp
-  fake_graph_test.cpp
   followed_polyline_test.cpp
   index_graph_test.cpp
   index_graph_tools.cpp
   index_graph_tools.hpp
   nearest_edge_finder_tests.cpp
   online_cross_fetcher_test.cpp
+  osrm_router_test.cpp
   restriction_test.cpp
   road_access_test.cpp
   road_graph_builder.cpp
   road_graph_builder.hpp
   road_graph_nearest_edges_test.cpp
   route_tests.cpp
-  routing_helpers_tests.cpp
+  routing_mapping_test.cpp
   routing_session_test.cpp
   turns_generator_test.cpp
   turns_sound_test.cpp
@@ -41,12 +43,12 @@ omim_link_libraries(
   editor
   traffic
   routing_common
-  transit
   platform
   oauthcpp
   geometry
   coding
   base
+  osrm
   protobuf
   succinct
   opening_hours
@@ -56,7 +58,6 @@ omim_link_libraries(
   pugixml
   stats_client
   icu
-  agg
   ${LIBZ}
 )
 

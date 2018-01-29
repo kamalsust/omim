@@ -15,18 +15,18 @@
 #include "coding/file_container.hpp"
 #include "coding/file_writer.hpp"
 
-#include <vector>
+#include "std/vector.hpp"
 
 namespace traffic
 {
-bool GenerateTrafficKeysFromDataFile(std::string const & mwmPath)
+bool GenerateTrafficKeysFromDataFile(string const & mwmPath)
 {
   try
   {
-    std::vector<TrafficInfo::RoadSegmentId> keys;
+    vector<TrafficInfo::RoadSegmentId> keys;
     TrafficInfo::ExtractTrafficKeys(mwmPath, keys);
 
-    std::vector<uint8_t> buf;
+    vector<uint8_t> buf;
     TrafficInfo::SerializeTrafficKeys(keys, buf);
 
     FilesContainerW writeContainer(mwmPath, FileWriter::OP_WRITE_EXISTING);

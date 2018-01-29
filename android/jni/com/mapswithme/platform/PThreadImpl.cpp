@@ -1,4 +1,4 @@
-#include "com/mapswithme/core/jni_helper.hpp"
+#include "../core/jni_helper.hpp"
 
 /// Implements bodies of base/thread.hpp functions for Android
 

@@ -3,21 +3,21 @@
 #include "testing/testing.hpp"
 
 #include "generator/gen_mwm_info.hpp"
+#include "generator/osm_id.hpp"
 
 #include "coding/file_writer.hpp"
 
-#include "base/osm_id.hpp"
 #include "base/string_utils.hpp"
 
-#include <utility>
+#include "std/utility.hpp"
 
 namespace generator
 {
-void ReEncodeOsmIdsToFeatureIdsMapping(std::string const & mappingContent, std::string const & outputFilePath)
+void ReEncodeOsmIdsToFeatureIdsMapping(string const & mappingContent, string const & outputFilePath)
 {
   strings::SimpleTokenizer lineIter(mappingContent, "\n\r" /* line delimiters */);
 
-  gen::Accumulator<std::pair<osm::Id, uint32_t>> osmIdsToFeatureIds;
+  gen::Accumulator<pair<osm::Id, uint32_t>> osmIdsToFeatureIds;
   for (; lineIter; ++lineIter)
   {
     strings::SimpleTokenizer idIter(*lineIter, ", \t" /* id delimiters */);
@@ -30,7 +30,7 @@ void ReEncodeOsmIdsToFeatureIdsMapping(std::string const & mappingContent, std::
     uint32_t featureId = 0;
     TEST(idIter, ());
     TEST(strings::to_uint(*idIter, featureId), ("Cannot convert to uint:", *idIter));
-    osmIdsToFeatureIds.Add(std::make_pair(osm::Id::Way(osmId), featureId));
+    osmIdsToFeatureIds.Add(make_pair(osm::Id::Way(osmId), featureId));
     ++idIter;
     TEST(!idIter, ());
   }

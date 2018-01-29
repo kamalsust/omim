@@ -4,21 +4,30 @@
 #include "platform/settings.hpp"
 
 #include <QtGui/QIcon>
-#include <QtWidgets/QCheckBox>
-#include <QtWidgets/QHBoxLayout>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QTableWidget>
-#include <QtWidgets/QHeaderView>
-#include <QtWidgets/QPushButton>
-#include <QtWidgets/QGroupBox>
-#include <QtWidgets/QButtonGroup>
-#include <QtWidgets/QRadioButton>
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+  #include <QtGui/QCheckBox>
+  #include <QtGui/QHBoxLayout>
+  #include <QtGui/QVBoxLayout>
+  #include <QtGui/QTableWidget>
+  #include <QtGui/QHeaderView>
+  #include <QtGui/QPushButton>
+  #include <QtGui/QGroupBox>
+  #include <QtGui/QButtonGroup>
+  #include <QtGui/QRadioButton>
+#else
+  #include <QtWidgets/QCheckBox>
+  #include <QtWidgets/QHBoxLayout>
+  #include <QtWidgets/QVBoxLayout>
+  #include <QtWidgets/QTableWidget>
+  #include <QtWidgets/QHeaderView>
+  #include <QtWidgets/QPushButton>
+  #include <QtWidgets/QGroupBox>
+  #include <QtWidgets/QButtonGroup>
+  #include <QtWidgets/QRadioButton>
+#endif
 
 using namespace measurement_utils;
-
-#ifdef BUILD_DESIGNER
-string const kEnabledAutoRegenGeomIndex = "EnabledAutoRegenGeomIndex";
-#endif
 
 namespace qt
 {
@@ -58,18 +67,6 @@ namespace qt
       connect(m_pUnits, SIGNAL(buttonClicked(int)), this, SLOT(OnUnitsChanged(int)));
     }
 
-  #ifdef BUILD_DESIGNER
-    QCheckBox * checkBox = new QCheckBox("Enable auto regeneration of geometry index");
-    {
-      bool enabled = false;
-      if (!settings::Get(kEnabledAutoRegenGeomIndex, enabled))
-      {
-        settings::Set(kEnabledAutoRegenGeomIndex, false);
-      }
-      checkBox->setChecked(enabled);
-      connect(checkBox, SIGNAL(stateChanged(int)), this, SLOT(OnEnabledAutoRegenGeomIndex(int)));
-    }
-  #endif
 
     QHBoxLayout * bottomLayout = new QHBoxLayout();
     {
@@ -85,9 +82,6 @@ namespace qt
 
     QVBoxLayout * finalLayout = new QVBoxLayout();
     finalLayout->addWidget(radioBox);
-  #ifdef BUILD_DESIGNER
-    finalLayout->addWidget(checkBox);
-  #endif
     finalLayout->addLayout(bottomLayout);
     setLayout(finalLayout);
   }
@@ -110,11 +104,4 @@ namespace qt
 
     settings::Set(kMeasurementUnits, u);
   }
-
-#ifdef BUILD_DESIGNER
-  void PreferencesDialog::OnEnabledAutoRegenGeomIndex(int i)
-  {
-    settings::Set(kEnabledAutoRegenGeomIndex, static_cast<bool>(i));
-  }
-#endif
 }

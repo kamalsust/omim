@@ -14,44 +14,23 @@ abstract class BaseMwmNativeAd implements MwmNativeAd
   private static final String TAG = BaseMwmNativeAd.class.getSimpleName();
 
   @Override
-  public void registerView(@NonNull View view)
-  {
-    View largeAction = view.findViewById(R.id.tv__action_large);
-    if (UiUtils.isVisible(largeAction))
-    {
-      LOGGER.d(TAG, "Register the large action button for '" + getBannerId() + "'");
-      register(largeAction);
-      return;
-    }
-
-    View smallAction = view.findViewById(R.id.tv__action_small);
-    if (UiUtils.isVisible(smallAction))
-    {
-      LOGGER.d(TAG, "Register the small action button for '" + getBannerId() + "'");
-      register(smallAction);
-    }
-  }
-
-  @Override
-  public void unregisterView(@NonNull View bannerView)
+  public void registerView(@NonNull View bannerView)
   {
     View largeAction = bannerView.findViewById(R.id.tv__action_large);
     if (UiUtils.isVisible(largeAction))
     {
-      LOGGER.d(TAG, "Unregister the large action button for '" + getBannerId() + "'");
-      unregister(largeAction);
+      LOGGER.d(TAG, "Register the large action button for '" + getBannerId() + "'");
+      registerViewForInteraction(largeAction);
       return;
     }
 
-    View smallAction = bannerView.findViewById(R.id.tv__action_small);
-    if (UiUtils.isVisible(smallAction))
+    View actionSmall = bannerView.findViewById(R.id.tv__action_small);
+    if (UiUtils.isVisible(actionSmall))
     {
-      LOGGER.d(TAG, "Unregister the small action button for '" + getBannerId() + "'");
-      unregister(smallAction);
+      LOGGER.d(TAG, "Register the small action button for '" + getBannerId() + "'");
+      registerViewForInteraction(actionSmall);
     }
   }
 
-  abstract void register(@NonNull View view);
-
-  abstract void unregister(@NonNull View view);
+  abstract void registerViewForInteraction(@NonNull View view);
 }

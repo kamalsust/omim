@@ -10,14 +10,14 @@ final class ThemeManager: NSObject {
 
   private func update(theme: MWMTheme) {
     let actualTheme: MWMTheme = { theme in
-      let isVehicleRouting = MWMRouter.isRoutingActive() && (MWMRouter.type() == .vehicle)
+      let isRoutingActive = MWMRouter.isRoutingActive()
       switch theme {
       case .day: fallthrough
-      case .vehicleDay: return isVehicleRouting ? .vehicleDay : .day
+      case .vehicleDay: return isRoutingActive ? .vehicleDay : .day
       case .night: fallthrough
-      case .vehicleNight: return isVehicleRouting ? .vehicleNight : .night
+      case .vehicleNight: return isRoutingActive ? .vehicleNight : .night
       case .auto:
-        guard isVehicleRouting else { return .day }
+        guard isRoutingActive else { return .day }
         switch MWMFrameworkHelper.daytime() {
         case .day: return .vehicleDay
         case .night: return .vehicleNight
@@ -43,11 +43,11 @@ final class ThemeManager: NSObject {
     }
   }
 
-  @objc static func invalidate() {
+  static func invalidate() {
     instance.update(theme: MWMSettings.theme())
   }
 
-  @objc static var autoUpdates: Bool {
+  static var autoUpdates: Bool {
     get {
       return instance.timer != nil
     }

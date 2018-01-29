@@ -1,12 +1,8 @@
 #pragma once
 
-#include "search/cbv.hpp"
 #include "search/geocoder_locality.hpp"
 #include "search/ranking_utils.hpp"
 
-#include "base/string_utils.hpp"
-
-#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -14,7 +10,6 @@
 namespace search
 {
 class CBV;
-class IdfMap;
 class QueryParams;
 struct BaseContext;
 
@@ -30,7 +25,6 @@ public:
 
     virtual void GetNames(uint32_t featureId, std::vector<std::string> & names) const = 0;
     virtual uint8_t GetRank(uint32_t featureId) const = 0;
-    virtual CBV GetMatchedFeatures(strings::UniString const & token, bool isPrefix) const = 0;
   };
 
   LocalityScorer(QueryParams const & params, Delegate const & delegate);
@@ -43,36 +37,29 @@ public:
 private:
   struct ExLocality
   {
-    ExLocality() = default;
-    ExLocality(Locality const & locality, double queryNorm, uint8_t rank);
+    ExLocality();
+    explicit ExLocality(Locality const & locality);
 
-    uint32_t GetId() const { return m_locality.m_featureId; }
+    inline uint32_t GetId() const { return m_locality.m_featureId; }
 
     Locality m_locality;
-    double m_queryNorm = 0.0;
-    double m_similarity = 0.0;
-    uint8_t m_rank = 0;
+    size_t m_numTokens;
+    uint8_t m_rank;
+    NameScore m_nameScore;
   };
 
   friend std::string DebugPrint(ExLocality const & locality);
 
   // Leaves at most |limit| elements of |localities|, ordered by some
   // combination of ranks and number of matched tokens.
-  void LeaveTopLocalities(IdfMap & idfs, size_t limit, std::vector<Locality> & localities) const;
+  void LeaveTopLocalities(size_t limit, std::vector<Locality> & localities) const;
 
-  // Selects at most |limitUniqueIds| best features by query norm and
-  // rank, and then leaves only localities corresponding to those
-  // features in |els|.
-  void LeaveTopByNormAndRank(size_t limitUniqueIds, std::vector<ExLocality> & els) const;
-
-  // Leaves at most |limit| unique best localities by similarity to
-  // the query and rank.
-  void LeaveTopBySimilarityAndRank(size_t limit, std::vector<ExLocality> & els) const;
-
-  void GetDocVecs(uint32_t localityId, std::vector<DocVec> & dvs) const;
-  double GetSimilarity(QueryVec & qv, IdfMap & docIdfs, std::vector<DocVec> & dvs) const;
+  void RemoveDuplicates(std::vector<ExLocality> & ls) const;
+  void LeaveTopByRankAndProb(size_t limit, std::vector<ExLocality> & ls) const;
+  void SortByNameAndProb(std::vector<ExLocality> & ls) const;
 
   QueryParams const & m_params;
   Delegate const & m_delegate;
 };
+
 }  // namespace search

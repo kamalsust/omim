@@ -1,21 +1,27 @@
 package com.mapswithme.maps.settings;
 
+import android.app.Fragment;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.preference.PreferenceActivity;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import com.mapswithme.maps.base.BaseMwmFragment;
+import com.mapswithme.maps.R;
+import com.mapswithme.maps.widget.BaseShadowController;
+import com.mapswithme.util.UiUtils;
 
-abstract class BaseSettingsFragment extends BaseMwmFragment
+abstract class BaseSettingsFragment extends Fragment
 {
   protected View mFrame;
+  private BaseShadowController mShadowController;
 
   private final Rect mSavedPaddings = new Rect();
 
   protected abstract @LayoutRes int getLayoutRes();
+  protected abstract BaseShadowController createShadowController();
 
   private void savePaddings()
   {
@@ -47,6 +53,12 @@ abstract class BaseSettingsFragment extends BaseMwmFragment
     super.onActivityCreated(savedInstanceState);
 
     savePaddings();
+    if (((PreferenceActivity)getActivity()).onIsMultiPane())
+    {
+      mShadowController = createShadowController();
+      if (mShadowController != null)
+        mShadowController.attach();
+    }
   }
 
   @Override
@@ -55,6 +67,33 @@ abstract class BaseSettingsFragment extends BaseMwmFragment
     super.onDestroyView();
 
     restorePaddings();
+    if (mShadowController != null)
+      mShadowController.detach();
+  }
+
+  @Override
+  public void onResume()
+  {
+    super.onResume();
+    org.alohalytics.Statistics.logEvent("$onResume", getClass().getSimpleName() + ":" +
+                                                     UiUtils.deviceOrientationAsString(getActivity()));
+  }
+
+  @Override
+  public void onPause()
+  {
+    super.onPause();
+    org.alohalytics.Statistics.logEvent("$onPause", getClass().getSimpleName() + ":" +
+                                                    UiUtils.deviceOrientationAsString(getActivity()));
+  }
+
+  protected static void adjustMargins(View view)
+  {
+    int margin = UiUtils.dimen(R.dimen.margin_half);
+    ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+    lp.leftMargin = margin;
+    lp.rightMargin = margin;
+    view.setLayoutParams(lp);
   }
 
   protected SettingsActivity getSettingsActivity()

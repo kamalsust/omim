@@ -3,66 +3,53 @@
 #include "search/hotels_filter.hpp"
 #include "search/mode.hpp"
 
+#include "geometry/latlon.hpp"
 #include "geometry/point2d.hpp"
 #include "geometry/rect2d.hpp"
 
-#include <cstddef>
-#include <functional>
-#include <memory>
-#include <string>
-
-#include <boost/optional.hpp>
+#include "std/function.hpp"
+#include "std/string.hpp"
 
 namespace search
 {
 class Results;
-class Tracer;
 
-struct SearchParams
+class SearchParams
 {
-  static size_t const kDefaultNumBookmarksResults = 1000;
-  static size_t const kDefaultNumResultsEverywhere = 30;
-  static size_t const kDefaultNumResultsInViewport = 200;
+public:
+  using TOnStarted = function<void()>;
+  using TOnResults = function<void(Results const &)>;
 
-  using OnStarted = function<void()>;
-  using OnResults = function<void(Results const &)>;
+  void SetPosition(double lat, double lon);
+  m2::PointD GetPositionMercator() const;
+  ms::LatLon GetPositionLatLon() const;
 
+  inline bool IsValidPosition() const { return m_validPos; }
   bool IsEqualCommon(SearchParams const & rhs) const;
+  inline void Clear() { m_query.clear(); }
 
-  void Clear() { m_query.clear(); }
+  TOnStarted m_onStarted;
+  TOnResults m_onResults;
 
-  OnStarted m_onStarted;
-  OnResults m_onResults;
-
-  std::string m_query;
-  std::string m_inputLocale;
-
-  boost::optional<m2::PointD> m_position;
-  m2::RectD m_viewport;
-
-  size_t m_maxNumResults = kDefaultNumResultsEverywhere;
+  string m_query;
+  string m_inputLocale;
 
   // A minimum distance between search results in meters, needed for
   // pre-ranking of viewport search results.
   double m_minDistanceOnMapBetweenResults = 0.0;
 
   Mode m_mode = Mode::Everywhere;
+  bool m_forceSearch = false;
+  bool m_suggestsEnabled = true;
 
-  // Needed to generate search suggests.
-  bool m_suggestsEnabled = false;
+  shared_ptr<hotels_filter::Rule> m_hotelsFilter;
 
-  // Needed to generate address for results.
-  bool m_needAddress = false;
+  friend string DebugPrint(SearchParams const & params);
 
-  // Needed to highlight matching parts of search result names.
-  bool m_needHighlighting = false;
+private:
+  double m_lat = 0.0;
+  double m_lon = 0.0;
 
-  std::shared_ptr<hotels_filter::Rule> m_hotelsFilter;
-
-  bool m_cianMode = false;
-
-  std::shared_ptr<Tracer> m_tracer;
+  bool m_validPos = false;
 };
-
-std::string DebugPrint(SearchParams const & params);
 }  // namespace search

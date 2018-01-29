@@ -24,8 +24,10 @@ char const * kLogoutDialogTitle = "Logout Dialog";
 OsmAuthDialog::OsmAuthDialog(QWidget * parent)
 {
   string key, secret;
-  bool const isLoginDialog = !settings::Get(kTokenKeySetting, key) || key.empty() ||
-                             !settings::Get(kTokenSecretSetting, secret) || secret.empty();
+  settings::Get(kTokenKeySetting, key);
+  settings::Get(kTokenSecretSetting, secret);
+
+  bool const isLoginDialog = key.empty() || secret.empty();
 
   QVBoxLayout * vLayout = new QVBoxLayout(parent);
 

@@ -34,7 +34,7 @@ way|z16-::*
 
 *::int_name
 {
-  text-offset: 1;
+  text-offset: 20;
 }
 
 node::* {

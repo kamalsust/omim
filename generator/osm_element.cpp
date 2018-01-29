@@ -3,11 +3,11 @@
 #include "base/string_utils.hpp"
 #include "coding/parse_xml.hpp"
 
-#include <algorithm>
-#include <cstdio>
-#include <sstream>
+#include "std/algorithm.hpp"
+#include "std/cstdio.hpp"
+#include "std/sstream.hpp"
 
-std::string DebugPrint(OsmElement::EntityType e)
+string DebugPrint(OsmElement::EntityType e)
 {
   switch (e)
   {
@@ -31,7 +31,7 @@ std::string DebugPrint(OsmElement::EntityType e)
 }
 
 
-void OsmElement::AddTag(std::string const & k, std::string const & v)
+void OsmElement::AddTag(string const & k, string const & v)
 {
   // Seems like source osm data has empty values. They are useless for us.
   if (k.empty() || v.empty())
@@ -64,19 +64,19 @@ void OsmElement::AddTag(std::string const & k, std::string const & v)
   SKIP_KEY("official_name");
 #undef SKIP_KEY
 
-  std::string value = v;
+  string value = v;
   strings::Trim(value);
   m_tags.emplace_back(k, value);
 }
 
-std::string OsmElement::ToString(std::string const & shift) const
+string OsmElement::ToString(string const & shift) const
 {
-  std::stringstream ss;
+  stringstream ss;
   ss << (shift.empty() ? "\n" : shift);
   switch (type)
   {
     case EntityType::Node:
-      ss << "Node: " << id << " (" << std::fixed << std::setw(7) << lat << ", " << lon << ")"
+      ss << "Node: " << id << " (" << fixed << setw(7) << lat << ", " << lon << ")"
          << " tags: " << m_tags.size();
       break;
     case EntityType::Nd:
@@ -86,7 +86,7 @@ std::string OsmElement::ToString(std::string const & shift) const
       ss << "Way: " << id << " nds: " << m_nds.size() << " tags: " << m_tags.size();
       if (!m_nds.empty())
       {
-        std::string shift2 = shift;
+        string shift2 = shift;
         shift2 += shift2.empty() ? "\n  " : "  ";
         for (auto const & e : m_nds)
           ss << shift2 << e;
@@ -96,7 +96,7 @@ std::string OsmElement::ToString(std::string const & shift) const
       ss << "Relation: " << id << " members: " << m_members.size() << " tags: " << m_tags.size();
       if (!m_members.empty())
       {
-        std::string shift2 = shift;
+        string shift2 = shift;
         shift2 += shift2.empty() ? "\n  " : "  ";
         for (auto const & e : m_members)
           ss << shift2 << e.ref << " " << DebugPrint(e.type) << " " << e.role;
@@ -113,7 +113,7 @@ std::string OsmElement::ToString(std::string const & shift) const
   }
   if (!m_tags.empty())
   {
-    std::string shift2 = shift;
+    string shift2 = shift;
     shift2 += shift2.empty() ? "\n  " : "  ";
     for (auto const & e : m_tags)
       ss << shift2 << e.key << " = " << e.value;
@@ -121,9 +121,9 @@ std::string OsmElement::ToString(std::string const & shift) const
   return ss.str();
 }
 
-std::string OsmElement::GetTag(std::string const & key) const
+string OsmElement::GetTag(string const & key) const
 {
-  auto const it = std::find_if(begin(m_tags), end(m_tags), [&key](Tag const & tag)
+  auto const it = find_if(begin(m_tags), end(m_tags), [&key](Tag const & tag)
   {
     return tag.key == key;
   });
@@ -134,14 +134,14 @@ std::string OsmElement::GetTag(std::string const & key) const
   return it->value;
 }
 
-std::string DebugPrint(OsmElement const & e)
+string DebugPrint(OsmElement const & e)
 {
   return e.ToString();
 }
 
-std::string DebugPrint(OsmElement::Tag const & tag)
+string DebugPrint(OsmElement::Tag const & tag)
 {
-  std::stringstream ss;
+  stringstream ss;
   ss << tag.key << '=' << tag.value;
   return ss.str();
 }

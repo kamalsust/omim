@@ -11,11 +11,9 @@
 #include "indexer/index.hpp"
 #include "indexer/mwm_set.hpp"
 
-#include <cstdint>
-#include <limits>
-#include <memory>
-#include <utility>
-#include <vector>
+#include "std/unique_ptr.hpp"
+#include "std/utility.hpp"
+#include "std/vector.hpp"
 
 namespace routing
 {
@@ -26,25 +24,27 @@ class NearestEdgeFinder
 {
   struct Candidate
   {
-    double m_dist = std::numeric_limits<double>::max();
-    uint32_t m_segId = 0;
+    double m_dist;
+    uint32_t m_segId;
     Junction m_segStart;
     Junction m_segEnd;
     Junction m_projPoint;
     FeatureID m_fid;
-    bool m_bidirectional = true;
+
+    Candidate();
   };
 
   m2::PointD const m_point;
-  std::vector<Candidate> m_candidates;
+  vector<Candidate> m_candidates;
 
 public:
-  explicit NearestEdgeFinder(m2::PointD const & point);
+  NearestEdgeFinder(m2::PointD const & point);
 
   inline bool HasCandidates() const { return !m_candidates.empty(); }
 
   void AddInformationSource(FeatureID const & featureId, IRoadGraph::RoadInfo const & roadInfo);
 
-  void MakeResult(std::vector<std::pair<Edge, Junction>> & res, size_t const maxCountFeatures);
+  void MakeResult(vector<pair<Edge, Junction>> & res, size_t const maxCountFeatures);
 };
+
 }  // namespace routing

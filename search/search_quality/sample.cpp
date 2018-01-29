@@ -1,6 +1,5 @@
 #include "search/search_quality/sample.hpp"
 
-#include "search/search_params.hpp"
 #include "search/search_quality/helpers.hpp"
 
 #include "indexer/feature.hpp"
@@ -11,13 +10,11 @@
 #include "base/string_utils.hpp"
 
 #include <algorithm>
-#include <ios>
 #include <memory>
 #include <sstream>
 #include <string>
 
 using namespace my;
-using namespace std;
 
 namespace
 {
@@ -49,6 +46,11 @@ bool Equal(std::vector<T> lhs, std::vector<T> rhs)
   sort(rhs.begin(), rhs.end());
   return lhs == rhs;
 }
+
+struct FreeDeletor
+{
+  void operator()(char * buffer) const { free(buffer); }
+};
 }  // namespace
 
 namespace search
@@ -60,7 +62,7 @@ Sample::Result Sample::Result::Build(FeatureType & ft, Relevance relevance)
   r.m_pos = feature::GetCenter(ft);
   {
     string name;
-    ft.GetReadableName(name);
+    ft.GetReadableName(false /* allowTranslit */, name);
     r.m_name = strings::MakeUniString(name);
   }
   r.m_houseNumber = ft.GetHouseNumber();
@@ -99,7 +101,7 @@ bool Sample::DeserializeFromJSON(string const & jsonStr)
   }
   catch (my::Json::Exception const & e)
   {
-    LOG(LWARNING, ("Can't parse sample:", e.Msg(), jsonStr));
+    LOG(LDEBUG, ("Can't parse sample:", e.Msg(), jsonStr));
   }
   return false;
 }
@@ -119,61 +121,56 @@ bool Sample::operator<(Sample const & rhs) const
     return m_locale < rhs.m_locale;
   if (m_pos != rhs.m_pos)
     return m_pos < rhs.m_pos;
-  if (m_posAvailable != rhs.m_posAvailable)
-    return m_posAvailable < rhs.m_posAvailable;
   if (m_viewport != rhs.m_viewport)
     return LessRect(m_viewport, rhs.m_viewport);
-  if (!Equal(m_results, rhs.m_results))
-    return Less(m_results, rhs.m_results);
-  return Less(m_relatedQueries, rhs.m_relatedQueries);
+  return Less(m_results, rhs.m_results);
 }
 
-bool Sample::operator==(Sample const & rhs) const { return !(*this < rhs) && !(rhs < *this); }
+bool Sample::operator==(Sample const & rhs) const
+{
+  return m_query == rhs.m_query && m_locale == rhs.m_locale && m_pos == rhs.m_pos &&
+         m_viewport == rhs.m_viewport && Equal(m_results, rhs.m_results);
+}
 
 // static
-bool Sample::DeserializeFromJSONLines(string const & lines, std::vector<Sample> & samples)
+bool Sample::DeserializeFromJSON(string const & jsonStr, std::vector<Sample> & samples)
 {
-  istringstream is(lines);
-  string line;
-  vector<Sample> result;
-
-  while (getline(is, line))
+  try
   {
-    if (line.empty())
-      continue;
-
-    Sample sample;
-    if (!sample.DeserializeFromJSON(line))
-      return false;
-    result.emplace_back(move(sample));
+    my::Json root(jsonStr.c_str());
+    if (!json_is_array(root.get()))
+      MYTHROW(my::Json::Exception, ("The field", "samples", "must contain a json array."));
+    size_t numSamples = json_array_size(root.get());
+    samples.resize(numSamples);
+    for (size_t i = 0; i < numSamples; ++i)
+      samples[i].DeserializeFromJSONImpl(json_array_get(root.get(), i));
+    return true;
   }
-
-  samples.insert(samples.end(), result.begin(), result.end());
-  return true;
+  catch (my::Json::Exception const & e)
+  {
+    LOG(LERROR, ("Can't parse samples:", e.Msg(), jsonStr));
+  }
+  return false;
 }
 
 // static
-void Sample::SerializeToJSONLines(std::vector<Sample> const & samples, std::string & lines)
+void Sample::SerializeToJSON(std::vector<Sample> const & samples, std::string & jsonStr)
 {
+  auto array = my::NewJSONArray();
   for (auto const & sample : samples)
-  {
-    unique_ptr<char, JSONFreeDeleter> buffer(
-        json_dumps(sample.SerializeToJSON().get(), JSON_COMPACT | JSON_ENSURE_ASCII));
-    lines.append(buffer.get());
-    lines.push_back('\n');
-  }
+    json_array_append_new(array.get(), sample.SerializeToJSON().release());
+  std::unique_ptr<char, FreeDeletor> buffer(
+      json_dumps(array.get(), JSON_COMPACT | JSON_ENSURE_ASCII));
+  jsonStr.assign(buffer.get());
 }
 
 void Sample::DeserializeFromJSONImpl(json_t * root)
 {
   FromJSONObject(root, "query", m_query);
   FromJSONObject(root, "locale", m_locale);
-
-  m_posAvailable = FromJSONObjectOptional(root, "position", m_pos);
-
+  FromJSONObject(root, "position", m_pos);
   FromJSONObject(root, "viewport", m_viewport);
-  FromJSONObjectOptional(root, "results", m_results);
-  FromJSONObjectOptional(root, "related_queries", m_relatedQueries);
+  FromJSONObject(root, "results", m_results);
 }
 
 void Sample::SerializeToJSONImpl(json_t & root) const
@@ -183,21 +180,6 @@ void Sample::SerializeToJSONImpl(json_t & root) const
   ToJSONObject(root, "position", m_pos);
   ToJSONObject(root, "viewport", m_viewport);
   ToJSONObject(root, "results", m_results);
-  ToJSONObject(root, "related_queries", m_relatedQueries);
-}
-
-void Sample::FillSearchParams(search::SearchParams & params) const
-{
-  params.m_query = strings::ToUtf8(m_query);
-  params.m_inputLocale = m_locale;
-  params.m_viewport = m_viewport;
-  params.m_mode = Mode::Everywhere;
-  if (m_posAvailable)
-    params.m_position = m_pos;
-
-  params.m_needAddress = true;
-  params.m_suggestsEnabled = false;
-  params.m_needHighlighting = false;
 }
 
 void FromJSONObject(json_t * root, string const & field, Sample::Result::Relevance & relevance)
@@ -282,16 +264,15 @@ string DebugPrint(Sample const & s)
 {
   ostringstream oss;
   oss << "[";
-  oss << "query: " << DebugPrint(s.m_query) << ", ";
-  oss << "locale: " << s.m_locale << ", ";
-  oss << "pos: " << DebugPrint(s.m_pos) << ", ";
-  oss << "posAvailable: " << boolalpha << s.m_posAvailable << ", ";
-  oss << "viewport: " << DebugPrint(s.m_viewport) << ", ";
+  oss << "query: " << DebugPrint(s.m_query) << " ";
+  oss << "locale: " << s.m_locale << " ";
+  oss << "pos: " << DebugPrint(s.m_pos) << " ";
+  oss << "viewport: " << DebugPrint(s.m_viewport) << " ";
   oss << "results: [";
   for (size_t i = 0; i < s.m_results.size(); ++i)
   {
     if (i > 0)
-      oss << ", ";
+      oss << " ";
     oss << DebugPrint(s.m_results[i]);
   }
   oss << "]";

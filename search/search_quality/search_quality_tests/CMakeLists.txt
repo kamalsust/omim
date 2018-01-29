@@ -9,19 +9,10 @@ omim_add_test(${PROJECT_NAME} ${SRC})
 omim_link_libraries(
   ${PROJECT_NAME}
   search_quality
-  search
-  indexer
-  editor
   platform
   coding
-  geometry
   base
-  icu
   jansson
-  protobuf
-  oauthcpp
-  opening_hours
-  pugixml
   stats_client
   ${LIBZ}
 )

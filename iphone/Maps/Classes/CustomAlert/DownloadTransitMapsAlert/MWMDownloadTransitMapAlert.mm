@@ -1,4 +1,5 @@
 #import "MWMDownloadTransitMapAlert.h"
+#import "MWMAlertViewController.h"
 #import "MWMCircularProgress.h"
 #import "MWMCommon.h"
 #import "MWMDownloaderDialogCell.h"
@@ -93,9 +94,7 @@ CGFloat const kAnimationDuration = .05;
 + (instancetype)alertWithCountries:(storage::TCountriesVec const &)countries
 {
   NSAssert(!countries.empty(), @"countries can not be empty.");
-  MWMDownloadTransitMapAlert * alert =
-      [NSBundle.mainBundle loadNibNamed:kDownloadTransitMapAlertNibName owner:nil options:nil]
-          .firstObject;
+  MWMDownloadTransitMapAlert * alert = [[[NSBundle mainBundle] loadNibNamed:kDownloadTransitMapAlertNibName owner:nil options:nil] firstObject];
 
   alert->m_countries = countries;
   [alert configure];
@@ -119,7 +118,7 @@ CGFloat const kAnimationDuration = .05;
   auto const & s = GetFramework().GetStorage();
   m_countries.erase(
       remove_if(m_countries.begin(), m_countries.end(),
-                [&s](TCountryId const & countryId) { return s.HasLatestVersion(countryId); }),
+                [&s](TCountryId const & countryId) { return s.IsNodeDownloaded(countryId); }),
       m_countries.end());
   NSMutableArray<NSString *> * titles = [@[] mutableCopy];
   TMwmSize totalSize = 0;

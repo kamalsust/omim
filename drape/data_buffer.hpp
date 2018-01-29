@@ -1,14 +1,16 @@
 #pragma once
 
-#include "drape/gpu_buffer.hpp"
 #include "drape/pointers.hpp"
+#include "drape/gpu_buffer.hpp"
 
 namespace dp
 {
+
 class DataBufferBase
 {
 public:
   virtual ~DataBufferBase() {}
+
   virtual uint32_t GetCapacity() const = 0;
   virtual uint32_t GetCurrentSize() const = 0;
   virtual uint32_t GetAvailableSize() const = 0;
@@ -17,13 +19,13 @@ public:
   virtual void const * Data() const = 0;
 
   virtual void UploadData(void const * data, uint32_t elementCount) = 0;
-  virtual void UpdateData(void * destPtr, void const * srcPtr, uint32_t elementOffset,
-                          uint32_t elementCount) = 0;
+  virtual void UpdateData(void * destPtr, void const * srcPtr, uint32_t elementOffset, uint32_t elementCount) = 0;
 
   virtual void Bind() = 0;
-  virtual void * Map(uint32_t elementOffset, uint32_t elementCount) = 0;
+  virtual void * Map() = 0;
   virtual void Unmap() = 0;
 };
+
 
 class DataBuffer
 {
@@ -37,10 +39,11 @@ private:
   drape_ptr<DataBufferBase> m_impl;
 };
 
+
 class DataBufferMapper
 {
 public:
-  DataBufferMapper(ref_ptr<DataBuffer> buffer, uint32_t elementOffset, uint32_t elementCount);
+  DataBufferMapper(ref_ptr<DataBuffer> buffer);
   ~DataBufferMapper();
 
   void UpdateData(void const * data, uint32_t elementOffset, uint32_t elementCount);
@@ -49,4 +52,6 @@ private:
   ref_ptr<DataBuffer> m_buffer;
   void * m_ptr;
 };
-}  // namespace dp
+
+} // namespace dp
+

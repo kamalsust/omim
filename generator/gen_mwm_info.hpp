@@ -1,22 +1,21 @@
 #pragma once
 
-#include "coding/file_reader.hpp"
+#include "generator/osm_id.hpp"
+
 #include "coding/read_write_utils.hpp"
 
 #include "base/assert.hpp"
-#include "base/logging.hpp"
-#include "base/osm_id.hpp"
 
-#include <algorithm>
-#include <utility>
-#include <vector>
+#include "std/algorithm.hpp"
+#include "std/utility.hpp"
+#include "std/vector.hpp"
 
 namespace gen
 {
 template <class T> class Accumulator
 {
 protected:
-  std::vector<T> m_data;
+  vector<T> m_data;
 
 public:
   typedef T ValueT;
@@ -34,7 +33,7 @@ public:
   }
 };
 
-class OsmID2FeatureID : public Accumulator<std::pair<osm::Id, uint32_t /* feature id */>>
+class OsmID2FeatureID : public Accumulator<pair<osm::Id, uint32_t /* feature id */>>
 {
   typedef Accumulator<ValueT> BaseT;
 
@@ -48,19 +47,18 @@ class OsmID2FeatureID : public Accumulator<std::pair<osm::Id, uint32_t /* featur
 public:
   template <class TSink> void Flush(TSink & sink)
   {
-    std::sort(m_data.begin(), m_data.end());
+    sort(m_data.begin(), m_data.end());
     BaseT::Flush(sink);
   }
 
-  /// Find a feature id for an OSM id.
-  bool GetFeatureID(osm::Id const & id, uint32_t & result) const
+  /// Find a feature id for an OSM way id. Returns 0 if the feature was not found.
+  uint32_t GetRoadFeatureID(uint64_t wayId) const
   {
-    auto const it = std::lower_bound(m_data.begin(), m_data.end(), id, LessID());
-    if (it == m_data.end() || it->first != id)
-        return false;
-
-    result = it->second;
-    return true;
+    osm::Id id = osm::Id::Way(wayId);
+    auto const it = lower_bound(m_data.begin(), m_data.end(), id, LessID());
+    if (it != m_data.end() && it->first == id)
+      return it->second;
+    return 0;
   }
 
   template <class Fn>
@@ -68,24 +66,6 @@ public:
   {
     for (auto const & v : m_data)
       fn(v);
-  }
-
-  bool ReadFromFile(std::string const & filename)
-  {
-    try
-    {
-      FileReader reader(filename);
-      NonOwningReaderSource src(reader);
-      Read(src);
-    }
-    catch (FileReader::Exception const & e)
-    {
-      LOG(LERROR, ("Exception while reading osm id to feature id mapping from file", filename,
-                   ". Msg:", e.Msg()));
-      return false;
-    }
-
-    return true;
   }
 };
 }  // namespace gen

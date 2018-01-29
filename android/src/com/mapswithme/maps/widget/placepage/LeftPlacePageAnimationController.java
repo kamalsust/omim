@@ -28,7 +28,7 @@ class LeftPlacePageAnimationController extends BasePlacePageAnimationController
   @Override
   protected boolean onInterceptTouchEvent(MotionEvent event)
   {
-    if (mPlacePage.isHorizontalScrollAreaTouched(event))
+    if (mPlacePage.isTouchGallery(event))
       return false;
 
     switch (event.getAction())
@@ -105,20 +105,11 @@ class LeftPlacePageAnimationController extends BasePlacePageAnimationController
     }
   }
 
-  @Override
-  public void onScroll(int left, int top)
-  {
-    super.onScroll(left, top);
-    notifyProgress(0, 0);
-  }
-
   private void startTracking(boolean collapsed)
   {
     MwmActivity.LeftAnimationTrackListener tracker = mPlacePage.getLeftAnimationTrackListener();
     if (tracker != null)
       tracker.onTrackStarted(collapsed);
-
-    notifyProgress(0, 0);
   }
 
   private void finishTracking(boolean collapsed)
@@ -126,8 +117,6 @@ class LeftPlacePageAnimationController extends BasePlacePageAnimationController
     MwmActivity.LeftAnimationTrackListener tracker = mPlacePage.getLeftAnimationTrackListener();
     if (tracker != null)
       tracker.onTrackFinished(collapsed);
-
-    notifyProgress(0, 0);
   }
 
   private void track(ValueAnimator animation)
@@ -144,8 +133,6 @@ class LeftPlacePageAnimationController extends BasePlacePageAnimationController
     MwmActivity.LeftAnimationTrackListener tracker = mPlacePage.getLeftAnimationTrackListener();
     if (tracker != null)
       tracker.onTrackLeftAnimation(offset + mPlacePage.getDockedWidth());
-
-    notifyProgress(0, 0);
   }
 
   private void showPlacePage(final State currentState)

@@ -13,6 +13,9 @@ import android.widget.TextView;
 import com.mapswithme.maps.BuildConfig;
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.WebContainerDelegate;
+import com.mapswithme.maps.widget.BaseShadowController;
+import com.mapswithme.maps.widget.ObservableWebView;
+import com.mapswithme.maps.widget.WebViewShadowController;
 import com.mapswithme.util.Constants;
 import com.mapswithme.util.Utils;
 import com.mapswithme.util.statistics.AlohaHelper;
@@ -26,6 +29,15 @@ public class HelpFragment extends BaseSettingsFragment
   protected int getLayoutRes()
   {
     return R.layout.fragment_prefs_help;
+  }
+
+  @Override
+  protected BaseShadowController createShadowController()
+  {
+    clearPaddings();
+    adjustMargins(mDelegate.getWebView());
+    return new WebViewShadowController((ObservableWebView)mDelegate.getWebView())
+               .addBottomShadow();
   }
 
   @Override

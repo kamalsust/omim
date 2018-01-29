@@ -1,8 +1,7 @@
 #include "android_gl_utils.hpp"
 
-#include "base/logging.hpp"
-#include "base/src_point.hpp"
-#include "base/string_utils.hpp"
+#include "../../../../../base/logging.hpp"
+#include "../../../../../base/string_utils.hpp"
 
 namespace android
 {

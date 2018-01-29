@@ -1,17 +1,16 @@
 #import "MWMTableViewController.h"
-
-struct BookmarkAndCategory;
+#include "Framework.h"
 
 @protocol MWMSelectSetDelegate <NSObject>
 
-- (void)didSelectCategory:(NSString *)category withCategoryIndex:(size_t)categoryIndex;
+- (void)didSelectCategory:(NSString *)category withBac:(BookmarkAndCategory const &)bac;
 
 @end
 
 @interface SelectSetVC : MWMTableViewController
 
 - (instancetype)initWithCategory:(NSString *)category
-                   categoryIndex:(size_t)categoryIndex
+                             bac:(BookmarkAndCategory const &)bac
                         delegate:(id<MWMSelectSetDelegate>)delegate;
 
 @end

@@ -1,6 +1,6 @@
 project(style_tests)
 
-include_directories(${OMIM_ROOT}/3party/protobuf/protobuf/src)
+include_directories(${OMIM_ROOT}/3party/protobuf/src)
 
 set(
   SRC
@@ -10,11 +10,6 @@ set(
   style_symbols_consistency_test.cpp
 )
 
-
-if (BUILD_DESIGNER)
-  set(SRC MACOSX_BUNDLE ${SRC})
-endif()
-
 omim_add_test(${PROJECT_NAME} ${SRC})
 
 omim_link_libraries(
@@ -23,6 +18,7 @@ omim_link_libraries(
   map
   traffic
   indexer
+  osrm
   pugixml
   opening_hours
   editor
@@ -34,7 +30,6 @@ omim_link_libraries(
   base
   protobuf
   icu
-  agg
   stats_client
   ${LIBZ}
 )

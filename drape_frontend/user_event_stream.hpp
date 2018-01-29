@@ -138,13 +138,11 @@ private:
 class SetCenterEvent : public UserEvent
 {
 public:
-  SetCenterEvent(m2::PointD const & center, int zoom,
-                 bool isAnim, bool trackVisibleViewport,
+  SetCenterEvent(m2::PointD const & center, int zoom, bool isAnim,
                  TAnimationCreator const & parallelAnimCreator = nullptr)
     : m_center(center)
     , m_zoom(zoom)
     , m_isAnim(isAnim)
-    , m_trackVisibleViewport(trackVisibleViewport)
     , m_parallelAnimCreator(parallelAnimCreator)
   {
   }
@@ -154,14 +152,12 @@ public:
   m2::PointD const & GetCenter() const { return m_center; }
   int GetZoom() const { return m_zoom; }
   bool IsAnim() const { return m_isAnim; }
-  bool TrackVisibleViewport() const { return m_trackVisibleViewport; }
   TAnimationCreator const & GetParallelAnimCreator() const { return m_parallelAnimCreator; }
 
 private:
   m2::PointD m_center; // center point in mercator
   int m_zoom; // if zoom == -1, then zoom level will'n change
   bool m_isAnim;
-  bool m_trackVisibleViewport;
   TAnimationCreator m_parallelAnimCreator;
 };
 
@@ -216,8 +212,7 @@ class FollowAndRotateEvent : public UserEvent
 {
 public:
   FollowAndRotateEvent(m2::PointD const & userPos, m2::PointD const & pixelZero,
-                       double azimuth, double autoScale,
-                       TAnimationCreator const & parallelAnimCreator = nullptr)
+                       double azimuth, double autoScale, TAnimationCreator const & parallelAnimCreator = nullptr)
     : m_userPos(userPos)
     , m_pixelZero(pixelZero)
     , m_azimuth(azimuth)
@@ -225,15 +220,13 @@ public:
     , m_autoScale(autoScale)
     , m_isAutoScale(true)
     , m_isAnim(true)
-    , m_onFinishAction(nullptr)
     , m_parallelAnimCreator(parallelAnimCreator)
   {
   }
 
   FollowAndRotateEvent(m2::PointD const & userPos, m2::PointD const & pixelZero,
                        double azimuth, int preferredZoomLevel,
-                       bool isAnim, Animation::TAction const & onFinishAction = nullptr,
-                       TAnimationCreator const & parallelAnimCreator = nullptr)
+                       bool isAnim, TAnimationCreator const & parallelAnimCreator = nullptr)
     : m_userPos(userPos)
     , m_pixelZero(pixelZero)
     , m_azimuth(azimuth)
@@ -241,7 +234,6 @@ public:
     , m_autoScale(kDoNotAutoZoom)
     , m_isAutoScale(false)
     , m_isAnim(isAnim)
-    , m_onFinishAction(onFinishAction)
     , m_parallelAnimCreator(parallelAnimCreator)
   {}
 
@@ -255,7 +247,6 @@ public:
   bool IsAutoScale() const { return m_isAutoScale; }
   bool IsAnim() const { return m_isAnim; }
   TAnimationCreator const & GetParallelAnimCreator() const { return m_parallelAnimCreator; }
-  Animation::TAction const & GetOnFinishAction() const { return m_onFinishAction; }
 
 private:
   m2::PointD m_userPos;
@@ -265,7 +256,6 @@ private:
   double m_autoScale;
   bool m_isAutoScale;
   bool m_isAnim;
-  Animation::TAction m_onFinishAction;
   TAnimationCreator m_parallelAnimCreator;
 };
 
@@ -406,7 +396,6 @@ private:
   bool OnSetRect(ref_ptr<SetRectEvent> rectEvent);
   bool OnSetCenter(ref_ptr<SetCenterEvent> centerEvent);
   bool OnRotate(ref_ptr<RotateEvent> rotateEvent);
-  bool OnNewVisibleViewport(ref_ptr<SetVisibleViewportEvent> viewportEvent);
 
   bool SetAngle(double azimuth, TAnimationCreator const & parallelAnimCreator = nullptr);
   bool SetRect(m2::RectD rect, int zoom, bool applyRotation, bool isAnim,
@@ -418,7 +407,7 @@ private:
                  TAnimationCreator const & parallelAnimCreator = nullptr);
   bool SetFollowAndRotate(m2::PointD const & userPos, m2::PointD const & pixelPos,
                           double azimuth, int preferredZoomLevel, double autoScale,
-                          bool isAnim, bool isAutoScale, Animation::TAction const & onFinishAction = nullptr,
+                          bool isAnim, bool isAutoScale,
                           TAnimationCreator const & parallelAnimCreator = nullptr);
   void SetAutoPerspective(bool isAutoPerspective);
   void CheckAutoRotate();
@@ -428,13 +417,13 @@ private:
   bool ProcessTouch(TouchEvent const & touch);
 
   bool TouchDown(array<Touch, 2> const & touches);
-  bool TouchMove(array<Touch, 2> const & touches);
+  bool TouchMove(array<Touch, 2> const & touches, double timestamp);
   bool TouchCancel(array<Touch, 2> const & touches);
   bool TouchUp(array<Touch, 2> const & touches);
   void UpdateTouches(array<Touch, 2> const & touches);
 
-  void BeginDrag(Touch const & t);
-  void Drag(Touch const & t);
+  void BeginDrag(Touch const & t, double timestamp);
+  void Drag(Touch const & t, double timestamp);
   // EndDrag returns false in case of kinetic moving after dragging has begun.
   bool EndDrag(Touch const & t, bool cancelled);
 
@@ -475,8 +464,6 @@ private:
   mutable mutex m_lock;
 
   m2::RectD m_visibleViewport;
-  m2::PointD m_trackedCenter;
-  bool m_needTrackCenter = false;
 
   Navigator m_navigator;
   my::Timer m_touchTimer;

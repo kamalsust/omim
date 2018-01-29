@@ -1,6 +1,6 @@
 //
 //  MTRGNativeViewsFactory.h
-//  myTargetSDK 4.6.15
+//  myTargetSDK 4.5.10
 //
 //  Created by Anton Bulankin on 17.11.14.
 //  Copyright (c) 2014 Mail.ru Group. All rights reserved.
@@ -19,10 +19,6 @@
 #import <MyTargetSDK/MTRGAppwallBannerAdView.h>
 #import <MyTargetSDK/MTRGAppwallAdView.h>
 
-#import <MyTargetSDK/MTRGMediaAdView.h>
-#import <MyTargetSDK/MTRGContentStreamCardAdView.h>
-#import <MyTargetSDK/MTRGPromoCardCollectionView.h>
-
 @interface MTRGNativeViewsFactory : NSObject
 
 + (MTRGNewsFeedAdView *)createNewsFeedViewWithBanner:(MTRGNativePromoBanner *)teaserBanner;
@@ -39,11 +35,5 @@
 + (MTRGAppwallBannerAdView *)createAppWallBannerViewWithDelegate:(id <MTRGAppwallBannerAdViewDelegate>)delegate;
 
 + (MTRGAppwallAdView *)createAppWallAdViewWithBanners:(NSArray *)banners;
-
-+ (MTRGMediaAdView *)createMediaAdView;
-
-+ (MTRGContentStreamCardAdView *)createContentStreamCardAdView;
-
-+ (MTRGPromoCardCollectionView *)createPromoCardCollectionView;
 
 @end

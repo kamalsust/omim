@@ -10,14 +10,14 @@
 #include "base/assert.hpp"
 #include "base/logging.hpp"
 
-#include <string>
+#include "std/string.hpp"
 
 using namespace my;
 
 // @todo(vbykoianko) Probably it's worth thinking about output of the function to make the result of
 // the tests more readable.
 // @todo(vbykoianko) It's necessary display the test name in the android log.
-static void AndroidLogMessage(LogLevel l, SrcPoint const & src, std::string const & s)
+static void AndroidLogMessage(LogLevel l, SrcPoint const & src, string const & s)
 {
   android_LogPriority pr = ANDROID_LOG_SILENT;
 
@@ -30,11 +30,11 @@ static void AndroidLogMessage(LogLevel l, SrcPoint const & src, std::string cons
   case LCRITICAL: pr = ANDROID_LOG_FATAL; break;
   }
 
-  std::string const out = DebugPrint(src) + " " + s;
+  string const out = DebugPrint(src) + " " + s;
   __android_log_write(pr, " MapsMeTests ", out.c_str());
 }
 
-static bool AndroidAssertMessage(SrcPoint const & src, std::string const & s)
+static void AndroidAssertMessage(SrcPoint const & src, string const & s)
 {
 #if defined(MWM_LOG_TO_FILE)
   AndroidLogToFile(LERROR, src, s);
@@ -47,7 +47,6 @@ static bool AndroidAssertMessage(SrcPoint const & src, std::string const & s)
 #else
     MYTHROW(RootException, (s));
 #endif
-  return true;
 }
 
 static void InitSystemLog()
@@ -97,7 +96,7 @@ namespace android_tests
     return false;
   }
 
-  static std::string GetApkPath(ANativeActivity * activity, JNIEnv * env)
+  static string GetApkPath(ANativeActivity * activity, JNIEnv * env)
   {
     ASSERT(activity, ());
     ASSERT(env, ());
@@ -114,7 +113,7 @@ namespace android_tests
     return res;
   }
 
-  static std::string GetSdcardPath(ANativeActivity * activity, JNIEnv * env)
+  static string GetSdcardPath(ANativeActivity * activity, JNIEnv * env)
   {
     ASSERT(activity, ());
     ASSERT(env, ());
@@ -140,7 +139,7 @@ namespace android_tests
     return res;
   }
 
-  static std::string GetPackageName(ANativeActivity * activity, JNIEnv * env)
+  static string GetPackageName(ANativeActivity * activity, JNIEnv * env)
   {
     ASSERT(activity, ());
     ASSERT(env, ());
@@ -163,13 +162,13 @@ namespace android_tests
     void Initialize(ANativeActivity * activity, JNIEnv * env)
     {
       LOG(LINFO, ("Platform::Initialize()"));
-      std::string apkPath = android_tests::GetApkPath(activity, env);
+      string apkPath = android_tests::GetApkPath(activity, env);
       LOG(LINFO, ("Apk path FromJNI: ", apkPath.c_str()));
 
-      std::string sdcardPath = android_tests::GetSdcardPath(activity, env);
+      string sdcardPath = android_tests::GetSdcardPath(activity, env);
       LOG(LINFO, ("Sdcard path FromJNI: ", sdcardPath.c_str()));
 
-      std::string packageName = android_tests::GetPackageName(activity, env);
+      string packageName = android_tests::GetPackageName(activity, env);
       LOG(LINFO, ("Package name FromJNI: ", packageName.c_str()));
 
       m_writableDir = sdcardPath + "/MapsWithMe/";
@@ -181,12 +180,12 @@ namespace android_tests
     }
 
     /// get storage path without ending "/MapsWithMe/"
-    std::string GetStoragePathPrefix() const
+    string GetStoragePathPrefix() const
     {
-      return std::string("/sdcard");
+      return string("/sdcard");
     }
     /// assign storage path (should contain ending "/MapsWithMe/")
-    void SetStoragePath(std::string const & path) {}
+    void SetStoragePath(string const & path) {}
 
     bool HasAvailableSpaceForWriting(uint64_t size) const{ return true; }
 
@@ -203,7 +202,7 @@ Platform & GetPlatform()
   return android_tests::Platform::Instance();
 }
 
-std::string GetAndroidSystemLanguage()
+string GetAndroidSystemLanguage()
 {
   return "en_US";
 }

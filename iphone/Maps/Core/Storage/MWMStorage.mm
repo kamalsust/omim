@@ -1,12 +1,11 @@
+#import "MWMCommon.h"
 #import "MWMStorage.h"
-#import "MWMAlertViewController.h"
-#import "MWMRouter.h"
 
 #include "Framework.h"
 
-#include "storage/storage_helpers.hpp"
+#include "platform/platform.hpp"
 
-#include <numeric>
+#include "storage/storage_helpers.hpp"
 
 using namespace storage;
 
@@ -51,13 +50,13 @@ using namespace storage;
 
 + (void)deleteNode:(TCountryId const &)countryId
 {
-  if ([MWMRouter isRoutingActive])
+  auto & f = GetFramework();
+  if (f.IsRoutingActive())
   {
     [[MWMAlertViewController activeAlertController] presentDeleteMapProhibitedAlert];
     return;
   }
 
-  auto & f = GetFramework();
   if (f.HasUnsavedEdits(countryId))
   {
     [[MWMAlertViewController activeAlertController]
@@ -82,17 +81,17 @@ using namespace storage;
 }
 + (void)downloadNodes:(TCountriesVec const &)countryIds onSuccess:(MWMVoidBlock)onSuccess
 {
-  auto & s = GetFramework().GetStorage();
-  TMwmSize requiredSize = std::accumulate(countryIds.begin(), countryIds.end(), s.GetMaxMwmSizeBytes(),
+  TMwmSize requiredSize = accumulate(countryIds.begin(), countryIds.end(), kMaxMwmSizeBytes,
                                      [](size_t const & size, TCountryId const & countryId)
                                      {
                                        NodeAttrs nodeAttrs;
                                        GetFramework().GetStorage().GetNodeAttrs(countryId, nodeAttrs);
-                                       return size + nodeAttrs.m_mwmSize;
+                                       return size + nodeAttrs.m_mwmSize - nodeAttrs.m_localMwmSize;
                                      });
-  if (storage::IsEnoughSpaceForDownload(requiredSize))
+  if (GetPlatform().GetWritableStorageStatus(requiredSize) == Platform::TStorageStatus::STORAGE_OK)
   {
-    [self checkConnectionAndPerformAction:[countryIds, onSuccess, &s] {
+    [self checkConnectionAndPerformAction:[countryIds, onSuccess] {
+      auto & s = GetFramework().GetStorage();
       for (auto const & countryId : countryIds)
         s.DownloadNode(countryId);
       if (onSuccess)

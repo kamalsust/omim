@@ -15,10 +15,8 @@ constexpr char const * kUploadStatus = "upload_status";
 constexpr char const * kUploadError = "upload_error";
 constexpr char const * kHouseNumber = "addr:housenumber";
 
-constexpr char const * kUnknownType = "unknown";
 constexpr char const * kNodeType = "node";
 constexpr char const * kWayType = "way";
-constexpr char const * kRelationType = "relation";
 
 pugi::xml_node FindTag(pugi::xml_document const & document, string const & key)
 {
@@ -47,18 +45,14 @@ m2::PointD GetMercatorPointFromNode(pugi::xml_node const & node)
 
 void ValidateElement(pugi::xml_node const & nodeOrWay)
 {
-  using editor::XMLFeature;
-
   if (!nodeOrWay)
     MYTHROW(editor::InvalidXML, ("Document has no valid root element."));
 
-  auto const type = XMLFeature::StringToType(nodeOrWay.name());
-
-  if (type == XMLFeature::Type::Unknown)
-    MYTHROW(editor::InvalidXML, ("XMLFeature does not support root tag", nodeOrWay.name()));
-
-  if (type == XMLFeature::Type::Node)
+  string const type = nodeOrWay.name();
+  if (type == kNodeType)
     UNUSED_VALUE(GetLatLonFromNode(nodeOrWay));
+  else if (type != kWayType)
+    MYTHROW(editor::InvalidXML, ("XMLFeature does not support root tag", type));
 
   if (!nodeOrWay.attribute(kTimestamp))
     MYTHROW(editor::NoTimestamp, ("Node has no timestamp attribute"));
@@ -75,9 +69,7 @@ char const * const XMLFeature::kIntlLang =
 
 XMLFeature::XMLFeature(Type const type)
 {
-  ASSERT_NOT_EQUAL(type, Type::Unknown, ());
-
-  m_document.append_child(TypeToString(type).c_str());
+  m_document.append_child(type == Type::Node ? kNodeType : kWayType);
 }
 
 XMLFeature::XMLFeature(string const & xml)
@@ -119,20 +111,37 @@ vector<XMLFeature> XMLFeature::FromOSM(string const & osmXml)
   vector<XMLFeature> features;
   for (auto const n : doc.child("osm").children())
   {
-    if (StringToType(n.name()) != Type::Unknown)
-      features.emplace_back(n);
+    string const name(n.name());
+    // TODO(AlexZ): Add relation support.
+    if (name == kNodeType || name == kWayType)
+      features.push_back(XMLFeature(n));  // TODO(AlexZ): Use emplace_back when pugi supports it.
   }
   return features;
 }
 
 XMLFeature::Type XMLFeature::GetType() const
 {
-  return StringToType(GetRootNode().name());
+  return strcmp(GetRootNode().name(), "node") == 0 ? Type::Node : Type::Way;
 }
 
 string XMLFeature::GetTypeString() const
 {
   return GetRootNode().name();
+}
+
+bool XMLFeature::IsArea() const
+{
+  if (strcmp(GetRootNode().name(), kWayType) != 0)
+    return false;
+
+  vector<string> ndIds;
+  for (auto const & nd : GetRootNode().select_nodes("nd"))
+    ndIds.push_back(nd.node().attribute("ref").value());
+
+  if (ndIds.size() < 4)
+    return false;
+
+  return ndIds.front() == ndIds.back();
 }
 
 void XMLFeature::Save(ostream & ost) const
@@ -192,13 +201,12 @@ m2::PointD XMLFeature::GetMercatorCenter() const
 
 ms::LatLon XMLFeature::GetCenter() const
 {
-  ASSERT_EQUAL(GetType(), Type::Node, ());
   return GetLatLonFromNode(GetRootNode());
 }
 
 void XMLFeature::SetCenter(ms::LatLon const & ll)
 {
-  ASSERT_EQUAL(GetType(), Type::Node, ());
+  ASSERT_EQUAL(GetRootNode().name(), string(kNodeType), ());
   SetAttribute("lat", strings::to_string_dac(ll.lat, kLatLonTolerance));
   SetAttribute("lon", strings::to_string_dac(ll.lon, kLatLonTolerance));
 }
@@ -208,11 +216,10 @@ void XMLFeature::SetCenter(m2::PointD const & mercatorCenter)
   SetCenter(MercatorBounds::ToLatLon(mercatorCenter));
 }
 
-vector<m2::PointD> XMLFeature::GetGeometry() const
+XMLFeature::TMercatorGeometry XMLFeature::GetGeometry() const
 {
-  ASSERT_NOT_EQUAL(GetType(), Type::Unknown, ());
-  ASSERT_NOT_EQUAL(GetType(), Type::Node, ());
-  vector<m2::PointD> geometry;
+  ASSERT_EQUAL(GetType(), Type::Way, ("Only ways have geometry"));
+  TMercatorGeometry geometry;
   for (auto const xCenter : GetRootNode().select_nodes("nd"))
   {
     ASSERT(xCenter.node(), ("no nd attribute."));
@@ -387,31 +394,6 @@ bool XMLFeature::AttachToParentNode(pugi::xml_node parent) const
   return !parent.append_copy(GetRootNode()).empty();
 }
 
-// static
-string XMLFeature::TypeToString(Type type)
-{
-  switch (type)
-  {
-  case Type::Unknown: return kUnknownType;
-  case Type::Node: return kNodeType;
-  case Type::Way: return kWayType;
-  case Type::Relation: return kRelationType;
-  }
-}
-
-// static
-XMLFeature::Type XMLFeature::StringToType(string const & type)
-{
-  if (type == kNodeType)
-    return Type::Node;
-  if (type == kWayType)
-    return Type::Way;
-  if (type == kRelationType)
-    return Type::Relation;
-
-  return Type::Unknown;
-}
-
 string DebugPrint(XMLFeature const & feature)
 {
   ostringstream ost;
@@ -421,6 +403,10 @@ string DebugPrint(XMLFeature const & feature)
 
 string DebugPrint(XMLFeature::Type const type)
 {
-  return XMLFeature::TypeToString(type);
+  switch (type)
+  {
+  case XMLFeature::Type::Node: return "Node";
+  case XMLFeature::Type::Way: return "Way";
+  }
 }
 } // namespace editor

@@ -29,14 +29,8 @@ void LoadAndMap(size_t dataSize, ReaderSource<FilesContainerR::TReader> & src, T
 
 namespace feature
 {
-AltitudeLoader::AltitudeLoader(Index const & index, MwmSet::MwmId const & mwmId)
-  : m_handle(index.GetMwmHandleById(mwmId))
+AltitudeLoader::AltitudeLoader(MwmValue const & mwmValue)
 {
-  if (!m_handle.IsAlive())
-    return;
-
-  auto const & mwmValue = *m_handle.GetValue<MwmValue>();
-
   m_countryFileName = mwmValue.GetCountryFileName();
 
   if (mwmValue.GetHeader().GetFormat() < version::Format::v8)

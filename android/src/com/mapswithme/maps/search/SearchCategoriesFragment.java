@@ -22,9 +22,10 @@ public class SearchCategoriesFragment extends BaseMwmRecyclerFragment
     return R.layout.fragment_search_categories;
   }
 
-
-  protected void safeOnActivityCreated(@Nullable Bundle savedInstanceState)
+  @Override
+  public void onActivityCreated(@Nullable Bundle savedInstanceState)
   {
+    super.onActivityCreated(savedInstanceState);
     ((SearchFragment) getParentFragment()).setRecyclerScrollListener(getRecyclerView());
   }
 

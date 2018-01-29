@@ -19,7 +19,7 @@ WritableDirChanger::WritableDirChanger(string const & testDir, SettingsDirPolicy
   TEST_EQUAL(Platform::ERR_OK, platform.MkDir(m_testDirFullPath), ());
   platform.SetWritableDirForTests(m_testDirFullPath);
   if (m_settingsDirPolicy == SettingsDirPolicy::UseWritableDir)
-    platform.SetSettingsDir(m_testDirFullPath);
+    platform.SetSettingsDirForTests(m_testDirFullPath);
   settings::Clear();
 }
 
@@ -30,6 +30,6 @@ WritableDirChanger::~WritableDirChanger()
   string const writableDirForTest = platform.WritableDir();
   platform.SetWritableDirForTests(m_writableDirBeforeTest);
   if (m_settingsDirPolicy == SettingsDirPolicy::UseWritableDir)
-    platform.SetSettingsDir(m_writableDirBeforeTest);
+    platform.SetSettingsDirForTests(m_writableDirBeforeTest);
   platform.RmDirRecursively(writableDirForTest);
 }

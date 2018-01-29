@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drape_frontend/custom_symbol.hpp"
 #include "drape_frontend/stylist.hpp"
 #include "drape_frontend/tile_key.hpp"
 #include "drape_frontend/shape_view_params.hpp"
@@ -7,7 +8,6 @@
 #include "drape/pointers.hpp"
 
 #include "indexer/ftypes_matcher.hpp"
-#include "indexer/road_shields_parser.hpp"
 
 #include "coding/point_to_integer.hpp"
 
@@ -15,7 +15,7 @@
 #include "geometry/polyline2d.hpp"
 #include "geometry/spline.hpp"
 
-#include <vector>
+#include "std/unordered_map.hpp"
 
 class CaptionDefProto;
 class ShieldRuleProto;
@@ -23,10 +23,10 @@ class SymbolRuleProto;
 
 //#define CALC_FILTERED_POINTS
 
-namespace dp
+namespace ftypes
 {
-class TextureManager;
-} // namespace dp
+struct RoadShield;
+}
 
 namespace df
 {
@@ -40,9 +40,8 @@ using TInsertShapeFn = function<void(drape_ptr<MapShape> && shape)>;
 class BaseApplyFeature
 {
 public:
-  BaseApplyFeature(TileKey const & tileKey, TInsertShapeFn const & insertShape,
-                   FeatureID const & id, int minVisibleScale, uint8_t rank,
-                   CaptionDescription const & captions);
+  BaseApplyFeature(TileKey const & tileKey, TInsertShapeFn const & insertShape, FeatureID const & id,
+                   int minVisibleScale, uint8_t rank, CaptionDescription const & captions);
 
   virtual ~BaseApplyFeature() {}
 
@@ -78,14 +77,13 @@ class ApplyPointFeature : public BaseApplyFeature
   using TBase = BaseApplyFeature;
 
 public:
-  ApplyPointFeature(TileKey const & tileKey, TInsertShapeFn const & insertShape,
-                    FeatureID const & id, int minVisibleScale, uint8_t rank,
-                    CaptionDescription const & captions, float posZ,
-                    int displacementMode, RenderState::DepthLayer depthLayer);
+  ApplyPointFeature(TileKey const & tileKey, TInsertShapeFn const & insertShape, FeatureID const & id,
+                    int minVisibleScale, uint8_t rank, CaptionDescription const & captions,
+                    float posZ);
 
   void operator()(m2::PointD const & point, bool hasArea);
-  void ProcessPointRule(Stylist::TRuleWrapper const & rule);
-  void Finish(ref_ptr<dp::TextureManager> texMng);
+  void ProcessRule(Stylist::TRuleWrapper const & rule);
+  void Finish(CustomSymbolsContextPtr const & customSymbolsContext);
 
 protected:
   float const m_posZ;
@@ -95,12 +93,9 @@ private:
   bool m_hasArea;
   bool m_createdByEditor;
   bool m_obsoleteInEditor;
-  RenderState::DepthLayer m_depthLayer;
   double m_symbolDepth;
   SymbolRuleProto const * m_symbolRule;
   m2::PointF m_centerPoint;
-  int m_displacementMode;
-  std::vector<TextViewParams> m_textParams;
 };
 
 class ApplyAreaFeature : public ApplyPointFeature
@@ -116,7 +111,7 @@ public:
   using TBase::operator ();
 
   void operator()(m2::PointD const & p1, m2::PointD const & p2, m2::PointD const & p3);
-  void ProcessAreaRule(Stylist::TRuleWrapper const & rule);
+  void ProcessRule(Stylist::TRuleWrapper const & rule);
 
 private:
   using TEdge = pair<int, int>;
@@ -129,7 +124,7 @@ private:
   bool FindEdge(TEdge const & edge);
   m2::PointD CalculateNormal(m2::PointD const & p1, m2::PointD const & p2, m2::PointD const & p3) const;
 
-  std::vector<m2::PointD> m_triangles;
+  vector<m2::PointD> m_triangles;
 
   buffer_vector<m2::PointD, kBuildingOutlineSize> m_points;
   buffer_vector<pair<TEdge, int>, kBuildingOutlineSize> m_edges;
@@ -141,69 +136,43 @@ private:
   double const m_currentScaleGtoP;
 };
 
-class ApplyLineFeatureGeometry : public BaseApplyFeature
+class ApplyLineFeature : public BaseApplyFeature
 {
   using TBase = BaseApplyFeature;
 
 public:
-  ApplyLineFeatureGeometry(TileKey const & tileKey, TInsertShapeFn const & insertShape,
-                           FeatureID const & id, double currentScaleGtoP, int minVisibleScale,
-                           uint8_t rank, size_t pointsCount);
+  ApplyLineFeature(TileKey const & tileKey, TInsertShapeFn const & insertShape, FeatureID const & id,
+                   double currentScaleGtoP, int minVisibleScale, uint8_t rank,
+                   CaptionDescription const & captions, size_t pointsCount);
 
   void operator() (m2::PointD const & point);
   bool HasGeometry() const;
-  void ProcessLineRule(Stylist::TRuleWrapper const & rule);
-  void Finish();
+  void ProcessRule(Stylist::TRuleWrapper const & rule);
+  void Finish(std::set<ftypes::RoadShield> && roadShields);
 
-  std::vector<m2::SharedSpline> const & GetClippedSplines() const { return m_clippedSplines; }
+  m2::PolylineD GetPolyline() const;
 
 private:
+  void GetRoadShieldsViewParams(ftypes::RoadShield const & shield,
+                                TextViewParams & textParams,
+                                ColoredSymbolViewParams & symbolParams,
+                                PoiSymbolViewParams & poiParams);
+
   m2::SharedSpline m_spline;
-  std::vector<m2::SharedSpline> m_clippedSplines;
-  float m_currentScaleGtoP;
+  vector<m2::SharedSpline> m_clippedSplines;
+  double m_currentScaleGtoP;
   double m_sqrScale;
   m2::PointD m_lastAddedPoint;
   bool m_simplify;
   size_t m_initialPointsCount;
+  double m_shieldDepth;
+  ShieldRuleProto const * m_shieldRule;
 
 #ifdef CALC_FILTERED_POINTS
   int m_readedCount;
 #endif
 };
 
-class ApplyLineFeatureAdditional : public BaseApplyFeature
-{
-  using TBase = BaseApplyFeature;
-
-public:
-  ApplyLineFeatureAdditional(TileKey const & tileKey, TInsertShapeFn const & insertShape,
-                             FeatureID const & id, double currentScaleGtoP, int minVisibleScale,
-                             uint8_t rank, CaptionDescription const & captions,
-                             std::vector<m2::SharedSpline> const & clippedSplines);
-
-  void ProcessLineRule(Stylist::TRuleWrapper const & rule);
-  void Finish(ref_ptr<dp::TextureManager> texMng, std::set<ftypes::RoadShield> && roadShields,
-              GeneratedRoadShields & generatedRoadShields);
-
-private:
-  void GetRoadShieldsViewParams(ref_ptr<dp::TextureManager> texMng,
-                                ftypes::RoadShield const & shield,
-                                uint8_t shieldIndex, uint8_t shieldCount,
-                                TextViewParams & textParams,
-                                ColoredSymbolViewParams & symbolParams,
-                                PoiSymbolViewParams & poiParams,
-                                m2::PointD & shieldPixelSize);
-  bool CheckShieldsNearby(m2::PointD const & shieldPos,
-                          m2::PointD const & shieldPixelSize,
-                          uint32_t minDistanceInPixels,
-                          std::vector<m2::RectD> & shields);
-
-  std::vector<m2::SharedSpline> m_clippedSplines;
-  float m_currentScaleGtoP;
-  float m_depth;
-  CaptionDefProto const * m_captionRule;
-  ShieldRuleProto const * m_shieldRule;
-};
-
 extern dp::Color ToDrapeColor(uint32_t src);
+
 } // namespace df

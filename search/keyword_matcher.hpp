@@ -1,43 +1,38 @@
 #pragma once
-
 #include "search/common.hpp"
 
 #include "base/string_utils.hpp"
 
-#include <cstdint>
-#include <string>
-#include <vector>
+#include "std/string.hpp"
+#include "std/vector.hpp"
 
 namespace search
 {
+
 class KeywordMatcher
 {
 public:
-  class Score
+  typedef strings::UniString StringT;
+
+  class ScoreT
   {
   public:
-    Score();
+    ScoreT();
+    bool operator < (ScoreT const & s) const;
+    bool LessInTokensLength(ScoreT const & s) const;
 
-    // *NOTE* m_nameTokensLength is usually used as a late stage tiebreaker
-    // and does not take part in the operators.
-    bool operator<(Score const & s) const;
-    bool operator==(Score const & s) const;
-    bool operator!=(Score const & s) const { return !(*this == s); }
-
-    bool LessInTokensLength(Score const & s) const;
-
-    bool IsQueryMatched() const { return m_fullQueryMatched; }
+    bool IsQueryMatched() const { return m_bFullQueryMatched; }
 
   private:
     friend class KeywordMatcher;
-    friend std::string DebugPrint(Score const & score);
+    friend string DebugPrint(ScoreT const & score);
 
     uint32_t m_sumTokenMatchDistance;
     uint32_t m_nameTokensMatched;
     uint32_t m_nameTokensLength;
     uint8_t m_numQueryTokensAndPrefixMatched;
-    bool m_fullQueryMatched : 1;
-    bool m_prefixMatched : 1;
+    bool m_bFullQueryMatched : 1;
+    bool m_bPrefixMatched : 1;
   };
 
   KeywordMatcher();
@@ -45,18 +40,18 @@ public:
   void Clear();
 
   /// Internal copy of keywords is made.
-  void SetKeywords(strings::UniString const * keywords, size_t count,
-                   strings::UniString const & prefix);
+  void SetKeywords(StringT const * keywords, size_t count, StringT const & prefix);
 
   /// @return Score of the name (greater is better).
   //@{
-  Score CalcScore(std::string const & name) const;
-  Score CalcScore(strings::UniString const & name) const;
-  Score CalcScore(strings::UniString const * tokens, size_t count) const;
+  ScoreT Score(string const & name) const;
+  ScoreT Score(StringT const & name) const;
+  ScoreT Score(StringT const * tokens, size_t count) const;
   //@}
 
 private:
-  std::vector<strings::UniString> m_keywords;
-  strings::UniString m_prefix;
+  vector<StringT> m_keywords;
+  StringT m_prefix;
 };
+
 }  // namespace search

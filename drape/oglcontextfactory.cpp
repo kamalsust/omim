@@ -41,9 +41,9 @@ OGLContext * ThreadSafeFactory::CreateContext(TCreateCtxFn const & createFn, TIs
   return ctx;
 }
 
-void ThreadSafeFactory::waitForInitialization(dp::OGLContext * context)
+void ThreadSafeFactory::waitForInitialization()
 {
-  m_factory->waitForInitialization(context);
+  m_factory->waitForInitialization();
 }
 
 } // namespace dp

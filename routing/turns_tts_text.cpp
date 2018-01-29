@@ -49,7 +49,7 @@ string GetTtsText::operator()(Notification const & notification) const
 {
   if (notification.m_distanceUnits == 0 && !notification.m_useThenInsteadOfDistance)
     return GetTextById(GetDirectionTextId(notification));
-  if (notification.m_useThenInsteadOfDistance && notification.m_turnDir == CarDirection::None)
+  if (notification.m_useThenInsteadOfDistance && notification.m_turnDir == TurnDirection::NoTurn)
     return string();
 
   string const dirStr = GetTextById(GetDirectionTextId(notification));
@@ -102,7 +102,7 @@ string GetDistanceTextId(Notification const & notification)
 
 string GetRoundaboutTextId(Notification const & notification)
 {
-  if (notification.m_turnDir != CarDirection::LeaveRoundAbout)
+  if (notification.m_turnDir != TurnDirection::LeaveRoundAbout)
   {
     ASSERT(false, ());
     return string();
@@ -119,7 +119,7 @@ string GetRoundaboutTextId(Notification const & notification)
 
 string GetYouArriveTextId(Notification const & notification)
 {
-  if (notification.m_turnDir != CarDirection::ReachedYourDestination)
+  if (notification.m_turnDir != TurnDirection::ReachedYourDestination)
   {
     ASSERT(false, ());
     return string();
@@ -134,34 +134,34 @@ string GetDirectionTextId(Notification const & notification)
 {
   switch (notification.m_turnDir)
   {
-    case CarDirection::GoStraight:
+    case TurnDirection::GoStraight:
       return "go_straight";
-    case CarDirection::TurnRight:
+    case TurnDirection::TurnRight:
       return "make_a_right_turn";
-    case CarDirection::TurnSharpRight:
+    case TurnDirection::TurnSharpRight:
       return "make_a_sharp_right_turn";
-    case CarDirection::TurnSlightRight:
+    case TurnDirection::TurnSlightRight:
       return "make_a_slight_right_turn";
-    case CarDirection::TurnLeft:
+    case TurnDirection::TurnLeft:
       return "make_a_left_turn";
-    case CarDirection::TurnSharpLeft:
+    case TurnDirection::TurnSharpLeft:
       return "make_a_sharp_left_turn";
-    case CarDirection::TurnSlightLeft:
+    case TurnDirection::TurnSlightLeft:
       return "make_a_slight_left_turn";
-    case CarDirection::UTurnLeft:
-    case CarDirection::UTurnRight:
+    case TurnDirection::UTurnLeft:
+    case TurnDirection::UTurnRight:
       return "make_a_u_turn";
-    case CarDirection::EnterRoundAbout:
+    case TurnDirection::EnterRoundAbout:
       return "enter_the_roundabout";
-    case CarDirection::LeaveRoundAbout:
+    case TurnDirection::LeaveRoundAbout:
       return GetRoundaboutTextId(notification);
-    case CarDirection::ReachedYourDestination:
+    case TurnDirection::ReachedYourDestination:
       return GetYouArriveTextId(notification);
-    case CarDirection::StayOnRoundAbout:
-    case CarDirection::StartAtEndOfStreet:
-    case CarDirection::TakeTheExit:
-    case CarDirection::None:
-    case CarDirection::Count:
+    case TurnDirection::StayOnRoundAbout:
+    case TurnDirection::StartAtEndOfStreet:
+    case TurnDirection::TakeTheExit:
+    case TurnDirection::NoTurn:
+    case TurnDirection::Count:
       ASSERT(false, ());
       return string();
   }

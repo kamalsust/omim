@@ -74,11 +74,12 @@ ref_ptr<Texture::ResourceInfo> ColorPalette::MapResource(ColorKey const & key, b
 void ColorPalette::UploadResources(ref_ptr<Texture> texture)
 {
   ASSERT(texture->GetFormat() == dp::RGBA8, ());
+  if (m_pendingNodes.empty())
+    return;
+
   buffer_vector<PendingColor, 16> pendingNodes;
   {
     lock_guard<mutex> g(m_lock);
-    if (m_pendingNodes.empty())
-      return;
     m_pendingNodes.swap(pendingNodes);
   }
 
@@ -142,7 +143,7 @@ void ColorPalette::UploadResources(ref_ptr<Texture> texture)
       uint8_t const red = c.m_color.GetRed();
       uint8_t const green = c.m_color.GetGreen();
       uint8_t const blue = c.m_color.GetBlue();
-      uint8_t const alpha = c.m_color.GetAlpha();
+      uint8_t const alpha = c.m_color.GetAlfa();
 
       for (size_t row = 0; row < kResourceSize; row++)
       {

@@ -6,8 +6,6 @@
 #include "search/house_numbers_matcher.hpp"
 #include "search/model.hpp"
 #include "search/mwm_context.hpp"
-#include "search/point_rect_matcher.hpp"
-#include "search/projection_on_street.hpp"
 #include "search/reverse_geocoder.hpp"
 #include "search/street_vicinity_loader.hpp"
 
@@ -32,7 +30,6 @@
 #include "std/bind.hpp"
 #include "std/limits.hpp"
 #include "std/unordered_map.hpp"
-#include "std/utility.hpp"
 #include "std/vector.hpp"
 
 class Index;
@@ -72,23 +69,24 @@ public:
       return;
     switch (parent.m_type)
     {
-    case Model::TYPE_POI:
-    case Model::TYPE_CITY:
-    case Model::TYPE_VILLAGE:
-    case Model::TYPE_STATE:
-    case Model::TYPE_COUNTRY:
-    case Model::TYPE_UNCLASSIFIED:
-    case Model::TYPE_COUNT:
+    case SearchModel::SEARCH_TYPE_POI:
+    case SearchModel::SEARCH_TYPE_CITY:
+    case SearchModel::SEARCH_TYPE_VILLAGE:
+    case SearchModel::SEARCH_TYPE_STATE:
+    case SearchModel::SEARCH_TYPE_COUNTRY:
+    case SearchModel::SEARCH_TYPE_UNCLASSIFIED:
+    case SearchModel::SEARCH_TYPE_COUNT:
       ASSERT(false, ("Invalid parent layer type:", parent.m_type));
       break;
-    case Model::TYPE_BUILDING:
-      ASSERT_EQUAL(child.m_type, Model::TYPE_POI, ());
+    case SearchModel::SEARCH_TYPE_BUILDING:
+      ASSERT_EQUAL(child.m_type, SearchModel::SEARCH_TYPE_POI, ());
       MatchPOIsWithBuildings(child, parent, forward<TFn>(fn));
       break;
-    case Model::TYPE_STREET:
-      ASSERT(child.m_type == Model::TYPE_POI || child.m_type == Model::TYPE_BUILDING,
+    case SearchModel::SEARCH_TYPE_STREET:
+      ASSERT(child.m_type == SearchModel::SEARCH_TYPE_POI ||
+                 child.m_type == SearchModel::SEARCH_TYPE_BUILDING,
              ("Invalid child layer type:", child.m_type));
-      if (child.m_type == Model::TYPE_POI)
+      if (child.m_type == SearchModel::SEARCH_TYPE_POI)
         MatchPOIsWithStreets(child, parent, forward<TFn>(fn));
       else
         MatchBuildingsWithStreets(child, parent, forward<TFn>(fn));
@@ -106,50 +104,48 @@ private:
     // each building, tries to find all POIs located at distance less
     // than kBuildingRadiusMeters.
 
-    ASSERT_EQUAL(child.m_type, Model::TYPE_POI, ());
-    ASSERT_EQUAL(parent.m_type, Model::TYPE_BUILDING, ());
+    ASSERT_EQUAL(child.m_type, SearchModel::SEARCH_TYPE_POI, ());
+    ASSERT_EQUAL(parent.m_type, SearchModel::SEARCH_TYPE_BUILDING, ());
 
     auto const & pois = *child.m_sortedFeatures;
     auto const & buildings = *parent.m_sortedFeatures;
 
     BailIfCancelled(m_cancellable);
 
-    vector<PointRectMatcher::PointIdPair> poiCenters;
-    poiCenters.reserve(pois.size());
+    vector<m2::PointD> poiCenters(pois.size());
+
+    size_t const numPOIs = pois.size();
+    vector<bool> isPOIProcessed(numPOIs);
+    size_t processedPOIs = 0;
 
     for (size_t i = 0; i < pois.size(); ++i)
     {
       FeatureType poiFt;
       GetByIndex(pois[i], poiFt);
-      poiCenters.emplace_back(feature::GetCenter(poiFt, FeatureType::WORST_GEOMETRY), i /* id */);
+      poiCenters[i] = feature::GetCenter(poiFt, FeatureType::WORST_GEOMETRY);
     }
 
-    vector<PointRectMatcher::RectIdPair> buildingRects;
-    buildingRects.reserve(buildings.size());
-    for (size_t i = 0; i < buildings.size(); ++i)
+    for (size_t i = 0; i < buildings.size() && processedPOIs != numPOIs; ++i)
     {
+      BailIfCancelled(m_cancellable);
+
       FeatureType buildingFt;
       GetByIndex(buildings[i], buildingFt);
-      if (buildingFt.GetFeatureType() == feature::GEOM_POINT)
+
+      for (size_t j = 0; j < pois.size(); ++j)
       {
-        auto const center = feature::GetCenter(buildingFt, FeatureType::WORST_GEOMETRY);
-        buildingRects.emplace_back(
-            MercatorBounds::RectByCenterXYAndSizeInMeters(center, kBuildingRadiusMeters),
-            i /* id */);
-      }
-      else
-      {
-        buildingRects.emplace_back(buildingFt.GetLimitRect(FeatureType::WORST_GEOMETRY),
-                                   i /* id */);
+        if (isPOIProcessed[j])
+          continue;
+
+        double const distMeters = feature::GetMinDistanceMeters(buildingFt, poiCenters[j]);
+        if (distMeters <= kBuildingRadiusMeters)
+        {
+          fn(pois[j], buildings[i]);
+          isPOIProcessed[j] = true;
+          ++processedPOIs;
+        }
       }
     }
-
-    PointRectMatcher::Match(poiCenters, buildingRects, PointRectMatcher::RequestType::Any,
-                            [&](size_t poiId, size_t buildingId) {
-                              ASSERT_LESS(poiId, pois.size(), ());
-                              ASSERT_LESS(buildingId, buildings.size(), ());
-                              fn(pois[poiId], buildings[buildingId]);
-                            });
 
     if (!parent.m_hasDelayedFeatures)
       return;
@@ -165,15 +161,16 @@ private:
     for (size_t i = 0; i < pois.size(); ++i)
     {
       m_context->ForEachFeature(
-          MercatorBounds::RectByCenterXYAndSizeInMeters(poiCenters[i].m_point, kBuildingRadiusMeters),
-          [&](FeatureType & ft) {
+          MercatorBounds::RectByCenterXYAndSizeInMeters(poiCenters[i], kBuildingRadiusMeters),
+          [&](FeatureType & ft)
+          {
             if (m_postcodes && !m_postcodes->HasBit(ft.GetID().m_index))
               return;
             if (house_numbers::HouseNumbersMatch(strings::MakeUniString(ft.GetHouseNumber()),
                                                  queryParse))
             {
               double const distanceM =
-                  MercatorBounds::DistanceOnEarth(feature::GetCenter(ft), poiCenters[i].m_point);
+                  MercatorBounds::DistanceOnEarth(feature::GetCenter(ft), poiCenters[i]);
               if (distanceM < kBuildingRadiusMeters)
                 fn(pois[i], ft.GetID().m_index);
             }
@@ -184,82 +181,44 @@ private:
   template <typename TFn>
   void MatchPOIsWithStreets(FeaturesLayer const & child, FeaturesLayer const & parent, TFn && fn)
   {
-    BailIfCancelled(m_cancellable);
-
-    ASSERT_EQUAL(child.m_type, Model::TYPE_POI, ());
-    ASSERT_EQUAL(parent.m_type, Model::TYPE_STREET, ());
+    ASSERT_EQUAL(child.m_type, SearchModel::SEARCH_TYPE_POI, ());
+    ASSERT_EQUAL(parent.m_type, SearchModel::SEARCH_TYPE_STREET, ());
 
     auto const & pois = *child.m_sortedFeatures;
     auto const & streets = *parent.m_sortedFeatures;
 
-    vector<PointRectMatcher::PointIdPair> poiCenters;
-    poiCenters.reserve(pois.size());
-
-    for (size_t i = 0; i < pois.size(); ++i)
+    // When the number of POIs is less than the number of STREETs,
+    // it's faster to check nearby streets for POIs.
+    if (pois.size() < streets.size())
     {
-      FeatureType poiFt;
-      GetByIndex(pois[i], poiFt);
-      poiCenters.emplace_back(feature::GetCenter(poiFt, FeatureType::WORST_GEOMETRY), i /* id */);
+      for (uint32_t poiId : pois)
+      {
+        for (auto const & street : GetNearbyStreets(poiId))
+        {
+          if (street.m_distanceMeters > kStreetRadiusMeters)
+            break;
+
+          uint32_t const streetId = street.m_id.m_index;
+          if (binary_search(streets.begin(), streets.end(), streetId))
+            fn(poiId, streetId);
+        }
+      }
+      return;
     }
 
-    vector<PointRectMatcher::RectIdPair> streetRects;
-    streetRects.reserve(streets.size());
-
-    vector<ProjectionOnStreetCalculator> streetProjectors;
-    streetProjectors.reserve(streets.size());
-
-    for (size_t i = 0; i < streets.size(); ++i)
+    for (uint32_t streetId : streets)
     {
-      FeatureType streetFt;
-      GetByIndex(streets[i], streetFt);
-
-      streetFt.ParseGeometry(FeatureType::WORST_GEOMETRY);
-
-      m2::RectD inflationRect;
-      // Any point is good enough here, and feature::GetCenter would re-read the geometry.
-      if (streetFt.GetPointsCount() > 0)
-      {
-        inflationRect = MercatorBounds::RectByCenterXYAndSizeInMeters(streetFt.GetPoint(0),
-                                                                      0.5 * kStreetRadiusMeters);
-      }
-
-      for (size_t j = 0; j + 1 < streetFt.GetPointsCount(); ++j)
-      {
-        auto const & p1 = streetFt.GetPoint(j);
-        auto const & p2 = streetFt.GetPoint(j + 1);
-        m2::RectD rect(p1, p2);
-        rect.Inflate(inflationRect.SizeX(), inflationRect.SizeY());
-        streetRects.emplace_back(rect, i /* id */);
-      }
-
-      vector<m2::PointD> streetPoints;
-      streetPoints.reserve(streetFt.GetPointsCount());
-      for (size_t j = 0; j < streetFt.GetPointsCount(); ++j)
-        streetPoints.emplace_back(streetFt.GetPoint(j));
-      streetProjectors.emplace_back(streetPoints);
+      BailIfCancelled(m_cancellable);
+      m_loader.ForEachInVicinity(streetId, pois, kStreetRadiusMeters, bind(fn, _1, streetId));
     }
-
-    BailIfCancelled(m_cancellable);
-    PointRectMatcher::Match(poiCenters, streetRects, PointRectMatcher::RequestType::All,
-                            [&](size_t poiId, size_t streetId) {
-                              ASSERT_LESS(poiId, pois.size(), ());
-                              ASSERT_LESS(streetId, streets.size(), ());
-                              auto const & poiCenter = poiCenters[poiId].m_point;
-                              ProjectionOnStreet proj;
-                              if (streetProjectors[streetId].GetProjection(poiCenter, proj) &&
-                                  proj.m_distMeters < kStreetRadiusMeters)
-                              {
-                                fn(pois[poiId], streets[streetId]);
-                              }
-                            });
   }
 
   template <typename TFn>
   void MatchBuildingsWithStreets(FeaturesLayer const & child, FeaturesLayer const & parent,
                                  TFn && fn)
   {
-    ASSERT_EQUAL(child.m_type, Model::TYPE_BUILDING, ());
-    ASSERT_EQUAL(parent.m_type, Model::TYPE_STREET, ());
+    ASSERT_EQUAL(child.m_type, SearchModel::SEARCH_TYPE_BUILDING, ());
+    ASSERT_EQUAL(parent.m_type, SearchModel::SEARCH_TYPE_STREET, ());
 
     auto const & buildings = *child.m_sortedFeatures;
     auto const & streets = *parent.m_sortedFeatures;
@@ -283,7 +242,8 @@ private:
     ParseQuery(child.m_subQuery, child.m_lastTokenIsPrefix, queryParse);
 
     uint32_t numFilterInvocations = 0;
-    auto houseNumberFilter = [&](uint32_t id, FeatureType & feature, bool & loaded) -> bool {
+    auto houseNumberFilter = [&](uint32_t id, FeatureType & feature, bool & loaded) -> bool
+    {
       ++numFilterInvocations;
       if ((numFilterInvocations & 0xFF) == 0)
         BailIfCancelled(m_cancellable);
@@ -308,7 +268,8 @@ private:
     };
 
     unordered_map<uint32_t, bool> cache;
-    auto cachingHouseNumberFilter = [&](uint32_t id, FeatureType & feature, bool & loaded) -> bool {
+    auto cachingHouseNumberFilter = [&](uint32_t id, FeatureType & feature, bool & loaded) -> bool
+    {
       auto const it = cache.find(id);
       if (it != cache.cend())
         return it->second;
@@ -398,4 +359,5 @@ private:
   StreetVicinityLoader m_loader;
   my::Cancellable const & m_cancellable;
 };
+
 }  // namespace search

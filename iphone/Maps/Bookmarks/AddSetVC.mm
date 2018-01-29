@@ -1,6 +1,7 @@
 #import "AddSetVC.h"
 #import "AddSetTableViewCell.h"
 #import "SwiftBridge.h"
+#import "UIViewController+Navigation.h"
 
 #include "Framework.h"
 
@@ -36,8 +37,7 @@
 {
   if (text.length == 0)
     return;
-  [self.delegate addSetVC:self
-       didAddSetWithIndex:static_cast<int>(GetFramework().AddCategory(text.UTF8String))];
+  [self.delegate addSetVC:self didAddSetWithIndex:static_cast<int>(GetFramework().AddCategory([text UTF8String]))];
   [self.navigationController popViewControllerAnimated:YES];
 }
 

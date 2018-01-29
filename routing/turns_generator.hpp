@@ -1,6 +1,8 @@
 #pragma once
 
 #include "routing/loaded_path_segment.hpp"
+#include "routing/osrm2feature_map.hpp"
+#include "routing/osrm_engine.hpp"
 #include "routing/routing_result_graph.hpp"
 #include "routing/route.hpp"
 #include "routing/router.hpp"
@@ -39,14 +41,17 @@ using TGetIndexFunction = function<size_t(pair<size_t, size_t>)>;
  * \param delegate Routing callbacks delegate.
  * \param points Storage for unpacked points of the path.
  * \param turnsDir output turns annotation storage.
+ * \param times output times annotation storage.
  * \param streets output street names along the path.
  * \param traffic road traffic information.
  * \return routing operation result code.
  */
 IRouter::ResultCode MakeTurnAnnotation(turns::IRoutingResult const & result,
-                                       RouterDelegate const & delegate, vector<Junction> & points,
-                                       Route::TTurns & turnsDir, Route::TStreets & streets,
-                                       vector<Segment> & segments);
+                                       RouterDelegate const & delegate,
+                                       vector<Junction> & points,
+                                       Route::TTurns & turnsDir, Route::TTimes & times,
+                                       Route::TStreets & streets,
+                                       vector<Segment> & trafficSegs);
 
 /*!
  * \brief The TurnInfo struct is a representation of a junction.
@@ -76,21 +81,21 @@ void SelectRecommendedLanes(Route::TTurns & turnsDir);
 void FixupTurns(vector<Junction> const & points, Route::TTurns & turnsDir);
 inline size_t GetFirstSegmentPointIndex(pair<size_t, size_t> const & p) { return p.first; }
 
-CarDirection InvertDirection(CarDirection dir);
+TurnDirection InvertDirection(TurnDirection dir);
 
 /*!
  * \param angle is an angle of a turn. It belongs to a range [-180, 180].
  * \return correct direction if the route follows along the rightmost possible way.
  */
-CarDirection RightmostDirection(double angle);
-CarDirection LeftmostDirection(double angle);
+TurnDirection RightmostDirection(double angle);
+TurnDirection LeftmostDirection(double angle);
 
 /*!
  * \param angle is an angle of a turn. It belongs to a range [-180, 180].
  * \return correct direction if the route follows not along one of two outermost ways
  * or if there is only one possible way.
  */
-CarDirection IntermediateDirection(double angle);
+TurnDirection IntermediateDirection(double angle);
 
 /*!
  * \return Returns true if the route enters a roundabout.
@@ -120,7 +125,7 @@ bool CheckRoundaboutExit(bool isIngoingEdgeRoundabout, bool isOutgoingEdgeRounda
  *   (b) and there is a way(s) besides outgoing edge to leave the junction (the roundabout)
  *       but it is (they are) relevantly small.
  */
-CarDirection GetRoundaboutDirection(bool isIngoingEdgeRoundabout, bool isOutgoingEdgeRoundabout,
+TurnDirection GetRoundaboutDirection(bool isIngoingEdgeRoundabout, bool isOutgoingEdgeRoundabout,
                                      bool isMultiTurnJunction, bool keepTurnByHighwayClass);
 
 /*!

@@ -4,12 +4,10 @@
 #include "routing/loaded_path_segment.hpp"
 #include "routing/turn_candidate.hpp"
 
-#include "routing_common/num_mwm_id.hpp"
-
-#include "indexer/index.hpp"
-
 #include <map>
 #include <memory>
+
+class Index;
 
 namespace routing
 {
@@ -19,39 +17,24 @@ public:
   struct AdjacentEdges
   {
     explicit AdjacentEdges(size_t ingoingTurnsCount = 0) : m_ingoingTurnsCount(ingoingTurnsCount) {}
-    bool IsAlmostEqual(AdjacentEdges const & rhs) const;
 
     turns::TurnCandidates m_outgoingTurns;
     size_t m_ingoingTurnsCount;
   };
 
-  using AdjacentEdgesMap = std::map<SegmentRange, AdjacentEdges>;
+  using AdjacentEdgesMap = std::map<UniNodeId, AdjacentEdges>;
 
   BicycleDirectionsEngine(Index const & index, std::shared_ptr<NumMwmIds> numMwmIds);
 
   // IDirectionsEngine override:
-  bool Generate(RoadGraphBase const & graph, vector<Junction> const & path,
-                my::Cancellable const & cancellable, Route::TTurns & turns,
-                Route::TStreets & streetNames, vector<Junction> & routeGeometry,
-                vector<Segment> & segments) override;
+  void Generate(RoadGraphBase const & graph, vector<Junction> const & path,
+                my::Cancellable const & cancellable, Route::TTimes & times, Route::TTurns & turns,
+                vector<Junction> & routeGeometry, vector<Segment> & trafficSegs) override;
 
 private:
   Index::FeaturesLoaderGuard & GetLoader(MwmSet::MwmId const & id);
-  void LoadPathAttributes(FeatureID const & featureId, LoadedPathSegment & pathSegment);
-  void GetSegmentRangeAndAdjacentEdges(IRoadGraph::TEdgeVector const & outgoingEdges,
-                                       Edge const & inEdge, uint32_t startSegId, uint32_t endSegId,
-                                       SegmentRange & segmentRange,
-                                       turns::TurnCandidates & outgoingTurns);
-  /// \brief The method gathers sequence of segments according to IsJoint() method
-  /// and fills |m_adjacentEdges| and |m_pathSegments|.
-  void FillPathSegmentsAndAdjacentEdgesMap(RoadGraphBase const & graph,
-                                           std::vector<Junction> const & path,
-                                           IRoadGraph::TEdgeVector const & routeEdges,
-                                           my::Cancellable const & cancellable);
-
-  void GetEdges(RoadGraphBase const & graph, Junction const & currJunction,
-                bool isCurrJunctionFinish, IRoadGraph::TEdgeVector & outgoing,
-                IRoadGraph::TEdgeVector & ingoing);
+  void LoadPathGeometry(UniNodeId const & uniNodeId, vector<Junction> const & path,
+                        LoadedPathSegment & pathSegment);
 
   AdjacentEdgesMap m_adjacentEdges;
   TUnpackedPathSegments m_pathSegments;

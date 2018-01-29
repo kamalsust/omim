@@ -3,66 +3,89 @@
 #include "indexer/classificator.hpp"
 #include "indexer/feature_data.hpp"
 
-#include "coding/multilang_utf8_string.hpp"
-
 #include <algorithm>
+
+namespace
+{
+template <typename Container>
+typename Container::const_iterator
+FindType(feature::TypesHolder const & types, Container const & cont)
+{
+  for (auto const t : types)
+  {
+    for (auto level = ftype::GetLevel(t); level; --level)
+    {
+      auto truncatedType = t;
+      ftype::TruncValue(truncatedType, level);
+      auto const it = cont.find(truncatedType);
+
+      if (it != cont.end())
+        return it;
+    }
+  }
+
+  return cont.cend();
+}
+}  // namespace
 
 namespace ads
 {
 Container::Container() { AppendExcludedTypes({{"sponsored", "booking"}}); }
 
-void Container::AppendEntry(std::initializer_list<std::initializer_list<char const *>> && types,
+void Container::AppendEntry(std::vector<std::vector<std::string>> const & types,
                             std::string const & id)
 {
-  m_typesToBanners.Append(std::move(types), id);
+  for (auto const & type : types)
+  {
+#if defined(DEBUG)
+    feature::TypesHolder holder;
+    holder.Assign(classif().GetTypeByPath(type));
+    ASSERT(FindType(holder, m_typesToBanners) == m_typesToBanners.cend(),
+           ("Banner id for this type already exists", type));
+#endif
+    m_typesToBanners.emplace(classif().GetTypeByPath(type), id);
+  }
 }
 
-void Container::AppendExcludedTypes(
-    std::initializer_list<std::initializer_list<char const *>> && types)
+void Container::AppendExcludedTypes(std::vector<std::vector<std::string>> const & types)
 {
-  m_excludedTypes.Append(std::move(types));
+  for (auto const & type : types)
+  {
+#if defined(DEBUG)
+    feature::TypesHolder holder;
+    holder.Assign(classif().GetTypeByPath(type));
+    ASSERT(FindType(holder, m_excludedTypes) == m_excludedTypes.cend(),
+           ("Excluded banner type already exists"));
+#endif
+    m_excludedTypes.emplace(classif().GetTypeByPath(type));
+  }
 }
 
-void Container::AppendSupportedCountries(
-    std::initializer_list<storage::TCountryId> const & countries)
+void Container::AppendSupportedCountries(std::vector<storage::TCountryId> const & countries)
 {
   m_supportedCountries.insert(countries.begin(), countries.end());
 }
 
-void Container::AppendSupportedUserLanguages(std::initializer_list<std::string> const & languages)
-{
-  for (auto const & language : languages)
-  {
-    int8_t const langIndex = StringUtf8Multilang::GetLangIndex(language);
-    if (langIndex == StringUtf8Multilang::kUnsupportedLanguageCode)
-      continue;
-    m_supportedUserLanguages.insert(langIndex);
-  }
-}
-
 bool Container::HasBanner(feature::TypesHolder const & types,
-                          storage::TCountryId const & countryId,
-                          std::string const & userLanguage) const
+                          storage::TCountryId const & countryId) const
 {
   if (!m_supportedCountries.empty() &&
       m_supportedCountries.find(countryId) == m_supportedCountries.end())
   {
-    auto const userLangCode = StringUtf8Multilang::GetLangIndex(userLanguage);
-    if (m_supportedUserLanguages.find(userLangCode) == m_supportedUserLanguages.end())
-      return false;
+    return false;
   }
-  return !m_excludedTypes.Contains(types);
+
+  return FindType(types, m_excludedTypes) == m_excludedTypes.cend();
 }
 
 std::string Container::GetBannerId(feature::TypesHolder const & types,
-                                   storage::TCountryId const & countryId,
-                                   std::string const & userLanguage) const
+                                   storage::TCountryId const & countryId) const
 {
-  if (!HasBanner(types, countryId, userLanguage))
+  if (!HasBanner(types, countryId))
     return {};
 
-  auto const it = m_typesToBanners.Find(types);
-  if (m_typesToBanners.IsValid(it))
+  auto const it = FindType(types, m_typesToBanners);
+  if (it != m_typesToBanners.cend())
     return it->second;
 
   return GetBannerIdForOtherTypes();

@@ -35,14 +35,12 @@
 #include "base/string_utils.hpp"
 #include "base/timer.hpp"
 
-#include <algorithm>
-#include <fstream>
-#include <initializer_list>
-#include <limits>
-#include <unordered_map>
-#include <vector>
-
-using namespace std;
+#include "std/algorithm.hpp"
+#include "std/fstream.hpp"
+#include "std/initializer_list.hpp"
+#include "std/limits.hpp"
+#include "std/unordered_map.hpp"
+#include "std/vector.hpp"
 
 #define SYNONYMS_FILE "synonyms.txt"
 
@@ -63,7 +61,7 @@ public:
 
     while (stream.good())
     {
-      getline(stream, line);
+      std::getline(stream, line);
       if (line.empty())
         continue;
 
@@ -161,12 +159,12 @@ struct FeatureNameInserter
     m_keyValuePairs.emplace_back(key, m_val);
   }
 
-  void operator()(signed char lang, string const & name) const
+  bool operator()(signed char lang, string const & name) const
   {
     strings::UniString const uniName = search::NormalizeAndSimplifyString(name);
 
     // split input string on tokens
-    search::QueryTokens tokens;
+    buffer_vector<strings::UniString, 32> tokens;
     SplitUniString(uniName, MakeBackInsertFunctor(tokens), search::Delimiters());
 
     // add synonyms for input native string
@@ -178,8 +176,7 @@ struct FeatureNameInserter
                           });
     }
 
-    static_assert(search::kMaxNumTokens > 0, "");
-    size_t const maxTokensCount = search::kMaxNumTokens - 1;
+    int const maxTokensCount = search::MAX_TOKENS - 1;
     if (tokens.size() > maxTokensCount)
     {
       LOG(LWARNING, ("Name has too many tokens:", name));
@@ -200,6 +197,8 @@ struct FeatureNameInserter
       for (auto const & token : tokens)
         AddToken(lang, token);
     }
+
+    return true;
   }
 };
 
@@ -465,8 +464,8 @@ bool BuildSearchIndexFromDataFile(string const & filename, bool forceRebuild)
 
 void BuildSearchIndex(FilesContainerR & container, Writer & indexWriter)
 {
-  using Key = strings::UniString;
-  using Value = FeatureIndexValue;
+  using TKey = strings::UniString;
+  using TValue = FeatureIndexValue;
 
   Platform & platform = GetPlatform();
 
@@ -477,15 +476,15 @@ void BuildSearchIndex(FilesContainerR & container, Writer & indexWriter)
 
   FeaturesVectorTest features(container);
   auto codingParams = trie::GetCodingParams(features.GetHeader().GetDefCodingParams());
-  SingleValueSerializer<Value> serializer(codingParams);
+  SingleValueSerializer<TValue> serializer(codingParams);
 
-  vector<pair<Key, Value>> searchIndexKeyValuePairs;
+  vector<pair<TKey, TValue>> searchIndexKeyValuePairs;
   AddFeatureNameIndexPairs(features, categoriesHolder, searchIndexKeyValuePairs);
 
   sort(searchIndexKeyValuePairs.begin(), searchIndexKeyValuePairs.end());
   LOG(LINFO, ("End sorting strings:", timer.ElapsedSeconds()));
 
-  trie::Build<Writer, Key, ValueList<Value>, SingleValueSerializer<Value>>(
+  trie::Build<Writer, TKey, ValueList<TValue>, SingleValueSerializer<TValue>>(
       indexWriter, serializer, searchIndexKeyValuePairs);
 
   LOG(LINFO, ("End building search index, elapsed seconds:", timer.ElapsedSeconds()));

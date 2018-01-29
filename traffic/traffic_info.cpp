@@ -360,22 +360,16 @@ void TrafficInfo::SerializeTrafficValues(vector<SpeedGroup> const & values,
     }
   }
 
-  using Deflate = coding::ZLib::Deflate;
-  Deflate deflate(Deflate::Format::ZLib, Deflate::Level::BestCompression);
-
-  deflate(buf.data(), buf.size(), back_inserter(result));
+  coding::ZLib::Deflate(buf.data(), buf.size(), coding::ZLib::Level::BestCompression,
+                        back_inserter(result));
 }
 
 // static
 void TrafficInfo::DeserializeTrafficValues(vector<uint8_t> const & data,
                                            vector<SpeedGroup> & result)
 {
-  using Inflate = coding::ZLib::Inflate;
-
   vector<uint8_t> decompressedData;
-
-  Inflate inflate(Inflate::Format::ZLib);
-  inflate(data.data(), data.size(), back_inserter(decompressedData));
+  coding::ZLib::Inflate(data.data(), data.size(), back_inserter(decompressedData));
 
   MemReaderWithExceptions memReader(decompressedData.data(), decompressedData.size());
   ReaderSource<decltype(memReader)> src(memReader);
@@ -517,7 +511,7 @@ TrafficInfo::ServerDataStatus TrafficInfo::ProcessFailure(platform::HttpClient c
   case 404: /* Not Found */
   {
     int64_t version = 0;
-    VERIFY(strings::to_int64(request.ServerResponse().c_str(), version), ());
+    strings::to_int64(request.ServerResponse().c_str(), version);
 
     if (version > mwmVersion && version <= m_currentDataVersion)
       m_availability = Availability::ExpiredData;

@@ -18,9 +18,9 @@ Color::Color()
 {
 }
 
-Color::Color(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+Color::Color(uint8_t red, uint8_t green, uint8_t blue, uint8_t alfa)
 {
-  m_rgba = red << 24 | green << 16 | blue << 8 | alpha;
+  m_rgba = red << 24 | green << 16 | blue << 8 | alfa;
 }
 
 uint8_t Color::GetRed() const
@@ -38,7 +38,7 @@ uint8_t Color::GetBlue() const
   return EXTRACT_BYTE(m_rgba, 1);
 }
 
-uint8_t Color::GetAlpha() const
+uint8_t Color::GetAlfa() const
 {
   return EXTRACT_BYTE(m_rgba, 0);
 }
@@ -58,9 +58,9 @@ float Color::GetBlueF() const
   return CHANNEL_TO_FLOAT(GetBlue());
 }
 
-float Color::GetAlphaF() const
+float Color::GetAlfaF() const
 {
-  return CHANNEL_TO_FLOAT(GetAlpha());
+  return CHANNEL_TO_FLOAT(GetAlfa());
 }
 
 uint8_t ExtractRed(uint32_t argb)
@@ -78,7 +78,7 @@ uint8_t ExtractBlue(uint32_t argb)
   return argb & 0xFF;
 }
 
-uint8_t ExtractAlpha(uint32_t argb)
+uint8_t ExtractAlfa(uint32_t argb)
 {
   return (argb >> 24) & 0xFF;
 }
@@ -88,7 +88,7 @@ Color Extract(uint32_t argb)
   return Color(ExtractRed(argb),
                ExtractGreen(argb),
                ExtractBlue(argb),
-               ExtractAlpha(argb));
+               ExtractAlfa(argb));
 }
 
 Color Extract(uint32_t xrgb, uint8_t a)

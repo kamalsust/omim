@@ -1,13 +1,11 @@
 #pragma once
 
+#include "routing/num_mwm_id.hpp"
 #include "routing/road_point.hpp"
-#include "routing/route_weight.hpp"
 
-#include "routing_common/num_mwm_id.hpp"
-
-#include <cstdint>
-#include <sstream>
-#include <string>
+#include "std/cstdint.hpp"
+#include "std/sstream.hpp"
+#include "std/string.hpp"
 
 namespace routing
 {
@@ -66,12 +64,6 @@ public:
 
   bool operator!=(Segment const & seg) const { return !(*this == seg); }
 
-  bool IsInverse(Segment const & seg) const
-  {
-    return m_featureId == seg.m_featureId && m_segmentIdx == seg.m_segmentIdx &&
-           m_mwmId == seg.m_mwmId && m_forward != seg.m_forward;
-  }
-
 private:
   uint32_t m_featureId = 0;
   uint32_t m_segmentIdx = 0;
@@ -82,12 +74,9 @@ private:
 class SegmentEdge final
 {
 public:
-  SegmentEdge(Segment const & target, RouteWeight const & weight)
-    : m_target(target), m_weight(weight)
-  {
-  }
+  SegmentEdge(Segment const & target, double weight) : m_target(target), m_weight(weight) {}
   Segment const & GetTarget() const { return m_target; }
-  RouteWeight const & GetWeight() const { return m_weight; }
+  double GetWeight() const { return m_weight; }
 
   bool operator==(SegmentEdge const & edge) const
   {
@@ -104,20 +93,20 @@ public:
 private:
   // Target is vertex going to for outgoing edges, vertex going from for ingoing edges.
   Segment m_target;
-  RouteWeight m_weight;
+  double m_weight;
 };
 
-inline std::string DebugPrint(Segment const & segment)
+inline string DebugPrint(Segment const & segment)
 {
-  std::ostringstream out;
+  ostringstream out;
   out << "Segment(" << segment.GetMwmId() << ", " << segment.GetFeatureId() << ", "
       << segment.GetSegmentIdx() << ", " << segment.IsForward() << ")";
   return out.str();
 }
 
-inline std::string DebugPrint(SegmentEdge const & edge)
+inline string DebugPrint(SegmentEdge const & edge)
 {
-  std::ostringstream out;
+  ostringstream out;
   out << "Edge(" << DebugPrint(edge.GetTarget()) << ", " << edge.GetWeight() << ")";
   return out.str();
 }

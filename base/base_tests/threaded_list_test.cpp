@@ -5,16 +5,16 @@
 #include "base/logging.hpp"
 #include "base/stl_add.hpp"
 
-#include <mutex>
+#include "std/mutex.hpp"
 
 struct ThreadedListProcessor : public threads::IRoutine
 {
   ThreadedList<int> & m_p;
-  std::mutex & m_resMutex;
+  mutex & m_resMutex;
   std::list<int> & m_res;
   int m_id;
 
-  ThreadedListProcessor(ThreadedList<int> & p, std::mutex & resMutex, std::list<int> & res, int id)
+  ThreadedListProcessor(ThreadedList<int> & p, mutex & resMutex, std::list<int> & res, int id)
       : m_p(p), m_resMutex(resMutex), m_res(res), m_id(id)
   {
   }
@@ -25,7 +25,7 @@ struct ThreadedListProcessor : public threads::IRoutine
     {
       int res = m_p.Front(true /* doPop */);
       {
-        std::lock_guard<std::mutex> resGuard(m_resMutex);
+        lock_guard<mutex> resGuard(m_resMutex);
         m_res.push_back(res);
       }
       LOG(LINFO, (m_id, " thread got ", res));
@@ -39,7 +39,7 @@ UNIT_TEST(ThreadedList)
 {
   std::list<int> l;
 
-  std::mutex resMutex;
+  mutex resMutex;
   std::list<int> res;
 
   ThreadedList<int> p;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include "std/string.hpp"
 
 namespace generator
 {
@@ -12,6 +12,6 @@ namespace generator
 /// 30, 3,
 /// 40, 4
 /// \param outputFilePath full path to an output file where the mapping is saved.
-void ReEncodeOsmIdsToFeatureIdsMapping(std::string const & mappingContent,
-                                       std::string const & outputFilePath);
+void ReEncodeOsmIdsToFeatureIdsMapping(string const & mappingContent,
+                                       string const & outputFilePath);
 }  // namespace generator

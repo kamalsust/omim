@@ -3,7 +3,7 @@
 #include "search/hotels_classifier.hpp"
 #include "search/search_params.hpp"
 
-#include <functional>
+#include "std/function.hpp"
 
 namespace search
 {
@@ -20,22 +20,22 @@ public:
   public:
     virtual ~Delegate() = default;
 
-    virtual void RunUITask(std::function<void()> fn) = 0;
+    virtual void RunUITask(function<void()> fn) = 0;
     virtual void SetHotelDisplacementMode() = 0;
     virtual bool IsViewportSearchActive() const = 0;
-    virtual void ShowViewportSearchResults(bool clear, Results::ConstIter begin,
-                                           Results::ConstIter end) = 0;
+    virtual void ShowViewportSearchResults(Results const & results) = 0;
+    virtual void ClearViewportSearchResults() = 0;
   };
 
-  using OnResults = SearchParams::OnResults;
+  using TOnResults = SearchParams::TOnResults;
 
-  ViewportSearchCallback(Delegate & delegate, OnResults const & onResults);
+  ViewportSearchCallback(Delegate & delegate, TOnResults onResults);
 
   void operator()(Results const & results);
 
 private:
   Delegate & m_delegate;
-  OnResults m_onResults;
+  TOnResults m_onResults;
 
   bool m_hotelsModeSet;
   bool m_firstCall;

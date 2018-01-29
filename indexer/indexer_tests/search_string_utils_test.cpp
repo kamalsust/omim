@@ -4,13 +4,9 @@
 
 #include "base/string_utils.hpp"
 
-#include <cstdint>
-#include <string>
-#include <utility>
-#include <vector>
+#include "std/vector.hpp"
 
 using namespace search;
-using namespace std;
 using namespace strings;
 
 namespace
@@ -45,11 +41,6 @@ bool TestStreetSynonym(char const * s)
 bool TestStreetPrefixMatch(char const * s)
 {
   return IsStreetSynonymPrefix(MakeUniString(s));
-}
-
-string NormalizeAndSimplifyStringUtf8(string const & s)
-{
-  return strings::ToUtf8(NormalizeAndSimplifyString(s));
 }
 } // namespace
 
@@ -179,13 +170,4 @@ UNIT_TEST(StreetTokensFilter)
 
     TEST_EQUAL(expected, actual, ());
   }
-}
-
-UNIT_TEST(NormalizeAndSimplifyString_Numero)
-{
-  TEST_EQUAL(NormalizeAndSimplifyStringUtf8("Зона №51"), "зона  51", ());
-  TEST_EQUAL(NormalizeAndSimplifyStringUtf8("Зона № 51"), "зона   51", ());
-  TEST_EQUAL(NormalizeAndSimplifyStringUtf8("Area #51"), "area  51", ());
-  TEST_EQUAL(NormalizeAndSimplifyStringUtf8("Area # "), "area   ", ());
-  TEST_EQUAL(NormalizeAndSimplifyStringUtf8("Area #One"), "area #one", ());
 }

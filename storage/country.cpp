@@ -3,16 +3,13 @@
 #include "platform/mwm_version.hpp"
 #include "platform/platform.hpp"
 
-#include "coding/reader.hpp"
-
 #include "base/logging.hpp"
 #include "base/stl_helpers.hpp"
 
 #include "3party/jansson/myjansson.hpp"
 
-#include <utility>
+#include "std/utility.hpp"
 
-using namespace std;
 using platform::CountryFile;
 
 namespace storage
@@ -131,7 +128,7 @@ TMwmSubtreeAttrs LoadGroupSingleMwmsImpl(size_t depth, json_t * node, TCountryId
   for (auto const & affilationValue : affiliations)
     store.InsertAffiliation(id, affilationValue);
 
-  int nodeSize;
+  json_int_t nodeSize;
   FromJSONObjectOptionalField(node, "s", nodeSize);
   ASSERT_LESS_OR_EQUAL(0, nodeSize, ());
   // We expect that mwm and routing files should be less than 2GB.
@@ -246,7 +243,7 @@ TMwmSubtreeAttrs LoadGroupTwoComponentMwmsImpl(size_t depth, json_t * node,
     FromJSONObject(node, "n", file);  // If file is empty, it's the same as the name.
 
   // We expect that mwm and routing files should be less than 2GB.
-  int mwmSize, routingSize;
+  json_int_t mwmSize, routingSize;
   FromJSONObjectOptionalField(node, "s", mwmSize);
   FromJSONObjectOptionalField(node, "rs", routingSize);
   ASSERT_LESS_OR_EQUAL(0, mwmSize, ());
@@ -297,20 +294,19 @@ bool LoadCountriesTwoComponentMwmsImpl(string const & jsonBuffer,
   }
 }
 
-int64_t LoadCountriesFromBuffer(string const & jsonBuffer, TCountryTree & countries,
-                                TMappingAffiliations & affiliations,
-                                TMappingOldMwm * mapping /* = nullptr */)
+int64_t LoadCountries(string const & jsonBuffer, TCountryTree & countries,
+                      TMappingAffiliations & affiliations, TMappingOldMwm * mapping /* = nullptr */)
 {
   countries.Clear();
   affiliations.clear();
 
-  int64_t version = -1;
+  json_int_t version = -1;
   try
   {
     my::Json root(jsonBuffer.c_str());
     FromJSONObject(root.get(), "v", version);
 
-    if (version::IsSingleMwm(version))
+    if (version::IsSingleMwm(static_cast<int64_t>(version)))
     {
       StoreCountriesSingleMwms store(countries, affiliations);
       if (!LoadCountriesSingleMwmsImpl(jsonBuffer, store))
@@ -335,25 +331,17 @@ int64_t LoadCountriesFromBuffer(string const & jsonBuffer, TCountryTree & countr
   return version;
 }
 
-int64_t LoadCountriesFromFile(string const & path, TCountryTree & countries,
-                              TMappingAffiliations & affiliations, TMappingOldMwm * mapping)
-{
-  string json;
-  ReaderPtr<Reader>(GetPlatform().GetReader(path)).ReadAsString(json);
-  return LoadCountriesFromBuffer(json, countries, affiliations, mapping);
-}
-
 void LoadCountryFile2CountryInfo(string const & jsonBuffer, map<string, CountryInfo> & id2info,
                                  bool & isSingleMwm)
 {
   ASSERT(id2info.empty(), ());
 
-  int64_t version = -1;
+  json_int_t version = -1;
   try
   {
     my::Json root(jsonBuffer.c_str());
     FromJSONObjectOptionalField(root.get(), "v", version);
-    isSingleMwm = version::IsSingleMwm(version);
+    isSingleMwm = version::IsSingleMwm(static_cast<int64_t>(version));
     if (isSingleMwm)
     {
       StoreFile2InfoSingleMwms store(id2info);

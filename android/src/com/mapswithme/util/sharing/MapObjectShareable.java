@@ -42,7 +42,7 @@ class MapObjectShareable extends BaseShareable
                  lineWithBreak(ge0Url) +
                  lineWithBreak(httpUrl);
 
-      if (sponsored != null && sponsored.getType() == Sponsored.TYPE_BOOKING)
+      if (sponsored != null)
       {
         text += lineWithBreak(activity.getString(R.string.sharing_booking)) +
                 sponsored.getUrl();

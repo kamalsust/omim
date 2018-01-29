@@ -1,63 +1,62 @@
 #include "testing/testing.hpp"
 
+#include "generator/generator_tests_support/test_feature.hpp"
+
+#include "search/viewport_search_callback.hpp"
 #include "search/mode.hpp"
 #include "search/search_integration_tests/helpers.hpp"
 #include "search/search_tests_support/test_results_matching.hpp"
 #include "search/search_tests_support/test_search_request.hpp"
-#include "search/viewport_search_callback.hpp"
 
 #include "base/macros.hpp"
 
-#include <cstddef>
-#include <functional>
-#include <iterator>
-
 using namespace generator::tests_support;
 using namespace search::tests_support;
-using namespace std;
 
 namespace search
 {
 namespace
 {
-struct Stats
+class TestCafe : public TestPOI
 {
-  size_t m_numShownResults = 0;
-  bool m_hotelDisplacementModeSet = false;
+public:
+  TestCafe(m2::PointD const & center) : TestPOI(center, "cafe", "en")
+  {
+    SetTypes({{"amenity", "cafe"}});
+  }
+};
+
+class TestHotel : public TestPOI
+{
+public:
+  TestHotel(m2::PointD const & center) : TestPOI(center, "hotel", "en")
+  {
+    SetTypes({{"tourism", "hotel"}});
+  }
 };
 
 class TestDelegate : public ViewportSearchCallback::Delegate
 {
 public:
-  explicit TestDelegate(Stats & stats) : m_stats(stats) {}
-
-  ~TestDelegate() override = default;
+  TestDelegate(bool & mode) : m_mode(mode) {}
 
   // ViewportSearchCallback::Delegate overrides:
-  void RunUITask(function<void()> fn) override { fn(); }
-
-  void SetHotelDisplacementMode() override { m_stats.m_hotelDisplacementModeSet = true; }
-
+  void RunUITask(function<void()> /* fn */) override {}
+  void SetHotelDisplacementMode() override { m_mode = true; }
   bool IsViewportSearchActive() const override { return true; }
-
-  void ShowViewportSearchResults(bool clear, Results::ConstIter begin,
-                                 Results::ConstIter end) override
-  {
-    if (clear)
-      m_stats.m_numShownResults = 0;
-    m_stats.m_numShownResults += distance(begin, end);
-  }
+  void ShowViewportSearchResults(Results const & /* results */) override {}
+  void ClearViewportSearchResults() override {}
 
  private:
-  Stats & m_stats;
+  bool & m_mode;
 };
 
 class InteractiveSearchRequest : public TestDelegate, public TestSearchRequest
 {
 public:
   InteractiveSearchRequest(TestSearchEngine & engine, string const & query,
-                           m2::RectD const & viewport, Stats & stats)
-    : TestDelegate(stats)
+                           m2::RectD const & viewport, bool & mode)
+    : TestDelegate(mode)
     , TestSearchRequest(engine, query, "en" /* locale */, Mode::Viewport, viewport)
   {
     SetCustomOnResults(
@@ -96,31 +95,29 @@ UNIT_CLASS_TEST(InteractiveSearchTest, Smoke)
   });
 
   {
-    Stats stats;
+    bool mode = false;
     InteractiveSearchRequest request(
-        m_engine, "cafe", m2::RectD(m2::PointD(-1.5, -1.5), m2::PointD(-0.5, -0.5)), stats);
+        m_engine, "cafe", m2::RectD(m2::PointD(-1.5, -1.5), m2::PointD(-0.5, -0.5)), mode);
     request.Run();
 
     TRules const rules = {ExactMatch(id, cafes[0]), ExactMatch(id, cafes[1]),
                           ExactMatch(id, cafes[2]), ExactMatch(id, cafes[3])};
 
-    TEST(!stats.m_hotelDisplacementModeSet, ());
-    TEST_EQUAL(stats.m_numShownResults, 4, ());
-    TEST(MatchResults(m_index, rules, request.Results()), ());
+    TEST(!mode, ());
+    TEST(MatchResults(m_engine, rules, request.Results()), ());
   }
 
   {
-    Stats stats;
+    bool mode = false;
     InteractiveSearchRequest request(m_engine, "hotel",
-                                     m2::RectD(m2::PointD(0.5, 0.5), m2::PointD(1.5, 1.5)), stats);
+                                     m2::RectD(m2::PointD(0.5, 0.5), m2::PointD(1.5, 1.5)), mode);
     request.Run();
 
     TRules const rules = {ExactMatch(id, hotels[0]), ExactMatch(id, hotels[1]),
                           ExactMatch(id, hotels[2]), ExactMatch(id, hotels[3])};
 
-    TEST(stats.m_hotelDisplacementModeSet, ());
-    TEST_EQUAL(stats.m_numShownResults, 4, ());
-    TEST(MatchResults(m_index, rules, request.Results()), ());
+    TEST(mode, ());
+    TEST(MatchResults(m_engine, rules, request.Results()), ());
   }
 }
 
@@ -141,18 +138,20 @@ UNIT_CLASS_TEST(InteractiveSearchTest, NearbyFeaturesInViewport)
 
   SearchParams params;
   params.m_query = "cafe";
-  params.m_inputLocale = "en";
-  params.m_viewport = m2::RectD(m2::PointD(-0.5, -0.5), m2::PointD(0.5, 0.5));
   params.m_mode = Mode::Viewport;
+  params.m_inputLocale = "en";
   params.m_minDistanceOnMapBetweenResults = 0.5;
+  params.m_forceSearch = true;
   params.m_suggestsEnabled = false;
 
+  m2::RectD const viewport(m2::PointD(-0.5, -0.5), m2::PointD(0.5, 0.5));
+
   {
-    TestSearchRequest request(m_engine, params);
+    TestSearchRequest request(m_engine, params, viewport);
     request.Run();
 
-    TEST(MatchResults(m_index, TRules{ExactMatch(id, cafe1), ExactMatch(id, cafe2),
-                                      ExactMatch(id, cafe3), ExactMatch(id, cafe4)},
+    TEST(MatchResults(m_engine, TRules{ExactMatch(id, cafe1), ExactMatch(id, cafe2),
+                                       ExactMatch(id, cafe3), ExactMatch(id, cafe4)},
                       request.Results()),
          ());
   }
@@ -160,14 +159,13 @@ UNIT_CLASS_TEST(InteractiveSearchTest, NearbyFeaturesInViewport)
   params.m_minDistanceOnMapBetweenResults = 1.0;
 
   {
-    TestSearchRequest request(m_engine, params);
+    TestSearchRequest request(m_engine, params, viewport);
     request.Run();
 
     auto const & results = request.Results();
 
-    TEST(MatchResults(m_index, TRules{ExactMatch(id, cafe1), ExactMatch(id, cafe3)}, results) ||
-             MatchResults(m_index, TRules{ExactMatch(id, cafe2), ExactMatch(id, cafe4)}, results),
-         ());
+    TEST(MatchResults(m_engine, TRules{ExactMatch(id, cafe1), ExactMatch(id, cafe3)}, results) ||
+         MatchResults(m_engine, TRules{ExactMatch(id, cafe2), ExactMatch(id, cafe4)}, results), ());
   }
 }
 }  // namespace

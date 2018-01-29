@@ -1,8 +1,6 @@
 #include "testing/testing.hpp"
-
 #include "base/math.hpp"
-
-#include <limits>
+#include "std/limits.hpp"
 
 #include <boost/math/special_functions/next.hpp>
 
@@ -47,8 +45,8 @@ UNIT_TEST(AlmostEqualULPs_Smoke)
   TEST_ALMOST_EQUAL_ULPS(3.0, 3.0, ());
   TEST_ALMOST_EQUAL_ULPS(+0.0, -0.0, ());
 
-  double const eps = std::numeric_limits<double>::epsilon();
-  double const dmax = std::numeric_limits<double>::max();
+  double const eps = numeric_limits<double>::epsilon();
+  double const dmax = numeric_limits<double>::max();
 
   TEST_ALMOST_EQUAL_ULPS(1.0 + eps, 1.0, ());
   TEST_ALMOST_EQUAL_ULPS(1.0 - eps, 1.0, ());

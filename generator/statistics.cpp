@@ -10,22 +10,22 @@
 #include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include <iomanip>
-#include <iostream>
+#include "std/iomanip.hpp"
+#include "std/iostream.hpp"
 
 
 using namespace feature;
 
 namespace stats
 {
-  void FileContainerStatistic(std::string const & fPath)
+  void FileContainerStatistic(string const & fPath)
   {
     try
     {
       FilesContainerR cont(fPath);
       cont.ForEachTag([&cont] (FilesContainerR::Tag const & tag)
       {
-        std::cout << std::setw(10) << tag << " : " << cont.GetReader(tag).Size() << endl;
+        cout << setw(10) << tag << " : " << cont.GetReader(tag).Size() << endl;
       });
     }
     catch (Reader::Exception const & ex)
@@ -106,23 +106,23 @@ namespace stats
     }
   };
 
-  void CalcStatistic(std::string const & fPath, MapInfo & info)
+  void CalcStatistic(string const & fPath, MapInfo & info)
   {
     AccumulateStatistic doProcess(info);
     feature::ForEachFromDat(fPath, doProcess);
   }
 
-  void PrintInfo(std::string const & prefix, GeneralInfo const & info, bool measurements)
+  void PrintInfo(string const & prefix, GeneralInfo const & info, bool measurements)
   {
-    std::cout << prefix << ": size = " << info.m_size << "; count = " << info.m_count;
+    cout << prefix << ": size = " << info.m_size << "; count = " << info.m_count;
     if (measurements)
     {
-      std::cout << "; length = " << uint64_t(info.m_length) << " m; area = " << uint64_t(info.m_area) << " m²";
+      cout << "; length = " << uint64_t(info.m_length) << " m; area = " << uint64_t(info.m_area) << " m²";
     }
-    std::cout << endl;
+    cout << endl;
   }
 
-  std::string GetKey(EGeomType type)
+  string GetKey(EGeomType type)
   {
     switch (type)
     {
@@ -132,17 +132,17 @@ namespace stats
     }
   }
 
-  std::string GetKey(CountType t)
+  string GetKey(CountType t)
   {
     return strings::to_string(t.m_val);
   }
 
-  std::string GetKey(ClassifType t)
+  string GetKey(ClassifType t)
   {
     return classif().GetFullObjectName(t.m_val);
   }
 
-  std::string GetKey(AreaType t)
+  string GetKey(AreaType t)
   {
     return strings::to_string(arrAreas[t.m_val]);
   }
@@ -150,7 +150,7 @@ namespace stats
   template <class TSortCr, class TSet>
   void PrintTop(char const * prefix, TSet const & theSet)
   {
-    std::cout << prefix << endl;
+    cout << prefix << endl;
 
     vector<pair<typename TSet::key_type, typename TSet::mapped_type>> vec(theSet.begin(), theSet.end());
 
@@ -159,7 +159,7 @@ namespace stats
     size_t const count = min(static_cast<size_t>(10), vec.size());
     for (size_t i = 0; i < count; ++i)
     {
-      std::cout << i << ". ";
+      cout << i << ". ";
       PrintInfo(GetKey(vec[i].first), vec[i].second, false);
     }
   }

@@ -154,14 +154,9 @@ std::string Decompress(std::string const & compressed, std::string const & encod
   std::string decompressed;
 
   if (encoding == "deflate")
-  {
-    ZLib::Inflate inflate(ZLib::Inflate::Format::ZLib);
-    inflate(compressed, back_inserter(decompressed));
-  }
+    ZLib::Inflate(compressed, back_inserter(decompressed));
   else
-  {
     ASSERT(false, ("Unsupported Content-Encoding:", encoding));
-  }
 
   return decompressed;
 }
@@ -189,8 +184,6 @@ bool HttpClient::RunHttpRequest()
 
   if (!m_cookies.empty())
     cmd += "-b '" + m_cookies + "' ";
-
-  cmd += "-m '" + strings::to_string(m_timeoutSec) + "' ";
 
   if (!m_bodyData.empty())
   {

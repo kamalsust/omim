@@ -4,10 +4,9 @@ include_directories(src)
 
 set(
   SRC
-  src/pugiconfig.hpp
   src/pugixml.cpp
   src/pugixml.hpp
-  src/utils.hpp
+  src/pugiconfig.hpp
 )
 
 add_library(${PROJECT_NAME} ${SRC})

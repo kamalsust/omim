@@ -1,8 +1,4 @@
-typedef NS_ENUM(NSInteger, MWMOpenGLDriver) {
-  MWMOpenGLDriverRegular,
-  MWMOpenGLDriverMetalPre103, // iOS 10..10.3
-  MWMOpenGLDriverMetal
-};
+#import <Foundation/Foundation.h>
 
 @interface AppInfo : NSObject
 
@@ -14,13 +10,10 @@ typedef NS_ENUM(NSInteger, MWMOpenGLDriver) {
 @property(nonatomic, readonly) NSString * bundleVersion;
 @property(nonatomic, readonly) NSString * buildNumber;
 @property(nonatomic, readonly) NSUUID * advertisingId;
-@property(nonatomic, readonly) NSString * inputLanguage;
-@property(nonatomic, readonly) NSString * twoLetterInputLanguage;
 @property(nonatomic, readonly) NSString * languageId;
 @property(nonatomic, readonly) NSString * twoLetterLanguageId;
 @property(nonatomic, readonly) NSDate * buildDate;
 @property(nonatomic, readonly) NSString * deviceName;
-@property(nonatomic, readonly) MWMOpenGLDriver openGLDriver;
-@property(nonatomic, readonly) BOOL canMakeCalls;
+@property(nonatomic, readonly) BOOL isMetalDriver;
 
 @end

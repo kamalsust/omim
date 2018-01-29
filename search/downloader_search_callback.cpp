@@ -57,7 +57,7 @@ void DownloaderSearchCallback::operator()(search::Results const & results)
     if (!result.HasPoint())
       continue;
 
-    if (result.GetResultType() != search::Result::Type::LatLon)
+    if (result.GetResultType() != search::Result::RESULT_LATLON)
     {
       FeatureID const & fid = result.GetFeatureID();
       Index::FeaturesLoaderGuard loader(m_index, fid.m_mwmId);

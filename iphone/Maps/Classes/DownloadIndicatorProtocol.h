@@ -1,3 +1,5 @@
+#import <Foundation/Foundation.h>
+
 @protocol DownloadIndicatorProtocol <NSObject>
 
 - (void)enableStandby;

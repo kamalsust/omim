@@ -1,10 +1,10 @@
 #pragma once
 
-#include "drape_frontend/gui/skin.hpp"
-#include "drape_frontend/render_state.hpp"
+#include "skin.hpp"
 
 #include "drape/batcher.hpp"
 #include "drape/glsl_types.hpp"
+#include "drape/glstate.hpp"
 #include "drape/gpu_program_manager.hpp"
 #include "drape/overlay_handle.hpp"
 #include "drape/texture_manager.hpp"
@@ -61,7 +61,7 @@ struct ShapeControl
 
   struct ShapeInfo
   {
-    ShapeInfo() : m_state(df::CreateGLState(0, df::RenderState::GuiLayer)) {}
+    ShapeInfo() : m_state(0, dp::GLState::Gui) {}
     ShapeInfo(dp::GLState const & state, drape_ptr<dp::VertexArrayBuffer> && buffer,
               drape_ptr<Handle> && handle);
 

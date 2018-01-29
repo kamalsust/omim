@@ -2,8 +2,6 @@ project(oauthcpp)
 
 include_directories(include src)
 
-add_clang_compile_options("-Wno-shorten-64-to-32")
-
 set(
   SRC
   include/liboauthcpp/liboauthcpp.h

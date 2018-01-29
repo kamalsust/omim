@@ -1,7 +1,8 @@
 #pragma once
 
 //#define DRAW_TILE_NET
-//#define RENDER_DEBUG_DISPLACEMENT
+//#define RENDER_DEBUG_RECTS
+//#define COLLECT_DISPLACEMENT_INFO
 //#define DEBUG_OVERLAYS_OUTPUT
 
 //#define DRAPE_MEASURER

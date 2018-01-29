@@ -1,5 +1,4 @@
 #import "MWMSearchFilterPresentationController.h"
-#import "MWMCommon.h"
 #import "MWMSearch.h"
 
 namespace
@@ -9,14 +8,14 @@ CGFloat const kiPhonePortraitHeightPercentage = 0.7;
 CGPoint originForParentSize(CGSize size)
 {
   if (size.width > size.height)
-    return {0, isIOSVersionLessThan(10) ? statusBarHeight() : 0};
+    return {};
   return {0, size.height * (1 - kiPhonePortraitHeightPercentage)};
 }
 
 CGSize sizeForParentSize(CGSize size)
 {
   if (size.width > size.height)
-    return {size.width, size.height - (isIOSVersionLessThan(10) ? statusBarHeight() : 0)};
+    return size;
   return {size.width, size.height * kiPhonePortraitHeightPercentage};
 }
 }  // namespace

@@ -8,8 +8,6 @@
 #include "indexer/classificator_loader.hpp"
 #include "indexer/feature_visibility.hpp"
 
-#include "base/osm_id.hpp"
-
 using namespace tests;
 
 
@@ -213,21 +211,5 @@ UNIT_TEST(FeatureParams_Parsing)
     FeatureParams params;
     params.AddAddress("165 \t\t Dolliver Street");
     TEST_EQUAL(params.GetStreet(), "Dolliver Street", ());
-  }
-
-  {
-    FeatureParams params;
-
-    params.MakeZero();
-    TEST(params.AddHouseNumber("123"), ());
-    TEST_EQUAL(params.house.Get(), "123", ());
-
-    params.MakeZero();
-    TEST(params.AddHouseNumber("0000123"), ());
-    TEST_EQUAL(params.house.Get(), "123", ());
-
-    params.MakeZero();
-    TEST(params.AddHouseNumber("000000"), ());
-    TEST_EQUAL(params.house.Get(), "0", ());
   }
 }

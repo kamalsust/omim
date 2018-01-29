@@ -110,4 +110,5 @@ public:
 private:
   Batcher & m_batcher;
 };
-}  // namespace dp
+
+} // namespace dp

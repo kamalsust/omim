@@ -11,8 +11,6 @@
                   langCode:(NSInteger)langCode
                   langName:(NSString *)langName
                       name:(NSString *)name
-              errorMessage:(NSString *)errorMessage
-                   isValid:(BOOL)isValid
               keyboardType:(UIKeyboardType)keyboardType;
 
 @end

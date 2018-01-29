@@ -10,6 +10,7 @@
 
 namespace dp
 {
+
 class ColorKey : public Texture::Key
 {
 public:
@@ -61,10 +62,14 @@ class ColorTexture : public DynamicTexture<ColorPalette, ColorKey, Texture::Colo
   typedef DynamicTexture<ColorPalette, ColorKey, Texture::Color> TBase;
 public:
   ColorTexture(m2::PointU const & size, ref_ptr<HWTextureAllocator> allocator)
-    : m_palette(size)
+    : m_pallete(size)
   {
-    TBase::TextureParams params{size, TextureFormat::RGBA8, gl_const::GLNearest, false /* m_usePixelBuffer */};
-    TBase::Init(allocator, make_ref(&m_palette), params);
+    TBase::TextureParams params;
+    params.m_size = size;
+    params.m_format = TextureFormat::RGBA8;
+    params.m_filter = gl_const::GLNearest;
+
+    TBase::Init(allocator, make_ref(&m_pallete), params);
   }
 
   void ReserveColor(dp::Color const & color);
@@ -74,6 +79,7 @@ public:
   static int GetColorSizeInPixels();
 
 private:
-  ColorPalette m_palette;
+  ColorPalette m_pallete;
 };
-}  // namespace dp
+
+}

@@ -4,74 +4,76 @@
 
 namespace df
 {
-void DrapeApi::SetDrapeEngine(ref_ptr<DrapeEngine> engine)
+
+void DrapeApi::SetEngine(ref_ptr<DrapeEngine> engine)
 {
-  m_engine.Set(engine);
+  m_engine = engine;
 }
 
-void DrapeApi::AddLine(std::string const & id, DrapeApiLineData const & data)
+void DrapeApi::AddLine(string const & id, DrapeApiLineData const & data)
 {
-  DrapeEngineLockGuard lock(m_engine);
-  if (!lock)
+  lock_guard<mutex> lock(m_mutex);
+
+  if (m_engine == nullptr)
     return;
 
-  auto & threadCommutator = lock.Get()->m_threadCommutator;
-  auto const it = m_lines.find(id);
+  auto it = m_lines.find(id);
   if (it != m_lines.end())
   {
-    threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                  make_unique_dp<DrapeApiRemoveMessage>(id),
-                                  MessagePriority::Normal);
+    m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                              make_unique_dp<DrapeApiRemoveMessage>(id),
+                                              MessagePriority::Normal);
   }
 
   m_lines[id] = data;
 
   TLines lines;
-  lines.insert(std::make_pair(id, data));
-  threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                make_unique_dp<DrapeApiAddLinesMessage>(lines),
-                                MessagePriority::Normal);
+  lines.insert(make_pair(id, data));
+  m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                            make_unique_dp<DrapeApiAddLinesMessage>(lines),
+                                            MessagePriority::Normal);
 }
 
-void DrapeApi::RemoveLine(std::string const & id)
+void DrapeApi::RemoveLine(string const & id)
 {
-  DrapeEngineLockGuard lock(m_engine);
-  if (!lock)
+  lock_guard<mutex> lock(m_mutex);
+
+  if (m_engine == nullptr)
     return;
 
-  auto & threadCommutator = lock.Get()->m_threadCommutator;
   m_lines.erase(id);
-  threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                make_unique_dp<DrapeApiRemoveMessage>(id),
-                                MessagePriority::Normal);
+  m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                            make_unique_dp<DrapeApiRemoveMessage>(id),
+                                            MessagePriority::Normal);
 }
 
 void DrapeApi::Clear()
 {
-  DrapeEngineLockGuard lock(m_engine);
-  if (!lock)
+  lock_guard<mutex> lock(m_mutex);
+
+  if (m_engine == nullptr)
     return;
 
-  auto & threadCommutator = lock.Get()->m_threadCommutator;
   m_lines.clear();
-  threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                make_unique_dp<DrapeApiRemoveMessage>("", true /* remove all */),
-                                MessagePriority::Normal);
+  m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                            make_unique_dp<DrapeApiRemoveMessage>("", true /* remove all */),
+                                            MessagePriority::Normal);
 }
 
 void DrapeApi::Invalidate()
 {
-  DrapeEngineLockGuard lock(m_engine);
-  if (!lock)
+  lock_guard<mutex> lock(m_mutex);
+
+  if (m_engine == nullptr)
     return;
 
-  auto & threadCommutator = lock.Get()->m_threadCommutator;
-  threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                make_unique_dp<DrapeApiRemoveMessage>("", true /* remove all */),
-                                MessagePriority::Normal);
+  m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                            make_unique_dp<DrapeApiRemoveMessage>("", true /* remove all */),
+                                            MessagePriority::Normal);
 
-  threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
-                                make_unique_dp<DrapeApiAddLinesMessage>(m_lines),
-                                MessagePriority::Normal);
+  m_engine->m_threadCommutator->PostMessage(ThreadsCommutator::ResourceUploadThread,
+                                            make_unique_dp<DrapeApiAddLinesMessage>(m_lines),
+                                            MessagePriority::Normal);
 }
-}  // namespace df
+
+} // namespace df

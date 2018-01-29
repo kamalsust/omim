@@ -10,7 +10,7 @@
 
 namespace coding
 {
-// Following classes are wrappers around ZLib routines.
+// Following class is a wrapper around ZLib routines.
 //
 // *NOTE* All Inflate() and Deflate() methods may return false in case
 // of errors. In this case the output sequence may be already
@@ -19,75 +19,43 @@ namespace coding
 class ZLib
 {
 public:
-  class Inflate
+  enum class Level
   {
-  public:
-    enum class Format
-    {
-      ZLib,
-      GZip,
-      Both
-    };
-
-    explicit Inflate(Format format) noexcept : m_format(format) {}
-
-    template <typename OutIt>
-    bool operator()(void const * data, size_t size, OutIt out) const
-    {
-      if (data == nullptr)
-        return false;
-      InflateProcessor processor(m_format, data, size);
-      return Process(processor, out);
-    }
-
-    template <typename OutIt>
-    bool operator()(string const & s, OutIt out) const
-    {
-      return (*this)(s.c_str(), s.size(), out);
-    }
-
-  private:
-    Format const m_format;
+    NoCompression,
+    BestSpeed,
+    BestCompression,
+    DefaultCompression
   };
 
-  class Deflate
+  template <typename OutIt>
+  static bool Deflate(void const * data, size_t size, Level level, OutIt out)
   {
-  public:
-    enum class Format
-    {
-      ZLib,
-      GZip
-    };
+    if (data == nullptr)
+      return false;
+    DeflateProcessor processor(data, size, level);
+    return Process(processor, out);
+  }
 
-    enum class Level
-    {
-      NoCompression,
-      BestSpeed,
-      BestCompression,
-      DefaultCompression
-    };
+  template <typename OutIt>
+  static bool Deflate(string const & s, Level level, OutIt out)
+  {
+    return Deflate(s.c_str(), s.size(), level, out);
+  }
 
-    Deflate(Format format, Level level) noexcept : m_format(format), m_level(level) {}
+  template <typename OutIt>
+  static bool Inflate(void const * data, size_t size, OutIt out)
+  {
+    if (data == nullptr)
+      return false;
+    InflateProcessor processor(data, size);
+    return Process(processor, out);
+  }
 
-    template <typename OutIt>
-    bool operator()(void const * data, size_t size, OutIt out) const
-    {
-      if (data == nullptr)
-        return false;
-      DeflateProcessor processor(m_format, m_level, data, size);
-      return Process(processor, out);
-    }
-
-    template <typename OutIt>
-    bool operator()(string const & s, OutIt out) const
-    {
-      return (*this)(s.c_str(), s.size(), out);
-    }
-
-  private:
-    Format const m_format;
-    Level const m_level;
-  };
+  template <typename OutIt>
+  static bool Inflate(string const & s, OutIt out)
+  {
+    return Inflate(s.c_str(), s.size(), out);
+  }
 
 private:
   class Processor
@@ -122,8 +90,7 @@ private:
   class DeflateProcessor final : public Processor
   {
   public:
-    DeflateProcessor(Deflate::Format format, Deflate::Level level, void const * data,
-                     size_t size) noexcept;
+    DeflateProcessor(void const * data, size_t size, Level level) noexcept;
     virtual ~DeflateProcessor() noexcept override;
 
     int Process(int flush);
@@ -134,7 +101,7 @@ private:
   class InflateProcessor final : public Processor
   {
   public:
-    InflateProcessor(Inflate::Format format, void const * data, size_t size) noexcept;
+    InflateProcessor(void const * data, size_t size) noexcept;
     virtual ~InflateProcessor() noexcept override;
 
     int Process(int flush);

@@ -2,7 +2,7 @@
 
 #include "base/string_utils.hpp"
 
-#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace strings
@@ -34,7 +34,7 @@ public:
   struct Position
   {
     Position() = default;
-    Position(size_t offset, size_t errorsLeft, bool transposed);
+    Position(size_t offset, uint8_t errorsLeft, bool transposed);
 
     // SubsumedBy is a relation on two positions, which allows to
     // efficiently remove unnecessary positions in a state. When the
@@ -50,7 +50,7 @@ public:
     inline bool IsTransposed() const { return m_transposed; }
 
     size_t m_offset = 0;
-    size_t m_errorsLeft = 0;
+    uint8_t m_errorsLeft = 0;
     bool m_transposed = false;
   };
 
@@ -80,8 +80,6 @@ public:
     bool Accepts() const { return m_dfa.IsAccepting(m_s); }
     bool Rejects() const { return m_dfa.IsRejecting(m_s); }
 
-    size_t ErrorsMade() const { return m_dfa.ErrorsMade(m_s); }
-
   private:
     friend class LevenshteinDFA;
 
@@ -91,13 +89,10 @@ public:
     LevenshteinDFA const & m_dfa;
   };
 
-  LevenshteinDFA(LevenshteinDFA const &) = default;
-  LevenshteinDFA(LevenshteinDFA &&) = default;
-
-  LevenshteinDFA(UniString const & s, size_t prefixCharsToKeep, size_t maxErrors);
-  LevenshteinDFA(std::string const & s, size_t prefixCharsToKeep, size_t maxErrors);
-  LevenshteinDFA(UniString const & s, size_t maxErrors);
-  LevenshteinDFA(std::string const & s, size_t maxErrors);
+  LevenshteinDFA(UniString const & s, size_t prefixCharsToKeep, uint8_t maxErrors);
+  LevenshteinDFA(std::string const & s, size_t prefixCharsToKeep, uint8_t maxErrors);
+  LevenshteinDFA(UniString const & s, uint8_t maxErrors);
+  LevenshteinDFA(std::string const & s, uint8_t maxErrors);
 
   inline Iterator Begin() const { return Iterator(*this); }
 
@@ -120,20 +115,15 @@ private:
   inline bool IsRejecting(State const & s) const { return s.m_positions.empty(); }
   inline bool IsRejecting(size_t s) const { return s == kRejectingState; }
 
-  // Returns minimum number of made errors among accepting positions in |s|.
-  size_t ErrorsMade(State const & s) const;
-  size_t ErrorsMade(size_t s) const { return m_errorsMade[s]; }
-
   size_t Move(size_t s, UniChar c) const;
 
   size_t const m_size;
-  size_t const m_maxErrors;
+  uint8_t const m_maxErrors;
 
   std::vector<UniChar> m_alphabet;
 
   std::vector<std::vector<size_t>> m_transitions;
   std::vector<bool> m_accepting;
-  std::vector<size_t> m_errorsMade;
 };
 
 std::string DebugPrint(LevenshteinDFA::Position const & p);

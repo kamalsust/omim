@@ -2,8 +2,6 @@
 
 #include "testing/testing.hpp"
 
-#include "routing/base/routing_result.hpp"
-
 #include "routing_common/car_model.hpp"
 
 #include "base/assert.hpp"
@@ -12,37 +10,8 @@ namespace routing_test
 {
 using namespace routing;
 
-namespace
-{
-double constexpr kEpsilon = 1e-6;
-
-template <typename Graph>
-Graph & GetGraph(unordered_map<NumMwmId, unique_ptr<Graph>> const & graphs, NumMwmId mwmId)
-{
-  auto it = graphs.find(mwmId);
-  CHECK(it != graphs.end(), ("Not found graph for mwm", mwmId));
-  return *it->second;
-}
-
-template <typename Graph>
-void AddGraph(unordered_map<NumMwmId, unique_ptr<Graph>> & graphs, NumMwmId mwmId,
-              unique_ptr<Graph> graph)
-{
-  auto it = graphs.find(mwmId);
-  CHECK(it == graphs.end(), ("Already contains graph for mwm", mwmId));
-  graphs[mwmId] = move(graph);
-}
-}  // namespace
-
-// RestrictionTest
-void RestrictionTest::SetStarter(FakeEnding const & start, FakeEnding const & finish)
-{
-  CHECK(m_graph != nullptr, ("Init() was not called."));
-  m_starter = MakeStarter(start, finish, *m_graph);
-}
-
 // TestGeometryLoader ------------------------------------------------------------------------------
-void TestGeometryLoader::Load(uint32_t featureId, RoadGeometry & road)
+void TestGeometryLoader::Load(uint32_t featureId, RoadGeometry & road) const
 {
   auto it = m_roads.find(featureId);
   if (it == m_roads.cend())
@@ -57,18 +26,10 @@ void TestGeometryLoader::AddRoad(uint32_t featureId, bool oneWay, float speed,
   auto it = m_roads.find(featureId);
   CHECK(it == m_roads.end(), ("Already contains feature", featureId));
   m_roads[featureId] = RoadGeometry(oneWay, speed, points);
-  m_roads[featureId].SetPassThroughAllowedForTests(true);
-}
-
-void TestGeometryLoader::SetPassThroughAllowed(uint32_t featureId, bool passThroughAllowed)
-{
-  auto it = m_roads.find(featureId);
-  CHECK(it != m_roads.end(), ("No feature", featureId));
-  m_roads[featureId].SetPassThroughAllowedForTests(passThroughAllowed);
 }
 
 // ZeroGeometryLoader ------------------------------------------------------------------------------
-void ZeroGeometryLoader::Load(uint32_t /* featureId */, routing::RoadGeometry & road)
+void ZeroGeometryLoader::Load(uint32_t featureId, routing::RoadGeometry & road) const
 {
   // Any valid road will do.
   auto const points = routing::RoadGeometry::Points({{0.0, 0.0}, {0.0, 1.0}});
@@ -78,27 +39,18 @@ void ZeroGeometryLoader::Load(uint32_t /* featureId */, routing::RoadGeometry & 
 // TestIndexGraphLoader ----------------------------------------------------------------------------
 IndexGraph & TestIndexGraphLoader::GetIndexGraph(NumMwmId mwmId)
 {
-  return GetGraph(m_graphs, mwmId);
+  auto it = m_graphs.find(mwmId);
+  CHECK(it != m_graphs.end(), ("Not found mwm", mwmId));
+  return *it->second;
 }
 
 void TestIndexGraphLoader::Clear() { m_graphs.clear(); }
 
 void TestIndexGraphLoader::AddGraph(NumMwmId mwmId, unique_ptr<IndexGraph> graph)
 {
-  routing_test::AddGraph(m_graphs, mwmId, move(graph));
-}
-
-// TestTransitGraphLoader ----------------------------------------------------------------------------
-TransitGraph & TestTransitGraphLoader::GetTransitGraph(NumMwmId mwmId, IndexGraph &)
-{
-  return GetGraph(m_graphs, mwmId);
-}
-
-void TestTransitGraphLoader::Clear() { m_graphs.clear(); }
-
-void TestTransitGraphLoader::AddGraph(NumMwmId mwmId, unique_ptr<TransitGraph> graph)
-{
-  routing_test::AddGraph(m_graphs, mwmId, move(graph));
+  auto it = m_graphs.find(mwmId);
+  CHECK(it == m_graphs.end(), ("Already contains mwm", mwmId));
+  m_graphs[mwmId] = move(graph);
 }
 
 // WeightedEdgeEstimator --------------------------------------------------------------
@@ -108,6 +60,12 @@ double WeightedEdgeEstimator::CalcSegmentWeight(Segment const & segment,
   auto const it = m_segmentWeights.find(segment);
   CHECK(it != m_segmentWeights.cend(), ());
   return it->second;
+}
+
+double WeightedEdgeEstimator::CalcHeuristic(m2::PointD const & /* from */,
+                                            m2::PointD const & /* to */) const
+{
+  return 0.0;
 }
 
 double WeightedEdgeEstimator::GetUTurnPenalty() const { return 0.0; }
@@ -120,38 +78,6 @@ TestIndexGraphTopology::TestIndexGraphTopology(uint32_t numVertices) : m_numVert
 void TestIndexGraphTopology::AddDirectedEdge(Vertex from, Vertex to, double weight)
 {
   AddDirectedEdge(m_edgeRequests, from, to, weight);
-}
-
-void TestIndexGraphTopology::SetEdgeAccess(Vertex from, Vertex to, RoadAccess::Type type)
-{
-  for (auto & r : m_edgeRequests)
-  {
-    if (r.m_from == from && r.m_to == to)
-    {
-      r.m_accessType = type;
-      return;
-    }
-  }
-  CHECK(false, ("Cannot set access for edge that is not in the graph", from, to));
-}
-
-void TestIndexGraphTopology::SetVertexAccess(Vertex v, RoadAccess::Type type)
-{
-  bool found = false;
-  for (auto & r : m_edgeRequests)
-  {
-    if (r.m_from == v)
-    {
-      r.m_fromAccessType = type;
-      found = true;
-    }
-    if (r.m_to == v)
-    {
-      r.m_toAccessType = type;
-      found = true;
-    }
-  }
-  CHECK(found, ("Cannot set access for vertex that is not in the graph", v));
 }
 
 bool TestIndexGraphTopology::FindPath(Vertex start, Vertex finish, double & pathWeight,
@@ -172,58 +98,44 @@ bool TestIndexGraphTopology::FindPath(Vertex start, Vertex finish, double & path
   // for the end of our path and another loop at start for the bidirectional search.
   auto const startFeatureId = static_cast<uint32_t>(edgeRequests.size());
   AddDirectedEdge(edgeRequests, start, start, 0.0);
-  // |startSegment| corresponds to edge from |start| to |start| which has featureId |startFeatureId|
-  // and the only segment with segmentIdx |0|. It is a loop so direction does not matter.
-  auto const startSegment = Segment(kTestNumMwmId, startFeatureId, 0 /* segmentIdx */,
-                                    true /* forward */);
-
   auto const finishFeatureId = static_cast<uint32_t>(edgeRequests.size());
   AddDirectedEdge(edgeRequests, finish, finish, 0.0);
-  // |finishSegment| corresponds to edge from |finish| to |finish| which has featureId |finishFeatureId|
-  // and the only segment with segmentIdx |0|. It is a loop so direction does not matter.
-  auto const finishSegment = Segment(kTestNumMwmId, finishFeatureId, 0 /* segmentIdx */,
-                                     true /* forward */);
 
   Builder builder(m_numVertices);
   builder.BuildGraphFromRequests(edgeRequests);
   auto const worldGraph = builder.PrepareIndexGraph();
   CHECK(worldGraph != nullptr, ());
 
-  AStarAlgorithm<WorldGraph> algorithm;
+  auto const fakeStart = IndexGraphStarter::FakeVertex(kTestNumMwmId, startFeatureId,
+                                                       0 /* pointId */, m2::PointD::Zero());
+  auto const fakeFinish = IndexGraphStarter::FakeVertex(kTestNumMwmId, finishFeatureId,
+                                                        0 /* pointId */, m2::PointD::Zero());
 
-  AStarAlgorithm<WorldGraph>::ParamsForTests params(*worldGraph, startSegment, finishSegment,
-                                                    nullptr /* prevRoute */,
-                                                    {} /* checkLengthCallback */);
-  RoutingResult<Segment, RouteWeight> routingResult;
-  auto const resultCode = algorithm.FindPathBidirectional(params, routingResult);
+  IndexGraphStarter starter(fakeStart, fakeFinish, *worldGraph);
 
-  // Check unidirectional AStar returns same result.
-  {
-    RoutingResult<Segment, RouteWeight> unidirectionalRoutingResult;
-    auto const unidirectionalResultCode = algorithm.FindPath(params, unidirectionalRoutingResult);
-    CHECK_EQUAL(resultCode, unidirectionalResultCode, ());
-    CHECK(routingResult.m_distance.IsAlmostEqualForTests(unidirectionalRoutingResult.m_distance,
-                                                         kEpsilon),
-          ("Distances differ:", routingResult.m_distance, unidirectionalRoutingResult.m_distance));
-  }
+  vector<Segment> routeSegs;
+  double timeSec;
+  auto const resultCode = CalculateRoute(starter, routeSegs, timeSec);
 
-  if (resultCode == AStarAlgorithm<WorldGraph>::Result::NoPath)
+  if (resultCode == AStarAlgorithm<IndexGraphStarter>::Result::NoPath)
     return false;
-  CHECK_EQUAL(resultCode, AStarAlgorithm<WorldGraph>::Result::OK, ());
+  CHECK_EQUAL(resultCode, AStarAlgorithm<IndexGraphStarter>::Result::OK, ());
 
-  CHECK_GREATER_OR_EQUAL(routingResult.m_path.size(), 2, ());
-  CHECK_EQUAL(routingResult.m_path.front(), startSegment, ());
-  CHECK_EQUAL(routingResult.m_path.back(), finishSegment, ());
+  CHECK_GREATER_OR_EQUAL(routeSegs.size(), 2, ());
+  CHECK_EQUAL(routeSegs.front(), starter.GetStart(), ());
+  CHECK_EQUAL(routeSegs.back(), starter.GetFinish(), ());
 
-  pathEdges.reserve(routingResult.m_path.size());
+  // We are not interested in the fake start and finish.
+  pathEdges.resize(routeSegs.size() - 2);
   pathWeight = 0.0;
-  for (auto const & s : routingResult.m_path)
+  for (size_t i = 1; i + 1 < routeSegs.size(); ++i)
   {
-    auto const it = builder.m_segmentToEdge.find(s);
+    auto const & seg = routeSegs[i];
+    auto const it = builder.m_segmentToEdge.find(seg);
     CHECK(it != builder.m_segmentToEdge.cend(), ());
     auto const & edge = it->second;
-    pathEdges.push_back(edge);
-    pathWeight += builder.m_segmentWeights[s];
+    pathEdges[i - 1] = edge;
+    pathWeight += builder.m_segmentWeights[seg];
   }
 
   // The loops from start to start and from finish to finish.
@@ -244,16 +156,14 @@ void TestIndexGraphTopology::AddDirectedEdge(vector<EdgeRequest> & edgeRequests,
 }
 
 // TestIndexGraphTopology::Builder -----------------------------------------------------------------
-unique_ptr<SingleVehicleWorldGraph> TestIndexGraphTopology::Builder::PrepareIndexGraph()
+unique_ptr<WorldGraph> TestIndexGraphTopology::Builder::PrepareIndexGraph()
 {
   auto loader = make_unique<ZeroGeometryLoader>();
   auto estimator = make_shared<WeightedEdgeEstimator>(m_segmentWeights);
 
   BuildJoints();
 
-  auto worldGraph = BuildWorldGraph(move(loader), estimator, m_joints);
-  worldGraph->GetIndexGraphForTests(kTestNumMwmId).SetRoadAccess(move(m_roadAccess));
-  return worldGraph;
+  return BuildWorldGraph(move(loader), estimator, m_joints);
 }
 
 void TestIndexGraphTopology::Builder::BuildJoints()
@@ -273,22 +183,8 @@ void TestIndexGraphTopology::Builder::BuildJoints()
 
 void TestIndexGraphTopology::Builder::BuildGraphFromRequests(vector<EdgeRequest> const & requests)
 {
-  map<uint32_t, RoadAccess::Type> featureTypes;
-  map<RoadPoint, RoadAccess::Type> pointTypes;
   for (auto const & request : requests)
-  {
     BuildSegmentFromEdge(request);
-    if (request.m_accessType != RoadAccess::Type::Yes)
-      featureTypes[request.m_id] = request.m_accessType;
-
-    // All features have 1 segment. |from| has point index 0, |to| has point index 1. 
-    if (request.m_fromAccessType != RoadAccess::Type::Yes)
-      pointTypes[RoadPoint(request.m_id, 0 /* pointId */)] = request.m_fromAccessType;
-    if (request.m_toAccessType != RoadAccess::Type::Yes)
-      pointTypes[RoadPoint(request.m_id, 1 /* pointId */)] = request.m_toAccessType;
-  }
-
-  m_roadAccess.SetAccessTypes(move(featureTypes), move(pointTypes));
 }
 
 void TestIndexGraphTopology::Builder::BuildSegmentFromEdge(EdgeRequest const & request)
@@ -307,51 +203,26 @@ void TestIndexGraphTopology::Builder::BuildSegmentFromEdge(EdgeRequest const & r
 }
 
 // Functions ---------------------------------------------------------------------------------------
-unique_ptr<SingleVehicleWorldGraph> BuildWorldGraph(unique_ptr<TestGeometryLoader> geometryLoader,
-                                                    shared_ptr<EdgeEstimator> estimator,
-                                                    vector<Joint> const & joints)
+unique_ptr<WorldGraph> BuildWorldGraph(unique_ptr<TestGeometryLoader> geometryLoader,
+                                       shared_ptr<EdgeEstimator> estimator,
+                                       vector<Joint> const & joints)
 {
   auto graph = make_unique<IndexGraph>(move(geometryLoader), estimator);
   graph->Import(joints);
   auto indexLoader = make_unique<TestIndexGraphLoader>();
   indexLoader->AddGraph(kTestNumMwmId, move(graph));
-  return make_unique<SingleVehicleWorldGraph>(nullptr /* crossMwmGraph */, move(indexLoader),
-                                              estimator);
+  return make_unique<WorldGraph>(nullptr /* crossMwmGraph */, move(indexLoader), estimator);
 }
 
-unique_ptr<SingleVehicleWorldGraph> BuildWorldGraph(unique_ptr<ZeroGeometryLoader> geometryLoader,
-                                                    shared_ptr<EdgeEstimator> estimator,
-                                                    vector<Joint> const & joints)
+unique_ptr<WorldGraph> BuildWorldGraph(unique_ptr<ZeroGeometryLoader> geometryLoader,
+                                       shared_ptr<EdgeEstimator> estimator,
+                                       vector<Joint> const & joints)
 {
   auto graph = make_unique<IndexGraph>(move(geometryLoader), estimator);
   graph->Import(joints);
   auto indexLoader = make_unique<TestIndexGraphLoader>();
   indexLoader->AddGraph(kTestNumMwmId, move(graph));
-  return make_unique<SingleVehicleWorldGraph>(nullptr /* crossMwmGraph */, move(indexLoader),
-                                              estimator);
-}
-
-unique_ptr<TransitWorldGraph> BuildWorldGraph(unique_ptr<TestGeometryLoader> geometryLoader,
-                                              shared_ptr<EdgeEstimator> estimator,
-                                              vector<Joint> const & joints,
-                                              transit::GraphData const & transitData)
-{
-  auto indexGraph = make_unique<IndexGraph>(move(geometryLoader), estimator);
-  indexGraph->Import(joints);
-
-  auto transitGraph = make_unique<TransitGraph>(kTestNumMwmId, estimator);
-  TransitGraph::GateEndings gateEndings;
-  MakeGateEndings(transitData.GetGates(), kTestNumMwmId, *indexGraph, gateEndings);
-  transitGraph->Fill(transitData, gateEndings);
-
-  auto indexLoader = make_unique<TestIndexGraphLoader>();
-  indexLoader->AddGraph(kTestNumMwmId, move(indexGraph));
-
-  auto transitLoader = make_unique<TestTransitGraphLoader>();
-  transitLoader->AddGraph(kTestNumMwmId, move(transitGraph));
-  
-  return make_unique<TransitWorldGraph>(nullptr /* crossMwmGraph */, move(indexLoader),
-                                        move(transitLoader), estimator);
+  return make_unique<WorldGraph>(nullptr /* crossMwmGraph */, move(indexLoader), estimator);
 }
 
 Joint MakeJoint(vector<RoadPoint> const & points)
@@ -372,8 +243,7 @@ shared_ptr<EdgeEstimator> CreateEstimatorForCar(traffic::TrafficCache const & tr
 
 shared_ptr<EdgeEstimator> CreateEstimatorForCar(shared_ptr<TrafficStash> trafficStash)
 {
-  auto const carModel = CarModelFactory({}).GetVehicleModel();
-  return EdgeEstimator::Create(VehicleType::Car, *carModel, trafficStash);
+  return EdgeEstimator::CreateForCar(trafficStash, 90.0 /* maxSpeedKMpH */);
 }
 
 AStarAlgorithm<IndexGraphStarter>::Result CalculateRoute(IndexGraphStarter & starter,
@@ -381,16 +251,14 @@ AStarAlgorithm<IndexGraphStarter>::Result CalculateRoute(IndexGraphStarter & sta
                                                          double & timeSec)
 {
   AStarAlgorithm<IndexGraphStarter> algorithm;
-  RoutingResult<Segment, RouteWeight> routingResult;
+  RoutingResult<Segment> routingResult;
 
-  AStarAlgorithm<IndexGraphStarter>::ParamsForTests params(
-      starter, starter.GetStartSegment(), starter.GetFinishSegment(), nullptr /* prevRoute */,
-      [&](RouteWeight const & weight) { return starter.CheckLength(weight); });
+  auto const resultCode = algorithm.FindPathBidirectional(
+      starter, starter.GetStart(), starter.GetFinish(), routingResult, {} /* cancellable */,
+      {} /* onVisitedVertexCallback */);
 
-  auto const resultCode = algorithm.FindPathBidirectional(params, routingResult);
-
-  timeSec = routingResult.m_distance.GetWeight();
-  roadPoints = routingResult.m_path;
+  timeSec = routingResult.distance;
+  roadPoints = routingResult.path;
   return resultCode;
 }
 
@@ -402,8 +270,6 @@ void TestRouteGeometry(IndexGraphStarter & starter,
   double timeSec = 0.0;
   auto const resultCode = CalculateRoute(starter, routeSegs, timeSec);
 
-  TEST_EQUAL(resultCode, expectedRouteResult, ());
-
   if (AStarAlgorithm<IndexGraphStarter>::Result::NoPath == expectedRouteResult &&
       expectedRouteGeom.empty())
   {
@@ -412,6 +278,7 @@ void TestRouteGeometry(IndexGraphStarter & starter,
     return;
   }
 
+  TEST_EQUAL(resultCode, expectedRouteResult, ());
   if (resultCode != AStarAlgorithm<IndexGraphStarter>::Result::OK)
     return;
 
@@ -435,43 +302,27 @@ void TestRouteGeometry(IndexGraphStarter & starter,
   TEST_EQUAL(geom, expectedRouteGeom, ());
 }
 
+void TestRouteTime(IndexGraphStarter & starter,
+                   AStarAlgorithm<IndexGraphStarter>::Result expectedRouteResult,
+                   double expectedTime)
+{
+  vector<Segment> routeSegs;
+  double timeSec = 0.0;
+  auto const resultCode = CalculateRoute(starter, routeSegs, timeSec);
+
+  TEST_EQUAL(resultCode, expectedRouteResult, ());
+  double const kEpsilon = 1e-5;
+  TEST(my::AlmostEqualAbs(timeSec, expectedTime, kEpsilon), ());
+}
+
 void TestRestrictions(vector<m2::PointD> const & expectedRouteGeom,
                       AStarAlgorithm<IndexGraphStarter>::Result expectedRouteResult,
-                      FakeEnding const & start, FakeEnding const & finish,
+                      routing::IndexGraphStarter::FakeVertex const & start,
+                      routing::IndexGraphStarter::FakeVertex const & finish,
                       RestrictionVec && restrictions, RestrictionTest & restrictionTest)
 {
   restrictionTest.SetRestrictions(move(restrictions));
   restrictionTest.SetStarter(start, finish);
   TestRouteGeometry(*restrictionTest.m_starter, expectedRouteResult, expectedRouteGeom);
-}
-
-void TestTopologyGraph(TestIndexGraphTopology const & graph, TestIndexGraphTopology::Vertex from,
-                       TestIndexGraphTopology::Vertex to, bool expectedPathFound,
-                       double const expectedWeight,
-                       vector<TestIndexGraphTopology::Edge> const & expectedEdges)
-{
-  double pathWeight = 0.0;
-  vector<TestIndexGraphTopology::Edge> pathEdges;
-  bool const pathFound = graph.FindPath(from, to, pathWeight, pathEdges);
-  TEST_EQUAL(pathFound, expectedPathFound, ());
-  if (!pathFound)
-    return;
-
-  TEST(my::AlmostEqualAbs(pathWeight, expectedWeight, kEpsilon),
-       (pathWeight, expectedWeight, pathEdges));
-  TEST_EQUAL(pathEdges, expectedEdges, ());
-}
-
-FakeEnding MakeFakeEnding(uint32_t featureId, uint32_t segmentIdx, m2::PointD const & point,
-                          WorldGraph & graph)
-{
-  return MakeFakeEnding(Segment(kTestNumMwmId, featureId, segmentIdx, true /* forward */), point,
-                        graph);
-}
-unique_ptr<IndexGraphStarter> MakeStarter(FakeEnding const & start, FakeEnding const & finish,
-                                          WorldGraph & graph)
-{
-  return make_unique<IndexGraphStarter>(start, finish, 0 /* fakeNumerationStart */,
-                                        false /* strictForward */, graph);
 }
 }  // namespace routing_test

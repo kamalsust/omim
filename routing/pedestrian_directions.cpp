@@ -1,7 +1,6 @@
 #include "routing/pedestrian_directions.hpp"
 
 #include "routing/road_graph.hpp"
-#include "routing/routing_helpers.hpp"
 
 #include "indexer/classificator.hpp"
 #include "indexer/feature.hpp"
@@ -9,10 +8,6 @@
 
 #include "base/assert.hpp"
 #include "base/logging.hpp"
-
-#include <utility>
-
-using namespace std;
 
 namespace
 {
@@ -31,51 +26,40 @@ bool HasType(uint32_t type, feature::TypesHolder const & types)
 namespace routing
 {
 
-PedestrianDirectionsEngine::PedestrianDirectionsEngine(shared_ptr<NumMwmIds> numMwmIds)
+PedestrianDirectionsEngine::PedestrianDirectionsEngine()
   : m_typeSteps(classif().GetTypeByPath({"highway", "steps"}))
   , m_typeLiftGate(classif().GetTypeByPath({"barrier", "lift_gate"}))
   , m_typeGate(classif().GetTypeByPath({"barrier", "gate"}))
-  , m_numMwmIds(move(numMwmIds))
 {
 }
 
-bool PedestrianDirectionsEngine::Generate(RoadGraphBase const & graph,
+void PedestrianDirectionsEngine::Generate(RoadGraphBase const & graph,
                                           vector<Junction> const & path,
                                           my::Cancellable const & cancellable,
-                                          Route::TTurns & turns, Route::TStreets & streetNames,
+                                          Route::TTimes & times, Route::TTurns & turns,
                                           vector<Junction> & routeGeometry,
-                                          vector<Segment> & segments)
+                                          vector<Segment> & /* trafficSegs */)
 {
+  times.clear();
   turns.clear();
-  streetNames.clear();
-  segments.clear();
-  routeGeometry = path;
+  routeGeometry.clear();
 
-  // Note. According to Route::IsValid() method route of zero or one point is invalid.
-  if (path.size() < 1)
-    return false;
+  if (path.size() <= 1)
+    return;
+
+  CalculateTimes(graph, path, times);
 
   vector<Edge> routeEdges;
   if (!ReconstructPath(graph, path, routeEdges, cancellable))
   {
-    LOG(LWARNING, ("Can't reconstruct path."));
-    return false;
+    LOG(LDEBUG, ("Couldn't reconstruct path."));
+    // use only "arrival" direction
+    turns.emplace_back(path.size() - 1, turns::PedestrianDirection::ReachedYourDestination);
+    return;
   }
 
   CalculateTurns(graph, routeEdges, turns, cancellable);
-
-  if (graph.IsRouteSegmentsImplemented())
-  {
-    graph.GetRouteSegments(segments);
-  }
-  else
-  {
-    segments.reserve(routeEdges.size());
-    for (Edge const & e : routeEdges)
-      segments.push_back(ConvertEdgeToSegment(*m_numMwmIds, e));
-  }
-
-  return true;
+  routeGeometry = path;
 }
 
 void PedestrianDirectionsEngine::CalculateTurns(RoadGraphBase const & graph,

@@ -2,6 +2,7 @@
 #import "MWMBookmarkColorViewController.h"
 #import "MWMBookmarkTitleCell.h"
 #import "MWMButtonCell.h"
+#import "MWMCommon.h"
 #import "MWMNoteCell.h"
 #import "MWMPlacePageData.h"
 #import "SelectSetVC.h"
@@ -29,13 +30,12 @@ enum RowInMetaInfo
   RowsInMetaInfoCount
 };
 
-static int const kInvalidCategoryIndex = -1;
 }  // namespace
 
 @interface MWMEditBookmarkController () <MWMButtonCellDelegate, MWMNoteCelLDelegate, MWMBookmarkColorDelegate,
                                          MWMSelectSetDelegate, MWMBookmarkTitleDelegate>
 {
-  BookmarkAndCategory m_cachedBookmarkAndCategory;
+  BookmarkAndCategory m_cachedBac;
 }
 
 @property (nonatomic) MWMNoteCell * cachedNote;
@@ -43,7 +43,6 @@ static int const kInvalidCategoryIndex = -1;
 @property (copy, nonatomic) NSString * cachedTitle;
 @property (copy, nonatomic) NSString * cachedColor;
 @property (copy, nonatomic) NSString * cachedCategory;
-@property(nonatomic) int64_t cachedCategoryIndex;
 
 @end
 
@@ -52,14 +51,13 @@ static int const kInvalidCategoryIndex = -1;
 - (void)viewDidLoad
 {
   [super viewDidLoad];
-  self.cachedCategoryIndex = kInvalidCategoryIndex;
   auto data = self.data;
   NSAssert(data, @"Data can't be nil!");
   self.cachedDescription = data.bookmarkDescription;
-  self.cachedTitle = data.title;
+  self.cachedTitle = data.externalTitle ?: data.title;
   self.cachedCategory = data.bookmarkCategory;
   self.cachedColor = data.bookmarkColor;
-  m_cachedBookmarkAndCategory = data.bookmarkAndCategory;
+  m_cachedBac = data.bac;
   [self configNavBar];
   [self registerCells];
 }
@@ -92,32 +90,22 @@ static int const kInvalidCategoryIndex = -1;
 {
   [self.view endEditing:YES];
   auto & f = GetFramework();
-  if (self.cachedCategoryIndex != kInvalidCategoryIndex)
-  {
-    auto const index = static_cast<size_t>(
-                                 f.MoveBookmark(m_cachedBookmarkAndCategory.m_bookmarkIndex,
-                                                m_cachedBookmarkAndCategory.m_categoryIndex,
-                                                self.cachedCategoryIndex));
-    m_cachedBookmarkAndCategory.m_bookmarkIndex = index;
-    m_cachedBookmarkAndCategory.m_categoryIndex = self.cachedCategoryIndex;
-  }
-
-  BookmarkCategory * category = f.GetBmCategory(m_cachedBookmarkAndCategory.m_categoryIndex);
+  BookmarkCategory * category = f.GetBmCategory(m_cachedBac.m_categoryIndex);
   if (!category)
     return;
 
-  auto bookmark = static_cast<Bookmark *>(
-                        category->GetUserMarkForEdit(m_cachedBookmarkAndCategory.m_bookmarkIndex));
-  if (!bookmark)
-    return;
+  {
+    BookmarkCategory::Guard guard(*category);
+    auto bookmark = static_cast<Bookmark *>(guard.m_controller.GetUserMarkForEdit(m_cachedBac.m_bookmarkIndex));
+    if (!bookmark)
+      return;
 
-  bookmark->SetType(self.cachedColor.UTF8String);
-  bookmark->SetDescription(self.cachedDescription.UTF8String);
-  bookmark->SetName(self.cachedTitle.UTF8String);
+    bookmark->SetType(self.cachedColor.UTF8String);
+    bookmark->SetDescription(self.cachedDescription.UTF8String);
+    bookmark->SetName(self.cachedTitle.UTF8String);
+  }
 
   category->SaveToKMLFile();
-  category->NotifyChanges();
-  
   f.UpdatePlacePageInfoForCurrentSelection();
   [self backTap];
 }
@@ -240,7 +228,7 @@ static int const kInvalidCategoryIndex = -1;
   case Category:
   {
     SelectSetVC * svc = [[SelectSetVC alloc] initWithCategory:self.cachedCategory
-                                                categoryIndex:m_cachedBookmarkAndCategory.m_categoryIndex
+                                                          bac:m_cachedBac
                                                      delegate:self];
     [self.navigationController pushViewController:svc animated:YES];
     break;
@@ -286,10 +274,10 @@ static int const kInvalidCategoryIndex = -1;
 
 #pragma mark - MWMSelectSetDelegate
 
-- (void)didSelectCategory:(NSString *)category withCategoryIndex:(size_t)categoryIndex
+- (void)didSelectCategory:(NSString *)category withBac:(BookmarkAndCategory const &)bac
 {
   self.cachedCategory = category;
-  self.cachedCategoryIndex = categoryIndex;
+  m_cachedBac = bac;
   [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:Category inSection:MetaInfo]] withRowAnimation:UITableViewRowAnimationAutomatic];
 }
 

@@ -1,7 +1,6 @@
 package com.mapswithme.maps.ads;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -66,13 +65,13 @@ class MyTargetNativeAd extends CachedMwmNativeAd
   }
 
   @Override
-  public void unregister(@NonNull View view)
+  public void unregisterView()
   {
     mAd.unregisterView();
   }
 
   @Override
-  void register(@NonNull View view)
+  void registerViewForInteraction(@NonNull View view)
   {
     mAd.registerView(view);
   }
@@ -82,27 +81,5 @@ class MyTargetNativeAd extends CachedMwmNativeAd
   public String getProvider()
   {
     return Providers.MY_TARGET;
-  }
-
-  @Nullable
-  @Override
-  public String getPrivacyInfoUrl()
-  {
-    return null;
-  }
-
-  @Override
-  void detachAdListener()
-  {
-    mAd.setListener(null);
-  }
-
-  @Override
-  void attachAdListener(@NonNull Object listener)
-  {
-    if (!(listener instanceof NativeAd.NativeAdListener))
-      throw new AssertionError("A listener for myTarget ad must be instance of " +
-                               "NativeAd.NativeAdListener class! Not '" + listener.getClass() + "'!");
-    mAd.setListener((NativeAd.NativeAdListener) listener);
   }
 }

@@ -10,7 +10,9 @@ inline void animate(MWMVoidBlock animate, MWMVoidBlock completion = nil)
   [UIView animateWithDuration:kAnimationSpeed
                         delay:0
                       options:UIViewAnimationOptionCurveEaseIn
-                   animations:animate
+                   animations:^{
+                     animate();
+                   }
                    completion:^(BOOL finished) {
                      if (completion)
                        completion();
@@ -28,6 +30,8 @@ inline void animate(MWMVoidBlock animate, MWMVoidBlock completion = nil)
                      delegate:(id<MWMPlacePageLayoutDelegate>)delegate;
 - (void)onShow;
 - (void)onClose;
+- (void)onScreenResize:(CGSize const &)size;
+- (void)onUpdatePlacePageWithHeight:(CGFloat)height;
 
 @property(weak, nonatomic) UIView * ownerView;
 @property(weak, nonatomic) MWMPPView * placePageView;
@@ -35,8 +39,9 @@ inline void animate(MWMVoidBlock animate, MWMVoidBlock completion = nil)
 @property(weak, nonatomic) MWMPlacePageActionBar * actionBar;
 
 @optional
+- (void)updateLayoutWithTopBound:(CGFloat)topBound;
+- (void)updateLayoutWithLeftBound:(CGFloat)leftBound;
+- (void)setInitialTopBound:(CGFloat)topBound leftBound:(CGFloat)leftBound;
 - (void)setPreviewLayoutHelper:(MWMPPPreviewLayoutHelper *)layoutHelper;
-- (void)updateAvailableArea:(CGRect)frame;
-- (void)updateContentLayout;
 
 @end

@@ -23,7 +23,6 @@ set(
   tesselator_test.cpp
   triangles_tree_coding_test.cpp
   types_helper.hpp
-  ugc_test.cpp
 )
 
 omim_add_test(${PROJECT_NAME} ${SRC})
@@ -42,7 +41,6 @@ omim_link_libraries(
   drape
   traffic
   routing_common
-  transit
   editor
   platform
   geometry
@@ -50,10 +48,11 @@ omim_link_libraries(
   base
   freetype
   expat
+  fribidi
   icu
-  agg
   jansson
   protobuf
+  osrm
   stats_client
   minizip
   succinct
@@ -64,8 +63,6 @@ omim_link_libraries(
   opening_hours
   stb_image
   sdf_image
-  # TODO(syershov): Use FindPackage.
-  sqlite3
   ${LIBZ}
 )
 

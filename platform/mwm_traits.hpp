@@ -46,8 +46,6 @@ public:
 
   bool HasOffsetsTable() const;
 
-  bool HasCrossMwmSection() const;
-
   // The new routing section with IndexGraph was added in december 2016.
   // Check whether mwm has routing index section.
   bool HasRoutingIndex() const;

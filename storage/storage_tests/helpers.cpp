@@ -10,12 +10,12 @@ namespace storage
 {
 unique_ptr<CountryInfoGetter> CreateCountryInfoGetter()
 {
-  return CountryInfoReader::CreateCountryInfoReaderObsolete(GetPlatform());
+  return CountryInfoReader::CreateCountryInfoReaderTwoComponentMwms(GetPlatform());
 }
 
 unique_ptr<storage::CountryInfoGetter> CreateCountryInfoGetterMigrate()
 {
-  return CountryInfoReader::CreateCountryInfoReader(GetPlatform());
+  return CountryInfoReader::CreateCountryInfoReaderOneComponentMwms(GetPlatform());
 }
 
 bool AlmostEqualRectsAbs(const m2::RectD & r1, const m2::RectD & r2)

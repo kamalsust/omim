@@ -38,6 +38,7 @@ void CheckExpectations(StringUtf8Multilang const & s, vector<ExpectedName> const
 
     TEST_EQUAL(name, it->m_value, ());
     ++counter;
+    return true;
   });
 
   TEST_EQUAL(counter, expectations.size(), ("Unexpected count of names, expected ", expectations.size(),
@@ -110,41 +111,23 @@ UNIT_TEST(EditableMapObject_ValidateFlats)
 // {
 // }
 
-UNIT_TEST(EditableMapObject_ValidatePhoneList)
+UNIT_TEST(EditableMapObject_ValidatePhone)
 {
-  TEST(EditableMapObject::ValidatePhoneList(""), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 000 000 00 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 (000) 000 00 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 0000000000"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 0000 000 000"), ());
-  TEST(EditableMapObject::ValidatePhoneList("8 0000-000-000"), ());
+  TEST(EditableMapObject::ValidatePhone(""), ());
+  TEST(EditableMapObject::ValidatePhone("+7 000 000 00 00"), ());
+  TEST(EditableMapObject::ValidatePhone("+7 (000) 000 00 00"), ());
+  TEST(EditableMapObject::ValidatePhone("+7 0000000000"), ());
+  TEST(EditableMapObject::ValidatePhone("+7 0000 000 000"), ());
+  TEST(EditableMapObject::ValidatePhone("8 0000-000-000"), ());
 
-  TEST(EditableMapObject::ValidatePhoneList("000 00 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("000 000 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+00 0000 000 000"), ());
+  TEST(EditableMapObject::ValidatePhone("000 00 00"), ());
+  TEST(EditableMapObject::ValidatePhone("000 000 00"), ());
+  TEST(EditableMapObject::ValidatePhone("+00 0000 000 000"), ());
 
-  TEST(EditableMapObject::ValidatePhoneList("+7 000 000 00 00; +7 000 000 00 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 (000) 000 00 00, +7 (000) 000 00 00"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 0000000000;+7 0000000000"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 0000 000 000,+7 0000 000 000"), ());
-  TEST(EditableMapObject::ValidatePhoneList("8 0000-000-000; 8 0000-000-000"), ());
-
-  TEST(EditableMapObject::ValidatePhoneList("+7 00 00;7 (0)00 0, 800-00-0; 000000000000000,12345"), ());
-
-  TEST(!EditableMapObject::ValidatePhoneList("+00 0000 000 0000 000"), ());
-  TEST(!EditableMapObject::ValidatePhoneList("00 00"), ());
-  TEST(!EditableMapObject::ValidatePhoneList("acb"), ());
-  TEST(!EditableMapObject::ValidatePhoneList("000 000 00b"), ());
-  TEST(!EditableMapObject::ValidatePhoneList(";"), ());
-  TEST(!EditableMapObject::ValidatePhoneList(","), ());
-  TEST(!EditableMapObject::ValidatePhoneList(";;;;;;"), ());
-
-  // Now it is possible to specify the following incorrect phone numbers.
-  // TODO: replace current implementation of ValidatePhoneList by a correct one.
-  TEST(EditableMapObject::ValidatePhoneList("7+ 10 10"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 )10( 10"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 )10 10"), ());
-  TEST(EditableMapObject::ValidatePhoneList("+7 10 (---) 10"), ());
+  TEST(!EditableMapObject::ValidatePhone("+00 0000 000 0000 000"), ());
+  TEST(!EditableMapObject::ValidatePhone("00 00"), ());
+  TEST(!EditableMapObject::ValidatePhone("acb"), ());
+  TEST(!EditableMapObject::ValidatePhone("000 000 00b"), ());
 }
 
 UNIT_TEST(EditableMapObject_ValidateWebsite)
@@ -185,26 +168,6 @@ UNIT_TEST(EditableMapObject_ValidateEmail)
   TEST(!EditableMapObject::ValidateEmail("emai@_l.ab"), ());
   TEST(!EditableMapObject::ValidateEmail("emai@l_.ab"), ());
   TEST(!EditableMapObject::ValidateEmail("email@e#$%&'*+-/=?^`_{}|~.com"), ());
-}
-
-UNIT_TEST(EditableMapObject_ValidateName)
-{
-  vector<string> correctNames = {"abc", "абв", "ᆺᆯㅕ", "꫞ꪺꫀꪸ", "a b?c", "a!b.c", "a(b)c", "a,b.c",
-                                 "a$bc", "a%bc", "a#bc", "a№bc", "c&a"};
-  vector<string> incorrectNames = {"a^bc", "a~bc", "a§bc", "a>bc", "a<bc", "a{bc", "a[bc", "*",
-                                   "a*bc", "a=bc", "a_bc", "a±bc", "a\nbc", "a\tbc", "a\rbc",
-                                   "a\vbc", "a\fbc", "a|bc", "N√", "Hello World!\U0001F600",
-                                   "Exit →", "∫0dx = C", "\U0001210A"};
-
-  for (auto const & name : correctNames)
-  {
-    TEST(EditableMapObject::ValidateName(name), ());
-  }
-
-  for (auto const & name : incorrectNames)
-  {
-    TEST(!EditableMapObject::ValidateName(name), ());
-  }
 }
 
 UNIT_TEST(EditableMapObject_CanUseAsDefaultName)
@@ -578,7 +541,10 @@ UNIT_TEST(EditableMapObject_RemoveBlankNames)
 {
   auto const getCountOfNames = [](StringUtf8Multilang const & names) {
     size_t counter = 0;
-    names.ForEach([&counter](int8_t const, string const &) { ++counter; });
+    names.ForEach([&counter](int8_t const, string const &) {
+      ++counter;
+      return true;
+    });
 
     return counter;
   };
@@ -592,7 +558,7 @@ UNIT_TEST(EditableMapObject_RemoveBlankNames)
 
   EditableMapObject emo;
   emo.SetName(name);
-  emo.RemoveBlankAndDuplicationsForDefault();
+  emo.RemoveBlankNames();
 
   TEST_EQUAL(getCountOfNames(emo.GetName()), 4, ());
 
@@ -604,7 +570,7 @@ UNIT_TEST(EditableMapObject_RemoveBlankNames)
   name.AddString(GetLangCode("de"), "");
 
   emo.SetName(name);
-  emo.RemoveBlankAndDuplicationsForDefault();
+  emo.RemoveBlankNames();
 
   TEST_EQUAL(getCountOfNames(emo.GetName()), 2, ());
 
@@ -616,7 +582,7 @@ UNIT_TEST(EditableMapObject_RemoveBlankNames)
   name.AddString(GetLangCode("de"), "");
 
   emo.SetName(name);
-  emo.RemoveBlankAndDuplicationsForDefault();
+  emo.RemoveBlankNames();
 
   TEST_EQUAL(getCountOfNames(emo.GetName()), 1, ());
 
@@ -628,7 +594,7 @@ UNIT_TEST(EditableMapObject_RemoveBlankNames)
   name.AddString(GetLangCode("de"), "De name");
 
   emo.SetName(name);
-  emo.RemoveBlankAndDuplicationsForDefault();
+  emo.RemoveBlankNames();
 
   TEST_EQUAL(getCountOfNames(emo.GetName()), 1, ());
 }

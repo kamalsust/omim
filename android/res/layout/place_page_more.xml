@@ -7,8 +7,6 @@
   android:layout_height="wrap_content"
   android:orientation="vertical">
 
-  <include layout="@layout/divider_horizontal"/>
-
   <TextView
     style="@style/PlacePageMetadataText.Button"
     android:height="@dimen/height_block_base"

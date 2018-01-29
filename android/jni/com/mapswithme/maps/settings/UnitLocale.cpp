@@ -1,4 +1,4 @@
-#include "com/mapswithme/maps/Framework.hpp"
+#include "../Framework.hpp"
 
 #include "platform/measurement_utils.hpp"
 #include "platform/settings.hpp"

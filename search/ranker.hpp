@@ -6,12 +6,10 @@
 #include "search/keyword_lang_matcher.hpp"
 #include "search/locality_finder.hpp"
 #include "search/mode.hpp"
-#include "search/region_info_getter.hpp"
 #include "search/result.hpp"
 #include "search/reverse_geocoder.hpp"
 #include "search/search_params.hpp"
 #include "search/suggest.hpp"
-#include "search/utils.hpp"
 
 #include "indexer/categories_holder.hpp"
 #include "indexer/feature_decl.hpp"
@@ -21,12 +19,10 @@
 
 #include "base/string_utils.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <set>
-#include <string>
-#include <utility>
-#include <vector>
+#include "std/set.hpp"
+#include "std/string.hpp"
+#include "std/utility.hpp"
+#include "std/vector.hpp"
 
 class CategoriesHolder;
 class Index;
@@ -38,28 +34,27 @@ class CountryInfoGetter;
 
 namespace search
 {
-class CitiesBoundariesTable;
-class Emitter;
-class RankerResultMaker;
 class VillagesCache;
+class Emitter;
+class PreResult2Maker;
 
 class Ranker
 {
 public:
   struct Params
   {
+    using TLocales = buffer_vector<int8_t, 3>;
+
     int8_t m_currentLocaleCode = CategoriesHolder::kEnglishCode;
     m2::RectD m_viewport;
     m2::PointD m_position;
     string m_pivotRegion;
-    std::set<uint32_t> m_preferredTypes;
+    set<uint32_t> m_preferredTypes;
     bool m_suggestsEnabled = false;
-    bool m_needAddress = false;
-    bool m_needHighlighting = false;
     bool m_viewportSearch = false;
 
-    std::string m_query;
-    QueryTokens m_tokens;
+    string m_query;
+    buffer_vector<strings::UniString, 32> m_tokens;
     // Prefix of the last token in the query.
     // We need it here to make suggestions.
     strings::UniString m_prefix;
@@ -67,80 +62,84 @@ public:
     m2::PointD m_accuratePivotCenter = m2::PointD(0, 0);
 
     // A minimum distance between search results in meters, needed for
-    // filtering of identical search results.
+    // filtering of indentical search results.
     double m_minDistanceOnMapBetweenResults = 0.0;
 
-    Locales m_categoryLocales;
+    TLocales m_categoryLocales;
 
-    // Default batch size. Override if needed.
-    size_t m_batchSize = 10;
-
-    // The maximum total number of results to be emitted in all batches.
     size_t m_limit = 0;
   };
 
-  Ranker(Index const & index, CitiesBoundariesTable const & boundariesTable,
-         storage::CountryInfoGetter const & infoGetter, KeywordLangMatcher & keywordsScorer,
-         Emitter & emitter, CategoriesHolder const & categories,
-         std::vector<Suggest> const & suggests, VillagesCache & villagesCache,
-         my::Cancellable const & cancellable);
+  static size_t const kBatchSize;
+
+  Ranker(Index const & index, storage::CountryInfoGetter const & infoGetter, Emitter & emitter,
+         CategoriesHolder const & categories, vector<Suggest> const & suggests,
+         VillagesCache & villagesCache, my::Cancellable const & cancellable);
   virtual ~Ranker() = default;
 
   void Init(Params const & params, Geocoder::Params const & geocoderParams);
 
-  void Finish(bool cancelled);
+  bool IsResultExists(PreResult2 const & p, vector<IndexedValue> const & values);
 
-  // Makes the final result that is shown to the user from a ranker's result.
-  // |needAddress| and |needHighlighting| enable filling of optional fields
-  // that may take a considerable amount of time to compute.
-  Result MakeResult(RankerResult const & r, bool needAddress, bool needHighlighting) const;
+  void MakePreResult2(Geocoder::Params const & params, vector<IndexedValue> & cont);
 
+  Result MakeResult(PreResult2 const & r) const;
+  void MakeResultHighlight(Result & res) const;
+
+  void GetSuggestion(string const & name, string & suggest) const;
   void SuggestStrings();
+  void MatchForSuggestions(strings::UniString const & token, int8_t locale, string const & prolog);
+  void GetBestMatchName(FeatureType const & f, string & name) const;
+  void ProcessSuggestions(vector<IndexedValue> & vec) const;
 
-  virtual void SetPreRankerResults(std::vector<PreRankerResult> && preRankerResults)
-  {
-    m_preRankerResults = std::move(preRankerResults);
-  }
-
+  virtual void SetPreResults1(vector<PreResult1> && preResults1) { m_preResults1 = move(preResults1); }
   virtual void UpdateResults(bool lastUpdate);
 
   void ClearCaches();
 
-  void BailIfCancelled() { ::search::BailIfCancelled(m_cancellable); }
+  inline void SetLocalityFinderLanguage(int8_t code) { m_localities.SetLanguage(code); }
 
-  void SetLocale(std::string const & locale);
+  inline void SetLanguage(pair<int, int> const & ind, int8_t lang)
+  {
+    m_keywordsScorer.SetLanguage(ind, lang);
+  }
 
-  void LoadCountriesTree();
+  inline int8_t GetLanguage(pair<int, int> const & ind) const
+  {
+    return m_keywordsScorer.GetLanguage(ind);
+  }
+
+  inline void SetLanguages(vector<vector<int8_t>> const & languagePriorities)
+  {
+    m_keywordsScorer.SetLanguages(languagePriorities);
+  }
+
+  inline void SetKeywords(KeywordMatcher::StringT const * keywords, size_t count,
+                          KeywordMatcher::StringT const & prefix)
+  {
+    m_keywordsScorer.SetKeywords(keywords, count, prefix);
+  }
+
+  inline void BailIfCancelled() { ::search::BailIfCancelled(m_cancellable); }
 
 private:
-  friend class RankerResultMaker;
-
-  void MakeRankerResults(Geocoder::Params const & params, std::vector<RankerResult> & results);
-
-  void GetBestMatchName(FeatureType const & f, std::string & name) const;
-  void MatchForSuggestions(strings::UniString const & token, int8_t locale,
-                           std::string const & prolog);
-  void ProcessSuggestions(std::vector<RankerResult> & vec) const;
-
-  std::string GetLocalizedRegionInfoForResult(RankerResult const & result) const;
+  friend class PreResult2Maker;
 
   Params m_params;
   Geocoder::Params m_geocoderParams;
   ReverseGeocoder const m_reverseGeocoder;
   my::Cancellable const & m_cancellable;
-  KeywordLangMatcher & m_keywordsScorer;
+  KeywordLangMatcher m_keywordsScorer;
 
   mutable LocalityFinder m_localities;
-  int8_t m_localeCode;
-  RegionInfoGetter m_regionInfoGetter;
 
   Index const & m_index;
   storage::CountryInfoGetter const & m_infoGetter;
   Emitter & m_emitter;
   CategoriesHolder const & m_categories;
-  std::vector<Suggest> const & m_suggests;
+  vector<Suggest> const & m_suggests;
 
-  std::vector<PreRankerResult> m_preRankerResults;
-  std::vector<RankerResult> m_tentativeResults;
+  vector<PreResult1> m_preResults1;
+  vector<IndexedValue> m_tentativeResults;
 };
 }  // namespace search

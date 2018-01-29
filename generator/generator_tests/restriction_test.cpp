@@ -19,9 +19,7 @@
 
 #include "base/logging.hpp"
 
-#include <string>
-
-using namespace std;
+#include "std/string.hpp"
 
 using namespace feature;
 using namespace generator;
@@ -80,7 +78,7 @@ void TestRestrictionBuilding(string const & restrictionContent, string const & m
                            0 /* version */);
   ScopedDir const scopedDir(kTestDir);
   string const mwmRelativePath = my::JoinPath(kTestDir, kTestMwm + DATA_FILE_EXTENSION);
-  ScopedFile const scopedMwm(mwmRelativePath, ScopedFile::Mode::Create);
+  ScopedFile const scopedMwm(mwmRelativePath);
   BuildEmptyMwm(country);
 
   // Creating a file with restrictions.
@@ -89,7 +87,7 @@ void TestRestrictionBuilding(string const & restrictionContent, string const & m
 
   // Creating osm ids to feature ids mapping.
   string const mappingRelativePath = my::JoinPath(kTestDir, kOsmIdsToFeatureIdsName);
-  ScopedFile const mappingFile(mappingRelativePath, ScopedFile::Mode::Create);
+  ScopedFile const mappingFile(mappingRelativePath);
   string const mappingFullPath = mappingFile.GetFullPath();
   ReEncodeOsmIdsToFeatureIdsMapping(mappingContent, mappingFullPath);
 

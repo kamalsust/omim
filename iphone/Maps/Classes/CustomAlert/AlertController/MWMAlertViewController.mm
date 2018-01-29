@@ -33,14 +33,13 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
 {
   self = [super initWithNibName:kAlertControllerNibIdentifier bundle:nil];
   if (self)
-    _ownerViewController = viewController;
+    self.ownerViewController = viewController;
   return self;
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
-  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
   auto const orient = size.width > size.height ? UIInterfaceOrientationLandscapeLeft : UIInterfaceOrientationPortrait;
   [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
     for (MWMAlert * alert in self.view.subviews)
@@ -50,7 +49,7 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
 
 #pragma mark - Actions
 
-- (void)presentRateAlert { [self displayAlert:[MWMAlert rateAlert]]; }
+- (void)presentRateAlert { [self displayAlert:MWMAlert.rateAlert]; }
 - (void)presentLocationAlert
 {
   if (![MapViewController controller].welcomePageController)
@@ -62,10 +61,10 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
   [self displayAlert:[MWMAlert point2PointAlertWithOkBlock:okBlock needToRebuild:needToRebuild]];
 }
 
-- (void)presentFacebookAlert { [self displayAlert:[MWMAlert facebookAlert]]; }
+- (void)presentFacebookAlert { [self displayAlert:MWMAlert.facebookAlert]; }
 - (void)presentLocationServiceNotSupportedAlert
 {
-  [self displayAlert:[MWMAlert locationServiceNotSupportedAlert]];
+  [self displayAlert:MWMAlert.locationServiceNotSupportedAlert];
 }
 
 - (void)presentLocationNotFoundAlertWithOkBlock:(nonnull MWMVoidBlock)okBlock
@@ -88,7 +87,7 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
 
 - (void)presentIncorrectFeauturePositionAlert
 {
-  [self displayAlert:[MWMAlert incorrectFeaturePositionAlert]];
+  [self displayAlert:[MWMAlert incorrectFeauturePositionAlert]];
 }
 
 - (void)presentInternalErrorAlert { [self displayAlert:[MWMAlert internalErrorAlert]]; }
@@ -121,7 +120,7 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
   [self displayAlert:[MWMAlert routingDisclaimerAlertWithOkBlock:block]];
 }
 
-- (void)presentDisabledLocationAlert { [self displayAlert:[MWMAlert disabledLocationAlert]]; }
+- (void)presentDisabledLocationAlert { [self displayAlert:MWMAlert.disabledLocationAlert]; }
 - (void)presentAlert:(routing::IRouter::ResultCode)type
 {
   [self displayAlert:[MWMAlert alert:type]];
@@ -245,7 +244,7 @@ static NSString * const kAlertControllerNibIdentifier = @"MWMAlertViewController
                      alert.alpha = 1.;
                      alert.transform = CGAffineTransformIdentity;
                    }];
-  [[MapsAppDelegate theApp].window endEditing:YES];
+  [MapsAppDelegate.theApp.window endEditing:YES];
 }
 
 - (void)closeAlert:(nullable MWMVoidBlock)completion

@@ -2,14 +2,17 @@
 #include "drape/glfunctions.hpp"
 
 #include "base/buffer_vector.hpp"
+#include "std/bind.hpp"
 
 namespace dp
 {
+
 BlendingParams::BlendingParams()
   : m_blendFunction(gl_const::GLAddBlend)
   , m_blendSrcFactor(gl_const::GLSrcAlfa)
   , m_blendDstFactor(gl_const::GLOneMinusSrcAlfa)
-{}
+{
+}
 
 void BlendingParams::Apply() const
 {
@@ -39,19 +42,17 @@ bool Blending::operator == (Blending const & other) const
   return m_isEnabled == other.m_isEnabled;
 }
 
-GLState::GLState(int gpuProgramIndex, ref_ptr<BaseRenderState> renderState)
-  : m_renderState(renderState)
-  , m_gpuProgramIndex(gpuProgramIndex)
+GLState::GLState(int gpuProgramIndex, DepthLayer depthLayer)
+  : m_gpuProgramIndex(gpuProgramIndex)
   , m_gpuProgram3dIndex(gpuProgramIndex)
+  , m_depthLayer(depthLayer)
   , m_depthFunction(gl_const::GLLessOrEqual)
   , m_textureFilter(gl_const::GLLinear)
   , m_colorTexture(nullptr)
   , m_maskTexture(nullptr)
   , m_drawAsLine(false)
   , m_lineWidth(1)
-{
-  ASSERT(m_renderState != nullptr, ());
-}
+{}
 
 glConst GLState::GetDepthFunction() const
 {
@@ -95,8 +96,8 @@ void GLState::SetLineWidth(int width)
 
 bool GLState::operator<(GLState const & other) const
 {
-  if (!m_renderState->Equal(other.m_renderState))
-    return m_renderState->Less(other.m_renderState);
+  if (m_depthLayer != other.m_depthLayer)
+    return m_depthLayer < other.m_depthLayer;
   if (!(m_blending == other.m_blending))
     return m_blending < other.m_blending;
   if (m_gpuProgramIndex != other.m_gpuProgramIndex)
@@ -119,7 +120,7 @@ bool GLState::operator<(GLState const & other) const
 
 bool GLState::operator==(GLState const & other) const
 {
-  return m_renderState->Equal(other.m_renderState) &&
+  return m_depthLayer == other.m_depthLayer &&
          m_gpuProgramIndex == other.m_gpuProgramIndex &&
          m_gpuProgram3dIndex == other.m_gpuProgram3dIndex &&
          m_blending == other.m_blending &&
@@ -138,7 +139,8 @@ bool GLState::operator!=(GLState const & other) const
 
 namespace
 {
-struct UniformApplier
+
+struct UniformApplyer
 {
   ref_ptr<GpuProgram> m_program;
 
@@ -148,7 +150,8 @@ struct UniformApplier
     value.Apply(m_program);
   }
 };
-}  // namespace
+
+} // namespace
 
 uint8_t TextureState::m_usedSlots = 0;
 
@@ -186,18 +189,18 @@ uint8_t TextureState::GetLastUsedSlots()
 
 void ApplyUniforms(UniformValuesStorage const & uniforms, ref_ptr<GpuProgram> program)
 {
-  static UniformApplier applier;
-  applier.m_program = program;
-  uniforms.ForeachValue(applier);
-  applier.m_program = nullptr;
+  static UniformApplyer applyer;
+  applyer.m_program = program;
+  uniforms.ForeachValue(applyer);
+  applyer.m_program = nullptr;
 }
 
-void ApplyBlending(GLState const & state)
+void ApplyBlending(GLState state)
 {
   state.GetBlending().Apply();
 }
 
-void ApplyState(GLState const & state, ref_ptr<GpuProgram> program)
+void ApplyState(GLState state, ref_ptr<GpuProgram> program)
 {
   TextureState::ApplyTextures(state, program);
   ApplyBlending(state);
@@ -205,4 +208,5 @@ void ApplyState(GLState const & state, ref_ptr<GpuProgram> program)
   ASSERT_GREATER_OR_EQUAL(state.GetLineWidth(), 0, ());
   GLFunctions::glLineWidth(static_cast<uint32_t>(state.GetLineWidth()));
 }
-}  // namespace dp
+
+}

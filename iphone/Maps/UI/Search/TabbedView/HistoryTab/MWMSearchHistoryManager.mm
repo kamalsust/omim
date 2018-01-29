@@ -1,6 +1,11 @@
 #import "MWMSearchHistoryManager.h"
+#import "MWMCommon.h"
+#import "MWMLocationManager.h"
 #import "MWMSearchHistoryClearCell.h"
+#import "MWMSearchHistoryMyPositionCell.h"
 #import "MWMSearchHistoryRequestCell.h"
+#import "MWMSearchNoResults.h"
+#import "MapsAppDelegate.h"
 #import "Statistics.h"
 #import "SwiftBridge.h"
 
@@ -16,6 +21,14 @@
 
 @implementation MWMSearchHistoryManager
 
+- (BOOL)isRouteSearchMode
+{
+  MWMRoutingPlaneMode const m = MapsAppDelegate.theApp.routingPlaneMode;
+  CLLocation * lastLocation = [MWMLocationManager lastLocation];
+  return lastLocation &&
+         (m == MWMRoutingPlaneModeSearchSource || m == MWMRoutingPlaneModeSearchDestination);
+}
+
 - (void)attachCell:(MWMSearchTabbedCollectionViewCell *)cell
 {
   self.cell = cell;
@@ -23,7 +36,8 @@
   tableView.estimatedRowHeight = 44.;
   tableView.rowHeight = UITableViewAutomaticDimension;
   tableView.alpha = 1.0;
-  if (GetFramework().GetLastSearchQueries().empty())
+  BOOL const isRouteSearch = self.isRouteSearchMode;
+  if (GetFramework().GetLastSearchQueries().empty() && !isRouteSearch)
   {
     tableView.hidden = YES;
     [cell addNoResultsView:self.noResultsView];
@@ -36,6 +50,7 @@
     tableView.dataSource = self;
     [tableView registerWithCellClass:[MWMSearchHistoryRequestCell class]];
     [tableView registerWithCellClass:[MWMSearchHistoryClearCell class]];
+    [tableView registerWithCellClass:[MWMSearchHistoryMyPositionCell class]];
     [tableView reloadData];
   }
 }
@@ -51,13 +66,15 @@
 
 - (NSString *)stringAtIndex:(NSInteger)index
 {
-  return @([self queryAtIndex:index].second.c_str());
+  NSUInteger const i = self.isRouteSearchMode ? index - 1 : index;
+  return @([self queryAtIndex:i].second.c_str());
 }
 
 - (BOOL)isRequestCell:(NSIndexPath *)indexPath
 {
   NSUInteger const row = indexPath.row;
-  return row < GetFramework().GetLastSearchQueries().size();
+  BOOL const isRouteSearch = self.isRouteSearchMode;
+  return isRouteSearch ? row > 0 : row < GetFramework().GetLastSearchQueries().size();
 }
 
 #pragma mark - UITableViewDataSource
@@ -78,7 +95,8 @@
     [tCell config:[self stringAtIndex:indexPath.row]];
     return tCell;
   }
-  Class cls = [MWMSearchHistoryClearCell class];
+  Class cls = self.isRouteSearchMode ? [MWMSearchHistoryMyPositionCell class]
+                                     : [MWMSearchHistoryClearCell class];
   return [tableView dequeueReusableCellWithCellClass:cls indexPath:indexPath];
 }
 
@@ -86,10 +104,12 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
+  BOOL const isRouteSearch = self.isRouteSearchMode;
   id<MWMSearchTabbedViewProtocol> delegate = self.delegate;
   if ([self isRequestCell:indexPath])
   {
-    search::QuerySaver::TSearchRequest const & query = [self queryAtIndex:indexPath.row];
+    search::QuerySaver::TSearchRequest const & query =
+        [self queryAtIndex:isRouteSearch ? indexPath.row - 1 : indexPath.row];
     NSString * queryText = @(query.second.c_str());
     [Statistics logEvent:kStatEventName(kStatSearch, kStatSelectResult)
           withParameters:@{kStatValue : queryText, kStatScreen : kStatHistory}];
@@ -97,6 +117,13 @@
   }
   else
   {
+    if (isRouteSearch)
+    {
+      [Statistics logEvent:kStatEventName(kStatSearch, kStatSelectResult)
+            withParameters:@{kStatValue : kStatMyPosition, kStatScreen : kStatHistory}];
+      [delegate tapMyPositionFromHistory];
+      return;
+    }
     [Statistics logEvent:kStatEventName(kStatSearch, kStatSelectResult)
           withParameters:@{kStatValue : kStatClear, kStatScreen : kStatHistory}];
     GetFramework().ClearSearchHistory();

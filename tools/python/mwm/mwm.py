@@ -77,11 +77,10 @@ class MWM:
         fmt = self.read_varuint() + 1
         version = self.read_varuint()
         if version < 161231:
-            vdate = datetime(2000 + int(version / 10000), int(version / 100) % 100, version % 100)
+            version = datetime(2000 + int(version / 10000), int(version / 100) % 100, version % 100)
         else:
-            vdate = datetime.fromtimestamp(version)
-            version = int(vdate.strftime('%y%m%d'))
-        return {'fmt': fmt, 'version': version, 'date': vdate}
+            version = datetime.fromtimestamp(version)
+        return { 'fmt': fmt, 'version': version }
 
     def read_header(self):
         """Reads 'header' section."""

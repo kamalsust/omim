@@ -2,7 +2,6 @@
 #import "MWMSearchFilterTransitioningManager.h"
 #import "MWMSearchFilterViewController.h"
 #import "MWMSearchManager+Filter.h"
-#import "Statistics.h"
 
 @interface MWMSearchManager ()<UIPopoverPresentationControllerDelegate>
 
@@ -31,6 +30,13 @@
     popover.permittedArrowDirections = UIPopoverArrowDirectionLeft;
     popover.delegate = self;
   }
+  else
+  {
+    navController.modalPresentationStyle = UIModalPresentationCustom;
+    self.filterTransitioningManager = [[MWMSearchFilterTransitioningManager alloc] init];
+    ownerController.transitioningDelegate = self.filterTransitioningManager;
+    navController.transitioningDelegate = self.filterTransitioningManager;
+  }
 
   [self configNavigationBar:navController.navigationBar];
   [self configNavigationItem:navController.topViewController.navigationItem];
@@ -41,80 +47,77 @@
 - (IBAction)clearFilter { [MWMSearch clearFilter]; }
 - (void)configNavigationBar:(UINavigationBar *)navBar
 {
-  if (IPAD)
-  {
-    UIColor * white = [UIColor white];
-    navBar.tintColor = white;
-    navBar.barTintColor = white;
-    navBar.translucent = NO;
-  }
+  UIColor * white = [UIColor white];
+  navBar.tintColor = white;
+  navBar.barTintColor = white;
+  [navBar setBackgroundImage:nil forBarMetrics:UIBarMetricsDefault];
+  navBar.shadowImage = [UIImage imageWithColor:[UIColor fadeBackground]];
   navBar.titleTextAttributes = @{
-    NSForegroundColorAttributeName: IPAD ? [UIColor blackPrimaryText] : [UIColor whiteColor],
-    NSFontAttributeName: [UIFont bold17]
+    NSForegroundColorAttributeName : [UIColor blackPrimaryText],
+    NSFontAttributeName : [UIFont regular17]
   };
+  navBar.translucent = NO;
 }
 
 - (void)configNavigationItem:(UINavigationItem *)navItem
 {
-  UIFont * textFont = [UIFont regular17];
+  UIFont * regular17 = [UIFont regular17];
 
-  UIColor * normalStateColor = IPAD ? [UIColor linkBlue] : [UIColor whiteColor];
-  UIColor * highlightedStateColor = IPAD ? [UIColor linkBlueHighlighted] : [UIColor whiteColor];
-  UIColor * disabledStateColor = [UIColor lightGrayColor];
+  UIColor * linkBlue = [UIColor linkBlue];
+  UIColor * linkBlueHighlighted = [UIColor linkBlueHighlighted];
+  UIColor * lightGrayColor = [UIColor lightGrayColor];
 
   navItem.title = L(@"booking_filters");
-  navItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:L(@"booking_filters_reset")
-                                                                style:UIBarButtonItemStylePlain
-                                                               target:self
-                                                               action:@selector(resetAction)];
+  navItem.rightBarButtonItem =
+      [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                    target:self
+                                                    action:@selector(doneAction)];
   [navItem.rightBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: normalStateColor,
-    NSFontAttributeName: textFont
+    NSForegroundColorAttributeName : linkBlue,
+    NSFontAttributeName : regular17
   }
                                             forState:UIControlStateNormal];
   [navItem.rightBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: highlightedStateColor,
+    NSForegroundColorAttributeName : linkBlueHighlighted,
   }
                                             forState:UIControlStateHighlighted];
   [navItem.rightBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: disabledStateColor,
+    NSForegroundColorAttributeName : lightGrayColor,
   }
                                             forState:UIControlStateDisabled];
 
-  navItem.leftBarButtonItem =
-      [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
-                                                    target:self
-                                                    action:@selector(closeAction)];
-
+  navItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:L(@"booking_filters_reset")
+                                                               style:UIBarButtonItemStylePlain
+                                                              target:self
+                                                              action:@selector(resetAction)];
   [navItem.leftBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: normalStateColor,
-    NSFontAttributeName: textFont
+    NSForegroundColorAttributeName : linkBlue,
+    NSFontAttributeName : regular17
   }
                                            forState:UIControlStateNormal];
   [navItem.leftBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: highlightedStateColor,
+    NSForegroundColorAttributeName : linkBlueHighlighted,
   }
                                            forState:UIControlStateHighlighted];
 
   [navItem.leftBarButtonItem setTitleTextAttributes:@{
-    NSForegroundColorAttributeName: disabledStateColor,
+    NSForegroundColorAttributeName : lightGrayColor,
   }
                                            forState:UIControlStateDisabled];
 }
 
 #pragma mark - Actions
 
-- (void)closeAction
+- (void)doneAction
 {
-  [Statistics logEvent:kStatSearchFilterCancel withParameters:@{kStatCategory: kStatHotel}];
+  [MWMSearch update];
   [self.ownerController dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)resetAction
 {
-  [Statistics logEvent:kStatSearchFilterReset withParameters:@{kStatCategory: kStatHotel}];
-  MWMSearchFilterViewController * filter = [MWMSearch getFilter];
-  [filter reset];
+  [self clearFilter];
+  [self.ownerController dismissViewControllerAnimated:YES completion:nil];
 }
 
 #pragma mark - UIPopoverPresentationControllerDelegate

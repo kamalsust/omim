@@ -2,10 +2,8 @@ package com.mapswithme.maps.bookmarks;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.CallSuper;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.view.MenuItem;
 import android.view.View;
@@ -19,24 +17,20 @@ import com.mapswithme.maps.widget.PlaceholderView;
 import com.mapswithme.maps.widget.recycler.RecyclerClickListener;
 import com.mapswithme.maps.widget.recycler.RecyclerLongClickListener;
 import com.mapswithme.util.BottomSheetHelper;
-import com.mapswithme.util.UiUtils;
 import com.mapswithme.util.sharing.SharingHelper;
 
 public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
                                      implements EditTextDialogFragment.OnTextSaveListener,
                                                 MenuItem.OnMenuItemClickListener,
                                                 RecyclerClickListener,
-                                                RecyclerLongClickListener,
-                                                BookmarkManager.BookmarksLoadingListener
+                                                RecyclerLongClickListener
 {
   private int mSelectedPosition;
-  @Nullable
-  private View mLoadingPlaceholder;
 
   @Override
   protected @LayoutRes int getLayoutRes()
   {
-    return R.layout.fragment_bookmark_categories;
+    return R.layout.fragment_search_base;
   }
 
   @Override
@@ -45,79 +39,39 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
     return new BookmarkCategoriesAdapter(getActivity());
   }
 
-  @Nullable
   @Override
   protected BookmarkCategoriesAdapter getAdapter()
   {
-    RecyclerView.Adapter adapter = super.getAdapter();
-    return adapter != null ? (BookmarkCategoriesAdapter) adapter : null;
+    return (BookmarkCategoriesAdapter)super.getAdapter();
   }
 
-  @CallSuper
   @Override
-  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
+  public void onViewCreated(View view, Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
 
-    mLoadingPlaceholder = view.findViewById(R.id.placeholder_loading);
-
-    if (getAdapter() != null)
+    getAdapter().setOnClickListener(this);
+    getAdapter().setOnLongClickListener(this);
+    getAdapter().registerAdapterDataObserver(new RecyclerView.AdapterDataObserver()
     {
-      getAdapter().setOnClickListener(this);
-      getAdapter().setOnLongClickListener(this);
-      getAdapter().registerAdapterDataObserver(new RecyclerView.AdapterDataObserver()
+      @Override
+      public void onChanged()
       {
-        @Override
-        public void onChanged()
-        {
-          updateResultsPlaceholder();
-        }
-      });
-    }
+        updateResultsPlaceholder();
+      }
+    });
   }
 
   private void updateResultsPlaceholder()
   {
-    if (getAdapter() != null)
-    {
-      boolean showLoadingPlaceholder = BookmarkManager.nativeIsAsyncBookmarksLoadingInProgress();
-      showPlaceholder(!showLoadingPlaceholder && getAdapter().getItemCount() == 0);
-    }
-  }
-
-  private void updateLoadingPlaceholder()
-  {
-    if (mLoadingPlaceholder != null)
-    {
-      boolean showLoadingPlaceholder = BookmarkManager.nativeIsAsyncBookmarksLoadingInProgress();
-      if (getAdapter() != null && getAdapter().getItemCount() != 0)
-        showLoadingPlaceholder = false;
-
-      UiUtils.showIf(showLoadingPlaceholder, mLoadingPlaceholder);
-    }
-  }
-
-  @Override
-  public void onStart()
-  {
-    super.onStart();
-    BookmarkManager.INSTANCE.addListener(this);
-  }
-
-  @Override
-  public void onStop()
-  {
-    super.onStop();
-    BookmarkManager.INSTANCE.removeListener(this);
+    showPlaceholder(getAdapter().getItemCount() == 0);
   }
 
   @Override
   public void onResume()
   {
     super.onResume();
-    updateLoadingPlaceholder();
-    if (getAdapter() != null)
-      getAdapter().notifyDataSetChanged();
+    getAdapter().notifyDataSetChanged();
   }
 
   @Override
@@ -132,8 +86,7 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
   {
     final BookmarkCategory category = BookmarkManager.INSTANCE.getCategory(mSelectedPosition);
     category.setName(text);
-    if (getAdapter() != null)
-      getAdapter().notifyDataSetChanged();
+    getAdapter().notifyDataSetChanged();
   }
 
   @Override
@@ -143,8 +96,7 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
     {
     case R.id.set_show:
       BookmarkManager.INSTANCE.toggleCategoryVisibility(mSelectedPosition);
-      if (getAdapter() != null)
-        getAdapter().notifyDataSetChanged();
+      getAdapter().notifyDataSetChanged();
       break;
 
     case R.id.set_share:
@@ -153,8 +105,7 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
 
     case R.id.set_delete:
       BookmarkManager.INSTANCE.nativeDeleteCategory(mSelectedPosition);
-      if (getAdapter() != null)
-        getAdapter().notifyDataSetChanged();
+      getAdapter().notifyDataSetChanged();
       break;
 
     case R.id.set_edit:
@@ -194,29 +145,6 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment
   @Override
   protected void setupPlaceholder(@NonNull PlaceholderView placeholder)
   {
-    placeholder.setContent(R.drawable.img_bookmarks, R.string.bookmarks_empty_title,
-        R.string.bookmarks_usage_hint);
-  }
-
-  @Override
-  public void onBookmarksLoadingStarted()
-  {
-    updateLoadingPlaceholder();
-    updateResultsPlaceholder();
-  }
-
-  @Override
-  public void onBookmarksLoadingFinished()
-  {
-    updateLoadingPlaceholder();
-    updateResultsPlaceholder();
-    if (getAdapter() != null)
-      getAdapter().notifyDataSetChanged();
-  }
-
-  @Override
-  public void onBookmarksFileLoaded(boolean success)
-  {
-    // Do nothing here.
+    placeholder.setContent(R.drawable.img_bookmarks, R.string.bookmarks_empty_title, R.string.bookmarks_usage_hint);
   }
 }

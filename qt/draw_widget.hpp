@@ -2,10 +2,9 @@
 
 #include "qt/qt_common/map_widget.hpp"
 
-#include "map/everywhere_search_params.hpp"
 #include "map/place_page_info.hpp"
-#include "map/routing_manager.hpp"
 
+#include "search/everywhere_search_params.hpp"
 #include "search/result.hpp"
 
 #include "routing/router.hpp"
@@ -44,7 +43,7 @@ public Q_SLOTS:
   void OnUpdateCountryStatusByTimer();
 
 public:
-  DrawWidget(Framework & framework, bool apiOpenGLES3, QWidget * parent);
+  DrawWidget(Framework & framework, QWidget * parent);
   ~DrawWidget();
 
   bool Search(search::EverywhereSearchParams const & params);
@@ -60,7 +59,6 @@ public:
   void PrepareShutdown();
 
   Framework & GetFramework() { return m_framework; }
-
   void SetMapStyle(MapStyle mapStyle);
 
   void SetRouter(routing::RouterType routerType);
@@ -73,16 +71,6 @@ public:
   void RetryToDownloadCountry(storage::TCountryId const & countryId);
 
   void SetSelectionMode(bool mode);
-
-  RouteMarkType GetRoutePointAddMode() const { return m_routePointAddMode; }
-  void SetRoutePointAddMode(RouteMarkType mode) { m_routePointAddMode = mode; }
-  void FollowRoute();
-  void ClearRoute();
-  void OnRouteRecommendation(RoutingManager::Recommendation recommendation);
-
-  void RefreshDrawingRules();
-
-  static void SetDefaultSurfaceFormat(bool apiOpenGLES3);
 
 protected:
   /// @name Overriden from MapWidget.
@@ -99,7 +87,6 @@ protected:
 private:
   void SubmitFakeLocationPoint(m2::PointD const & pt);
   void SubmitRoutingPoint(m2::PointD const & pt);
-  void SubmitBookmark(m2::PointD const & pt);
   void ShowInfoPopup(QMouseEvent * e, m2::PointD const & pt);
   void ShowPlacePage(place_page::Info const & info);
 
@@ -110,10 +97,11 @@ private:
 
   bool m_emulatingLocation;
 
+  void InitRenderPolicy();
+
   TCurrentCountryChanged m_currentCountryChanged;
   storage::TCountryId m_countryId;
 
   bool m_selectionMode = false;
-  RouteMarkType m_routePointAddMode = RouteMarkType::Finish;
 };
 }  // namespace qt

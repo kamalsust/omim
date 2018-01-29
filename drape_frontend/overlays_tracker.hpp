@@ -10,20 +10,17 @@
 
 namespace df
 {
-using EventClock = std::chrono::system_clock;
-using EventTimestamp = EventClock::time_point;
-
 struct OverlayShowEvent
 {
   FeatureID m_feature;
   uint8_t m_zoomLevel;
-  EventTimestamp m_timestamp;
+  std::chrono::steady_clock::time_point m_timestamp;
   bool m_hasMyPosition;
   m2::PointD m_myPosition;
   double m_gpsAccuracy;
   OverlayShowEvent(FeatureID const & feature, uint8_t zoomLevel,
-                   EventTimestamp const & timestamp, bool hasMyPosition,
-                   m2::PointD const & myPosition, double gpsAccuracy)
+                   std::chrono::steady_clock::time_point const & timestamp,
+                   bool hasMyPosition, m2::PointD const & myPosition, double gpsAccuracy)
     : m_feature(feature)
     , m_zoomLevel(zoomLevel)
     , m_timestamp(timestamp)
@@ -63,7 +60,7 @@ private:
 
   struct OverlayInfo
   {
-    EventTimestamp m_timestamp;
+    std::chrono::steady_clock::time_point m_timestamp;
     OverlayStatus m_status = OverlayStatus::Invisible;
     bool m_tracked = false;
   };
@@ -75,4 +72,5 @@ private:
   m2::PointD m_myPosition = m2::PointD::Zero();
   double m_gpsAccuracy = 0.0;
 };
+
 }  // namespace df

@@ -3,7 +3,6 @@
 #include "indexer/feature_data.hpp"
 #include "indexer/feature_decl.hpp"
 #include "indexer/feature_meta.hpp"
-#include "indexer/ftraits.hpp"
 
 #include "geometry/latlon.hpp"
 #include "geometry/mercator.hpp"
@@ -46,8 +45,7 @@ enum class Props
   Internet,
   Wikipedia,
   Flats,
-  BuildingLevels,
-  Level
+  BuildingLevels
 };
 string DebugPrint(Props props);
 
@@ -90,8 +88,6 @@ public:
   string GetWikipediaLink() const;
   string GetFlats() const;
   string GetBuildingLevels() const;
-  string GetLevel() const;
-  ftraits::WheelchairAvailability GetWheelchairType() const;
 
   // TODO(Vlad, yunikkk): Use Props enum + getters instead of direct metadata access.
   // TODO: Remove this method.
@@ -138,7 +134,6 @@ vector<Props> MetadataToProps(vector<T> const & metadata)
     case Metadata::FMD_WIKIPEDIA: res.push_back(Props::Wikipedia); break;
     case Metadata::FMD_FLATS: res.push_back(Props::Flats); break;
     case Metadata::FMD_BUILDING_LEVELS: res.push_back(Props::BuildingLevels); break;
-    case Metadata::FMD_LEVEL: res.push_back(Props::Level); break;
     case Metadata::FMD_TURN_LANES:
     case Metadata::FMD_TURN_LANES_FORWARD:
     case Metadata::FMD_TURN_LANES_BACKWARD:

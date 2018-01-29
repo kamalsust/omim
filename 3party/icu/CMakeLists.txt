@@ -10,8 +10,6 @@ add_definitions(
   -DU_ENABLE_DYLOAD=0
 )
 
-add_clang_compile_options("-Wno-deprecated-declarations")
-
 set(CMAKE_PREFIX_PATH ./)
 
 include_directories(common i18n common/unicode ./)

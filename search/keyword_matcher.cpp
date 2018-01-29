@@ -3,17 +3,15 @@
 #include "indexer/search_delimiters.hpp"
 #include "indexer/search_string_utils.hpp"
 
-#include "base/assert.hpp"
-#include "base/buffer_vector.hpp"
 #include "base/stl_add.hpp"
+#include "base/string_utils.hpp"
 
-#include <algorithm>
-#include <sstream>
-
-using namespace std;
+#include "std/algorithm.hpp"
+#include "std/sstream.hpp"
 
 namespace search
 {
+
 KeywordMatcher::KeywordMatcher()
 {
   Clear();
@@ -25,42 +23,38 @@ void KeywordMatcher::Clear()
   m_prefix.clear();
 }
 
-void KeywordMatcher::SetKeywords(strings::UniString const * keywords, size_t count,
-                                 strings::UniString const & prefix)
+void KeywordMatcher::SetKeywords(StringT const * keywords, size_t count, StringT const & prefix)
 {
   m_keywords.assign(keywords, keywords + count);
   m_prefix = prefix;
 }
 
-KeywordMatcher::Score KeywordMatcher::CalcScore(string const & name) const
+KeywordMatcher::ScoreT KeywordMatcher::Score(string const & name) const
 {
-  return CalcScore(NormalizeAndSimplifyString(name));
+  return Score(NormalizeAndSimplifyString(name));
 }
 
-KeywordMatcher::Score KeywordMatcher::CalcScore(strings::UniString const & name) const
+KeywordMatcher::ScoreT KeywordMatcher::Score(StringT const & name) const
 {
-  buffer_vector<strings::UniString, kMaxNumTokens> tokens;
+  buffer_vector<StringT, MAX_TOKENS> tokens;
   SplitUniString(name, MakeBackInsertFunctor(tokens), Delimiters());
 
-  return CalcScore(tokens.data(), tokens.size());
+  // Some names can have too many tokens. Trim them.
+  return Score(tokens.data(), tokens.size());
 }
 
-KeywordMatcher::Score KeywordMatcher::CalcScore(strings::UniString const * tokens,
-                                                size_t count) const
+KeywordMatcher::ScoreT KeywordMatcher::Score(StringT const * tokens, size_t count) const
 {
-  // Some names can have too many tokens. Trim them.
-  count = min(count, kMaxNumTokens);
+  count = min(count, size_t(MAX_TOKENS));
 
   vector<bool> isQueryTokenMatched(m_keywords.size());
   vector<bool> isNameTokenMatched(count);
   uint32_t sumTokenMatchDistance = 0;
   int8_t prevTokenMatchDistance = 0;
-  bool prefixMatched = true;
+  bool bPrefixMatched = true;
 
   for (int i = 0; i < m_keywords.size(); ++i)
-  {
     for (int j = 0; j < count && !isQueryTokenMatched[i]; ++j)
-    {
       if (!isNameTokenMatched[j] && m_keywords[i] == tokens[j])
       {
         isQueryTokenMatched[i] = isNameTokenMatched[j] = true;
@@ -68,42 +62,36 @@ KeywordMatcher::Score KeywordMatcher::CalcScore(strings::UniString const * token
         sumTokenMatchDistance += abs(tokenMatchDistance - prevTokenMatchDistance);
         prevTokenMatchDistance = tokenMatchDistance;
       }
-    }
-  }
 
   if (!m_prefix.empty())
   {
-    prefixMatched = false;
-    for (int j = 0; j < count && !prefixMatched; ++j)
-    {
+    bPrefixMatched = false;
+    for (int j = 0; j < count && !bPrefixMatched; ++j)
       if (!isNameTokenMatched[j] &&
           strings::StartsWith(tokens[j].begin(), tokens[j].end(), m_prefix.begin(), m_prefix.end()))
       {
-        isNameTokenMatched[j] = prefixMatched = true;
+        isNameTokenMatched[j] = bPrefixMatched = true;
         int8_t const tokenMatchDistance = int(m_keywords.size()) - j;
         sumTokenMatchDistance += abs(tokenMatchDistance - prevTokenMatchDistance);
       }
-    }
   }
 
   uint8_t numQueryTokensMatched = 0;
   for (size_t i = 0; i < isQueryTokenMatched.size(); ++i)
-  {
     if (isQueryTokenMatched[i])
       ++numQueryTokensMatched;
-  }
 
-  Score score;
-  score.m_fullQueryMatched = prefixMatched && (numQueryTokensMatched == isQueryTokenMatched.size());
-  score.m_prefixMatched = prefixMatched;
-  score.m_numQueryTokensAndPrefixMatched = numQueryTokensMatched + (prefixMatched ? 1 : 0);
+  ScoreT score;
+  score.m_bFullQueryMatched = bPrefixMatched && (numQueryTokensMatched == isQueryTokenMatched.size());
+  score.m_bPrefixMatched = bPrefixMatched;
+  score.m_numQueryTokensAndPrefixMatched = numQueryTokensMatched + (bPrefixMatched ? 1 : 0);
 
   score.m_nameTokensMatched = 0;
   score.m_nameTokensLength = 0;
   for (size_t i = 0; i < count; ++i)
   {
     if (isNameTokenMatched[i])
-      score.m_nameTokensMatched |= (1 << (kMaxNumTokens - 1 - i));
+      score.m_nameTokensMatched |= (1 << (MAX_TOKENS-1 - i));
     score.m_nameTokensLength += tokens[i].size();
   }
 
@@ -111,24 +99,20 @@ KeywordMatcher::Score KeywordMatcher::CalcScore(strings::UniString const * token
   return score;
 }
 
-KeywordMatcher::Score::Score()
-  : m_sumTokenMatchDistance(0)
-  , m_nameTokensMatched(0)
-  , m_nameTokensLength(0)
-  , m_numQueryTokensAndPrefixMatched(0)
-  , m_fullQueryMatched(false)
-  , m_prefixMatched(false)
+KeywordMatcher::ScoreT::ScoreT()
+  : m_sumTokenMatchDistance(0), m_nameTokensMatched(0), m_nameTokensLength(0),
+    m_numQueryTokensAndPrefixMatched(0), m_bFullQueryMatched(false), m_bPrefixMatched(false)
 {
 }
 
-bool KeywordMatcher::Score::operator<(KeywordMatcher::Score const & s) const
+bool KeywordMatcher::ScoreT::operator < (KeywordMatcher::ScoreT const & s) const
 {
-  if (m_fullQueryMatched != s.m_fullQueryMatched)
-    return m_fullQueryMatched < s.m_fullQueryMatched;
+  if (m_bFullQueryMatched != s.m_bFullQueryMatched)
+    return m_bFullQueryMatched < s.m_bFullQueryMatched;
   if (m_numQueryTokensAndPrefixMatched != s.m_numQueryTokensAndPrefixMatched)
     return m_numQueryTokensAndPrefixMatched < s.m_numQueryTokensAndPrefixMatched;
-  if (m_prefixMatched != s.m_prefixMatched)
-    return m_prefixMatched < s.m_prefixMatched;
+  if (m_bPrefixMatched != s.m_bPrefixMatched)
+    return m_bPrefixMatched < s.m_bPrefixMatched;
   if (m_nameTokensMatched != s.m_nameTokensMatched)
     return m_nameTokensMatched < s.m_nameTokensMatched;
   if (m_sumTokenMatchDistance != s.m_sumTokenMatchDistance)
@@ -137,37 +121,29 @@ bool KeywordMatcher::Score::operator<(KeywordMatcher::Score const & s) const
   return false;
 }
 
-bool KeywordMatcher::Score::operator==(KeywordMatcher::Score const & s) const
+bool KeywordMatcher::ScoreT::LessInTokensLength(ScoreT const & s) const
 {
-  return m_sumTokenMatchDistance == s.m_sumTokenMatchDistance
-      && m_nameTokensMatched == s.m_nameTokensMatched
-      && m_numQueryTokensAndPrefixMatched == s.m_numQueryTokensAndPrefixMatched
-      && m_fullQueryMatched == s.m_fullQueryMatched
-      && m_prefixMatched == s.m_prefixMatched;
-}
-
-bool KeywordMatcher::Score::LessInTokensLength(Score const & s) const
-{
-  if (m_fullQueryMatched)
+  if (m_bFullQueryMatched)
   {
-    ASSERT(s.m_fullQueryMatched, ());
+    ASSERT(s.m_bFullQueryMatched, ());
     return m_nameTokensLength > s.m_nameTokensLength;
   }
   return false;
 }
 
-string DebugPrint(KeywordMatcher::Score const & score)
+string DebugPrint(KeywordMatcher::ScoreT const & score)
 {
   ostringstream out;
-  out << "KeywordMatcher::Score(";
-  out << "FQM=" << score.m_fullQueryMatched;
+  out << "KeywordMatcher::ScoreT(";
+  out << "FQM=" << score.m_bFullQueryMatched;
   out << ",nQTM=" << static_cast<int>(score.m_numQueryTokensAndPrefixMatched);
-  out << ",PM=" << score.m_prefixMatched;
+  out << ",PM=" << score.m_bPrefixMatched;
   out << ",NTM=";
-  for (int i = static_cast<int>(kMaxNumTokens) - 1; i >= 0; --i)
+  for (int i = MAX_TOKENS-1; i >= 0; --i)
     out << ((score.m_nameTokensMatched >> i) & 1);
   out << ",STMD=" << score.m_sumTokenMatchDistance;
   out << ")";
   return out.str();
 }
+
 }  // namespace search

@@ -22,7 +22,7 @@ class FacebookAdsLoader extends CachingNativeAdLoader implements AdListener
   private static final String TAG = FacebookAdsLoader.class.getSimpleName();
 
   FacebookAdsLoader(@Nullable OnAdCacheModifiedListener cacheListener,
-                    @Nullable AdTracker tracker)
+                           @Nullable AdTracker tracker)
   {
     super(tracker, cacheListener);
   }
@@ -33,7 +33,7 @@ class FacebookAdsLoader extends CachingNativeAdLoader implements AdListener
     LOGGER.w(TAG, "A error '" + adError.getErrorMessage() + "' is occurred while loading " +
                   "an ad for banner id '" + ad.getPlacementId() + "'");
 
-    onError(ad.getPlacementId(), getProvider(), new FacebookAdError(adError));
+    onError(ad.getPlacementId(), new FacebookNativeAd((NativeAd)ad), new FacebookAdError(adError));
   }
 
   @Override
@@ -47,12 +47,6 @@ class FacebookAdsLoader extends CachingNativeAdLoader implements AdListener
   public void onAdClicked(Ad ad)
   {
     onAdClicked(ad.getPlacementId());
-  }
-
-  @Override
-  public void onLoggingImpression(Ad ad)
-  {
-    LOGGER.i(TAG, "onLoggingImpression");
   }
 
   @Override

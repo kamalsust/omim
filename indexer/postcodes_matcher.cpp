@@ -8,7 +8,6 @@
 #include "base/stl_add.hpp"
 #include "base/string_utils.hpp"
 
-#include "std/algorithm.hpp"
 #include "std/transform_iterator.hpp"
 #include "std/unique_ptr.hpp"
 #include "std/utility.hpp"

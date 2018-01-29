@@ -16,7 +16,7 @@
 #include "base/buffer_vector.hpp"
 #include "base/macros.hpp"
 
-#include <string>
+#include "std/string.hpp"
 
 #ifndef PARALLEL_POLYGONIZER
 #define PARALLEL_POLYGONIZER 1
@@ -38,7 +38,7 @@ namespace feature
     feature::GenerateInfo const & m_info;
 
     vector<FeatureOutT*> m_Buckets;
-    vector<std::string> m_Names;
+    vector<string> m_Names;
     borders::CountriesContainerT m_countries;
 
 #if PARALLEL_POLYGONIZER
@@ -86,8 +86,7 @@ namespace feature
 
       bool operator()(m2::PointD const & pt)
       {
-        m_regions.ForEachInRect(m2::RectD(pt, pt),
-                                std::bind<void>(std::ref(*this), std::placeholders::_1, std::cref(pt)));
+        m_regions.ForEachInRect(m2::RectD(pt, pt), bind<void>(ref(*this), _1, cref(pt)));
         return !m_belongs;
       }
 
@@ -134,7 +133,7 @@ namespace feature
       }
     }
 
-    std::string m_currentNames;
+    string m_currentNames;
 
     void Start()
     {
@@ -169,7 +168,7 @@ namespace feature
       bucket(fb);
     }
 
-    vector<std::string> const & Names() const
+    vector<string> const & Names() const
     {
       return m_Names;
     }

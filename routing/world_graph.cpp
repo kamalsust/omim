@@ -4,49 +4,59 @@ namespace routing
 {
 using namespace std;
 
-void WorldGraph::GetTwins(Segment const & segment, bool isOutgoing, vector<SegmentEdge> & edges)
+WorldGraph::WorldGraph(unique_ptr<CrossMwmGraph> crossMwmGraph, unique_ptr<IndexGraphLoader> loader,
+                       shared_ptr<EdgeEstimator> estimator)
+  : m_crossMwmGraph(move(crossMwmGraph)), m_loader(move(loader)), m_estimator(estimator)
 {
-  vector<Segment> twins;
-  GetTwinsInner(segment, isOutgoing, twins);
+  CHECK(m_loader, ());
+  CHECK(m_estimator, ());
+}
 
-  if (GetMode() == Mode::LeapsOnly)
+void WorldGraph::GetEdgeList(Segment const & segment, bool isOutgoing, bool isLeap,
+                             vector<SegmentEdge> & edges)
+{
+  if (isLeap && m_mode == Mode::WorldWithLeaps)
   {
-    // Ingoing edges listing is not supported in LeapsOnly mode because we do not have enough
-    // information to calculate |segment| weight. See https://jira.mail.ru/browse/MAPSME-5743 for details.
-    CHECK(isOutgoing, ("Ingoing edges listing is not supported in LeapsOnly mode."));
-    // We need both enter to mwm and exit from mwm in LeapsOnly mode to reconstruct leap.
-    // That's why we need to duplicate twin segment here and than remove duplicate
-    // while processing leaps.
-    for (Segment const & twin : twins)
-    {
-      m2::PointD const & from = GetPoint(segment, isOutgoing /* front */);
-      m2::PointD const & to = GetPoint(twin, isOutgoing /* front */);
-      // Weight is usually zero because twins correspond the same feature
-      // in different mwms. But if we have mwms with different versions and a feature
-      // was moved in one of them the weight is greater than zero.
-      edges.emplace_back(twin, HeuristicCostEstimate(from, to));
-    }
+    CHECK(m_crossMwmGraph, ());
+    if (m_crossMwmGraph->IsTransition(segment, isOutgoing))
+      GetTwins(segment, isOutgoing, edges);
+    else
+      m_crossMwmGraph->GetEdgeList(segment, isOutgoing, edges);
     return;
   }
 
-  auto prevMode = GetMode();
-  SetMode(Mode::SingleMwm);
+  IndexGraph & indexGraph = GetIndexGraph(segment.GetMwmId());
+  indexGraph.GetEdgeList(segment, isOutgoing, edges);
 
-  for (Segment const & twin : twins)
-    GetEdgeList(twin, isOutgoing, edges);
-
-  SetMode(prevMode);
+  if (m_mode != Mode::SingleMwm)
+  {
+    CHECK(m_crossMwmGraph, ());
+    if (m_crossMwmGraph->IsTransition(segment, isOutgoing))
+      GetTwins(segment, isOutgoing, edges);
+  }
 }
 
-string DebugPrint(WorldGraph::Mode mode)
+m2::PointD const & WorldGraph::GetPoint(Segment const & segment, bool front)
 {
-  switch (mode)
+  return GetRoadGeometry(segment.GetMwmId(), segment.GetFeatureId())
+      .GetPoint(segment.GetPointId(front));
+}
+
+RoadGeometry const & WorldGraph::GetRoadGeometry(NumMwmId mwmId, uint32_t featureId)
+{
+  return GetIndexGraph(mwmId).GetGeometry().GetRoad(featureId);
+}
+
+void WorldGraph::GetTwins(Segment const & segment, bool isOutgoing, vector<SegmentEdge> & edges)
+{
+  m_twins.clear();
+  m_crossMwmGraph->GetTwins(segment, isOutgoing, m_twins);
+  for (Segment const & twin : m_twins)
   {
-  case WorldGraph::Mode::LeapsOnly: return "LeapsOnly";
-  case WorldGraph::Mode::NoLeaps: return "NoLeaps";
-  case WorldGraph::Mode::SingleMwm: return "SingleMwm";
+    m2::PointD const & from = GetPoint(segment, true /* front */);
+    m2::PointD const & to = GetPoint(twin, true /* front */);
+    double const weight = m_estimator->CalcHeuristic(from, to);
+    edges.emplace_back(twin, weight);
   }
-  ASSERT(false, ("Unknown mode:", static_cast<size_t>(mode)));
-  return "Unknown mode";
 }
 }  // namespace routing

@@ -95,19 +95,6 @@ bool Platform::IsFileExistsByFullPath(string const & filePath)
   return ::GetFileAttributesA(filePath.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
-//static
-void Platform::DisableBackupForFile(string const & filePath) {}
-
-// static
-string Platform::GetCurrentWorkingDirectory() noexcept
-{
-  char path[PATH_MAX];
-  char const * const dir = getcwd(path, PATH_MAX);
-  if (dir == nullptr)
-    return {};
-  return dir;
-}
-
 // static
 Platform::EError Platform::RmDir(string const & dirName)
 {
@@ -142,15 +129,16 @@ void Platform::RunOnGuiThread(TFunctor const & fn)
   fn();
 }
 
+void Platform::RunAsync(TFunctor const & fn, Priority p)
+{
+  /// @todo
+  fn();
+}
+
 Platform::EConnectionType Platform::ConnectionStatus()
 {
   // @TODO Add implementation
   return EConnectionType::CONNECTION_NONE;
-}
-
-Platform::ChargingStatus Platform::GetChargingStatus()
-{
-  return Platform::ChargingStatus::Plugged;
 }
 
 Platform::TStorageStatus Platform::GetWritableStorageStatus(uint64_t neededSize) const

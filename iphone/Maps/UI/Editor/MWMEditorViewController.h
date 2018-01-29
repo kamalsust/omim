@@ -1,10 +1,7 @@
 #import "MWMTableViewController.h"
+#include "indexer/editable_map_object.hpp"
 
 struct FeatureID;
-namespace osm
-{
-class EditableMapObject;
-}  // namespace osm
 
 @interface MWMEditorViewController : MWMTableViewController
 

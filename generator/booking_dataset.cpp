@@ -6,46 +6,45 @@
 #include "indexer/classificator.hpp"
 #include "indexer/ftypes_matcher.hpp"
 
-#include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include <iomanip>
+#include "std/iomanip.hpp"
 
 #include "boost/algorithm/string/replace.hpp"
 
 namespace generator
 {
 // BookingHotel ------------------------------------------------------------------------------------
-BookingHotel::BookingHotel(std::string const & src)
+BookingHotel::BookingHotel(string const & src)
 {
-  std::vector<std::string> rec;
+  vector<string> rec;
   strings::ParseCSVRow(src, '\t', rec);
   CHECK_EQUAL(rec.size(), FieldsCount(), ("Error parsing hotels.tsv line:",
                                           boost::replace_all_copy(src, "\t", "\\t")));
 
-  CLOG(LDEBUG, strings::to_uint(rec[FieldIndex(Fields::Id)], m_id.Get()), ());
+  strings::to_uint(rec[FieldIndex(Fields::Id)], m_id.Get());
   // TODO(mgsergio): Use ms::LatLon.
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::Latitude)], m_latLon.lat), ());
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::Longtitude)], m_latLon.lon), ());
+  strings::to_double(rec[FieldIndex(Fields::Latitude)], m_latLon.lat);
+  strings::to_double(rec[FieldIndex(Fields::Longtitude)], m_latLon.lon);
 
   m_name = rec[FieldIndex(Fields::Name)];
   m_address = rec[FieldIndex(Fields::Address)];
 
-  CLOG(LDEBUG, strings::to_uint(rec[FieldIndex(Fields::Stars)], m_stars), ());
-  CLOG(LDEBUG, strings::to_uint(rec[FieldIndex(Fields::PriceCategory)], m_priceCategory), ());
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::RatingBooking)], m_ratingBooking), ());
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::RatingUsers)], m_ratingUser), ());
+  strings::to_uint(rec[FieldIndex(Fields::Stars)], m_stars);
+  strings::to_uint(rec[FieldIndex(Fields::PriceCategory)], m_priceCategory);
+  strings::to_double(rec[FieldIndex(Fields::RatingBooking)], m_ratingBooking);
+  strings::to_double(rec[FieldIndex(Fields::RatingUsers)], m_ratingUser);
 
   m_descUrl = rec[FieldIndex(Fields::DescUrl)];
 
-  CLOG(LDEBUG, strings::to_uint(rec[FieldIndex(Fields::Type)], m_type), ());
+  strings::to_uint(rec[FieldIndex(Fields::Type)], m_type);
 
   m_translations = rec[FieldIndex(Fields::Translations)];
 }
 
-std::ostream & operator<<(std::ostream & s, BookingHotel const & h)
+ostream & operator<<(ostream & s, BookingHotel const & h)
 {
-  s << std::fixed << std::setprecision(7);
+  s << fixed << setprecision(7);
   s << "Id: " << h.m_id << "\t Name: " << h.m_name << "\t Address: " << h.m_address
     << "\t lat: " << h.m_latLon.lat << " lon: " << h.m_latLon.lon;
   return s;
@@ -63,7 +62,7 @@ bool BookingDataset::NecessaryMatchingConditionHolds(FeatureBuilder1 const & fb)
 
 template <>
 void BookingDataset::PreprocessMatchedOsmObject(ObjectId, FeatureBuilder1 & fb,
-                                                std::function<void(FeatureBuilder1 &)> const fn) const
+                                                function<void(FeatureBuilder1 &)> const fn) const
 {
   // Turn a hotel into a simple building.
   if (fb.GetGeomType() == feature::GEOM_AREA)
@@ -90,7 +89,7 @@ void BookingDataset::PreprocessMatchedOsmObject(ObjectId, FeatureBuilder1 & fb,
 
 template <>
 void BookingDataset::BuildObject(Object const & hotel,
-                                 std::function<void(FeatureBuilder1 &)> const & fn) const
+                                 function<void(FeatureBuilder1 &)> const & fn) const
 {
   FeatureBuilder1 fb;
   FeatureParams params;
@@ -113,10 +112,12 @@ void BookingDataset::BuildObject(Object const & hotel,
   if (!hotel.m_houseNumber.empty())
     fb.AddHouseNumber(hotel.m_houseNumber);
 
+  params.AddName(StringUtf8Multilang::GetLangByCode(StringUtf8Multilang::kDefaultCode),
+                 hotel.m_name);
   if (!hotel.m_translations.empty())
   {
     // TODO(mgsergio): Move parsing to the hotel costruction stage.
-    std::vector<std::string> parts;
+    vector<string> parts;
     strings::ParseCSVRow(hotel.m_translations, '|', parts);
     CHECK_EQUAL(parts.size() % 3, 0, ("Invalid translation string:", hotel.m_translations));
     for (size_t i = 0; i < parts.size(); i += 3)
@@ -126,8 +127,6 @@ void BookingDataset::BuildObject(Object const & hotel,
       // TODO(mgsergio): e.AddTag("addr:full:" + parts[i], parts[i + 2]);
     }
   }
-  params.AddName(StringUtf8Multilang::GetLangByCode(StringUtf8Multilang::kEnglishCode),
-                 hotel.m_name);
 
   auto const & clf = classif();
   params.AddType(clf.GetTypeByPath({"sponsored", "booking"}));
@@ -196,12 +195,12 @@ BookingDataset::ObjectId BookingDataset::FindMatchingObjectIdImpl(FeatureBuilder
     return Object::InvalidObjectId();
 
   // Find |kMaxSelectedElements| nearest values to a point.
-  auto const bookingIndexes =
-      m_storage.GetNearestObjects(MercatorBounds::ToLatLon(fb.GetKeyPoint()));
+  auto const bookingIndexes = GetNearestObjects(MercatorBounds::ToLatLon(fb.GetKeyPoint()),
+                                                kMaxSelectedElements, kDistanceLimitInMeters);
 
   for (auto const j : bookingIndexes)
   {
-    if (sponsored_scoring::Match(m_storage.GetObjectById(j), fb).IsMatched())
+    if (sponsored_scoring::Match(GetObjectById(j), fb).IsMatched())
       return j;
   }
 

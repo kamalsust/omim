@@ -21,7 +21,7 @@ UNIT_TEST(KMZ_UnzipTest)
 
   bool isKMLinZip = false;
 
-  for (size_t i = 0; i < files.size(); ++i)
+  for (int i = 0; i < files.size();++i)
   {
     if (files[i].first == "doc.kml")
     {
@@ -35,7 +35,8 @@ UNIT_TEST(KMZ_UnzipTest)
   MY_SCOPE_GUARD(fileGuard, bind(&FileWriter::DeleteFileX, kmlFile));
   ZipFileReader::UnzipFile(kmzFile, "doc.kml", kmlFile);
 
-  BookmarkCategory cat("Default", UserMarkContainer::Listeners());
+  Framework framework;
+  BookmarkCategory cat("Default", framework);
   TEST(cat.LoadFromKML(make_unique<FileReader>(kmlFile)), ());
 
   TEST_EQUAL(files.size(), 6, ("KMZ file wrong number of files"));

@@ -19,7 +19,6 @@
 #import <UIKit/UIKit.h>
 
 #import <FBAudienceNetwork/FBAdDefines.h>
-#import <FBAudienceNetwork/FBMediaViewVideoRenderer.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -49,14 +48,9 @@ FB_CLASS_EXPORT
 @property (nonatomic, strong, nonnull) FBNativeAd *nativeAd;
 
 /**
- A custom FBMediaViewVideoRenderer instance, used to override the default user experience of video ads.
- */
-@property (nonatomic, strong, nonnull) FBMediaViewVideoRenderer *videoRenderer;
-
-/**
   The current volume of the media view, ranging from 0.0 through 1.0.
  */
-@property (nonatomic, assign, readonly) float volume FB_DEPRECATED;
+@property (nonatomic, assign, readonly) float volume;
 
 /**
   Enables or disables autoplay for some types of media. Defaults to YES.

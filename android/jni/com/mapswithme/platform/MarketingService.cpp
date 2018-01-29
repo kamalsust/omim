@@ -2,8 +2,6 @@
 
 #include "Platform.hpp"
 
-using namespace std;
-
 void MarketingService::SendPushWooshTag(string const & tag)
 {
   SendPushWooshTag(tag, vector<string>{"1"});

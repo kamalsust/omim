@@ -5,7 +5,6 @@ import android.animation.ValueAnimator;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.view.View;
 
 import com.mapswithme.maps.location.LocationHelper;
@@ -17,7 +16,7 @@ import com.mapswithme.util.UiUtils;
 
 class NavigationButtonsAnimationController
 {
-  private static final int ANIM_TOGGLE = MwmApplication.get().getResources().getInteger(R.integer.anim_default);
+  private static final int ANIM_TOGGLE = MwmApplication.get().getResources().getInteger(R.integer.anim_slots_toggle);
   private static final String STATE_VISIBLE = "state_visible";
 
   @NonNull
@@ -26,9 +25,6 @@ class NavigationButtonsAnimationController
   private final View mZoomOut;
   @NonNull
   private final View mMyPosition;
-
-  @Nullable
-  private final OnTranslationChangedListener mTranslationListener;
 
   private final float mMargin;
   private float mContentHeight;
@@ -43,11 +39,9 @@ class NavigationButtonsAnimationController
   private float mBottomLimit;
 
   private float mCurrentOffset;
-  private float mCompassHeight;
 
   NavigationButtonsAnimationController(@NonNull View zoomIn, @NonNull View zoomOut,
-                                       @NonNull View myPosition, @NonNull final View contentView,
-                                       @Nullable OnTranslationChangedListener translationListener)
+                                       @NonNull View myPosition, @NonNull final View contentView)
   {
     mZoomIn = zoomIn;
     mZoomOut = zoomOut;
@@ -57,7 +51,6 @@ class NavigationButtonsAnimationController
     Resources res = mZoomIn.getResources();
     mMargin = res.getDimension(R.dimen.margin_base_plus);
     mBottomLimit = res.getDimension(R.dimen.menu_line_height);
-    mCompassHeight = res.getDimension(R.dimen.compass_height);
     calculateLimitTranslations();
     contentView.addOnLayoutChangeListener(new View.OnLayoutChangeListener()
     {
@@ -69,7 +62,6 @@ class NavigationButtonsAnimationController
         contentView.removeOnLayoutChangeListener(this);
       }
     });
-    mTranslationListener = translationListener;
   }
 
   private void checkZoomButtonsVisibility()
@@ -128,8 +120,6 @@ class NavigationButtonsAnimationController
         mZoomOut.setVisibility(View.INVISIBLE);
       }
     });
-    if (mTranslationListener != null)
-      mTranslationListener.onFadeOutZoomButtons();
   }
 
   private void fadeInZoom()
@@ -146,8 +136,6 @@ class NavigationButtonsAnimationController
       }
     });
     Animations.fadeInView(mZoomOut, null);
-    if (mTranslationListener != null)
-      mTranslationListener.onFadeInZoomButtons();
   }
 
   private void fadeOutMyPosition()
@@ -222,8 +210,6 @@ class NavigationButtonsAnimationController
     {
       fadeInMyPosition();
     }
-    if (mTranslationListener != null)
-      mTranslationListener.onTranslationChanged(translation);
   }
 
   private boolean isViewInsideLimits(@NonNull View view)
@@ -308,20 +294,5 @@ class NavigationButtonsAnimationController
   public void onRestoreState(@NonNull Bundle state)
   {
     mZoomVisible = state.getBoolean(STATE_VISIBLE, false);
-  }
-
-  boolean isConflictWithCompass(int compassOffset)
-  {
-    int zoomTop = mZoomIn.getTop();
-    return zoomTop != 0 && zoomTop <= compassOffset + mCompassHeight;
-  }
-
-  interface OnTranslationChangedListener
-  {
-    void onTranslationChanged(float translation);
-
-    void onFadeInZoomButtons();
-
-    void onFadeOutZoomButtons();
   }
 }

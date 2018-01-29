@@ -118,12 +118,16 @@ editor::XMLFeature FeatureType::ToXML(bool serializeType) const
   else
   {
     ParseTriangles(BEST_GEOMETRY);
-    feature.SetGeometry(begin(m_triangles), end(m_triangles));
+    vector<m2::PointD> geometry(begin(m_triangles), end(m_triangles));
+    // Remove duplicates.
+    my::SortUnique(geometry);
+    feature.SetGeometry(geometry);
   }
 
   ForEachName([&feature](uint8_t const & lang, string const & name)
               {
                 feature.SetName(lang, name);
+                return true;
               });
 
   string const house = GetHouseNumber();
@@ -365,7 +369,6 @@ void FeatureType::ParseMetadata() const
 
 StringUtf8Multilang const & FeatureType::GetNames() const
 {
-  ParseCommon();
   return m_params.name;
 }
 
@@ -373,9 +376,11 @@ void FeatureType::SetNames(StringUtf8Multilang const & newNames)
 {
   m_params.name.Clear();
   // Validate passed string to clean up empty names (if any).
-  newNames.ForEach([this](int8_t langCode, string const & name) {
+  newNames.ForEach([this](int8_t langCode, string const & name) -> bool
+  {
     if (!name.empty())
       m_params.name.AddString(langCode, name);
+    return true;
   });
 
   if (m_params.name.IsEmpty())
@@ -486,7 +491,7 @@ FeatureType::geom_stat_t FeatureType::GetTrianglesSize(int scale) const
   return geom_stat_t(sz, m_triangles.size());
 }
 
-void FeatureType::GetPreferredNames(string & primary, string & secondary) const
+void FeatureType::GetPreferredNames(bool allowTranslit, string & primary, string & secondary) const
 {
   if (!HasName())
     return;
@@ -497,29 +502,12 @@ void FeatureType::GetPreferredNames(string & primary, string & secondary) const
     return;
 
   ParseCommon();
-
   auto const deviceLang = StringUtf8Multilang::GetLangIndex(languages::GetCurrentNorm());
-  ::GetPreferredNames(mwmInfo->GetRegionData(), GetNames(), deviceLang, false /* allowTranslit */,
-                      primary, secondary);
-}
-
-void FeatureType::GetPreferredNames(bool allowTranslit, int8_t deviceLang, string & primary, string & secondary) const
-{
-  if (!HasName())
-    return;
-
-  auto const mwmInfo = GetID().m_mwmId.GetInfo();
-
-  if (!mwmInfo)
-    return;
-
-  ParseCommon();
-
   ::GetPreferredNames(mwmInfo->GetRegionData(), GetNames(), deviceLang, allowTranslit,
                       primary, secondary);
 }
 
-void FeatureType::GetReadableName(string & name) const
+void FeatureType::GetReadableName(bool allowTranslit, string & name) const
 {
   if (!HasName())
     return;
@@ -530,24 +518,7 @@ void FeatureType::GetReadableName(string & name) const
     return;
 
   ParseCommon();
-
   auto const deviceLang = StringUtf8Multilang::GetLangIndex(languages::GetCurrentNorm());
-  ::GetReadableName(mwmInfo->GetRegionData(), GetNames(), deviceLang, false /* allowTranslit */,
-                    name);
-}
-
-void FeatureType::GetReadableName(bool allowTranslit, int8_t deviceLang, string & name) const
-{
-  if (!HasName())
-    return;
-
-  auto const mwmInfo = GetID().m_mwmId.GetInfo();
-
-  if (!mwmInfo)
-    return;
-
-  ParseCommon();
-
   ::GetReadableName(mwmInfo->GetRegionData(), GetNames(), deviceLang, allowTranslit, name);
 }
 

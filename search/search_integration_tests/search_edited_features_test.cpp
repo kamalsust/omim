@@ -1,10 +1,9 @@
 #include "testing/testing.hpp"
 
-#include "search/search_integration_tests/helpers.hpp"
-
-#include "search/search_tests_support/test_results_matching.hpp"
-
 #include "generator/generator_tests_support/test_feature.hpp"
+
+#include "search/search_integration_tests/helpers.hpp"
+#include "search/search_tests_support/test_results_matching.hpp"
 
 #include "indexer/editable_map_object.hpp"
 

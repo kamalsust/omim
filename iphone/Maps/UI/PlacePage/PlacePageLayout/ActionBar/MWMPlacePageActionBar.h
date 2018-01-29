@@ -1,22 +1,18 @@
-#import "MWMCircularProgressState.h"
-
 @class MWMPlacePageData;
+
+#import "MWMCircularProgress.h"
 
 @protocol MWMActionBarSharedData<NSObject>
 
 - (BOOL)isBookmark;
 - (BOOL)isOpentable;
-- (BOOL)isPartner;
 - (BOOL)isBooking;
 - (BOOL)isBookingSearch;
 - (BOOL)isApi;
 - (BOOL)isMyPosition;
-- (BOOL)isRoutePoint;
 - (NSString *)title;
 - (NSString *)subtitle;
 - (NSString *)phoneNumber;
-- (int)partnerIndex;
-- (NSURL *)sponsoredURL;
 
 @end
 
@@ -30,11 +26,11 @@
 @property(nonatomic) BOOL isBookmark;
 @property(nonatomic) BOOL isAreaNotDownloaded;
 
-- (void)setVisible:(BOOL)visible;
 - (void)setDownloadingProgress:(CGFloat)progress;
 - (void)setDownloadingState:(MWMCircularProgressState)state;
 
 - (UIView *)shareAnchor;
+- (BOOL)isPrepareRouteMode;
 
 - (instancetype)init __attribute__((unavailable("call actionBarForPlacePage: instead")));
 - (instancetype)initWithCoder:(NSCoder *)aDecoder __attribute__((unavailable("call actionBarForPlacePage: instead")));

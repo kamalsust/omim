@@ -4,16 +4,23 @@
 
 #include "std/target_os.hpp"
 
+#include <cassert>
+#include <cstdlib>
 #include <iostream>
 
 namespace my
 {
-  bool OnAssertFailedDefault(SrcPoint const & srcPoint, std::string const & msg)
+  void OnAssertFailedDefault(SrcPoint const & srcPoint, std::string const & msg)
   {
     std::cerr << "ASSERT FAILED" << std::endl
               << srcPoint.FileName() << ":" << srcPoint.Line() << std::endl
               << msg << std::endl;
-    return true;
+
+#ifdef DEBUG
+    assert(false);
+#else
+    std::abort();
+#endif
   }
 
   AssertFailedFn OnAssertFailed = &OnAssertFailedDefault;

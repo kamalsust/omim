@@ -96,6 +96,13 @@ typedef void (^MWMAlertViewCompletionBlock) (UIAlertView * alertView, NSInteger 
 
 @end
 
+@interface UINavigationController (Autorotate)
+
+- (BOOL)shouldAutorotate;
+- (NSUInteger)supportedInterfaceOrientations;
+
+@end
+
 @interface UIViewController (Safari)
 
 - (void)openUrl:(NSURL *)url;

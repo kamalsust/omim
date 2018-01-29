@@ -32,12 +32,10 @@ public:
   typedef ReaderT ReaderType;
 
   ScaleIndex() = default;
-
   ScaleIndex(ReaderT const & reader, IndexFactory const & factory)
   {
     Attach(reader, factory);
   }
-
   ~ScaleIndex()
   {
     Clear();

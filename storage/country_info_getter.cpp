@@ -212,10 +212,19 @@ void CountryInfoGetter::ForEachCountry(string const & prefix, ToDo && toDo) cons
 // static
 unique_ptr<CountryInfoGetter> CountryInfoReader::CreateCountryInfoReader(Platform const & platform)
 {
+  if (platform::migrate::NeedMigrate())
+    return CreateCountryInfoReaderTwoComponentMwms(platform);
+  return CreateCountryInfoReaderOneComponentMwms(platform);
+}
+
+// static
+unique_ptr<CountryInfoGetter> CountryInfoReader::CreateCountryInfoReaderTwoComponentMwms(
+    Platform const & platform)
+{
   try
   {
-    CountryInfoReader * result = new CountryInfoReader(platform.GetReader(PACKED_POLYGONS_FILE),
-                                                       platform.GetReader(COUNTRIES_FILE));
+    CountryInfoReader * result = new CountryInfoReader(platform.GetReader(PACKED_POLYGONS_OBSOLETE_FILE),
+                                                       platform.GetReader(COUNTRIES_OBSOLETE_FILE));
     return unique_ptr<CountryInfoReader>(result);
   }
   catch (RootException const & e)
@@ -226,13 +235,14 @@ unique_ptr<CountryInfoGetter> CountryInfoReader::CreateCountryInfoReader(Platfor
 }
 
 // static
-unique_ptr<CountryInfoGetter> CountryInfoReader::CreateCountryInfoReaderObsolete(
+unique_ptr<CountryInfoGetter> CountryInfoReader::CreateCountryInfoReaderOneComponentMwms(
     Platform const & platform)
 {
   try
   {
-    CountryInfoReader * result = new CountryInfoReader(platform.GetReader(PACKED_POLYGONS_OBSOLETE_FILE),
-                                                       platform.GetReader(COUNTRIES_OBSOLETE_FILE));
+    CountryInfoReader * result =
+        new CountryInfoReader(platform.GetReader(PACKED_POLYGONS_FILE),
+                              platform.GetReader(COUNTRIES_FILE));
     return unique_ptr<CountryInfoReader>(result);
   }
   catch (RootException const & e)

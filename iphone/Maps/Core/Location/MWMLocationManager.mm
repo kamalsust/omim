@@ -1,21 +1,25 @@
 #import "MWMLocationManager.h"
 #import <Pushwoosh/PushNotificationManager.h>
 #import "MWMAlertViewController.h"
+#import "MWMCommon.h"
+#import "MWMController.h"
 #import "MWMLocationObserver.h"
 #import "MWMLocationPredictor.h"
-#import "MWMRouter.h"
 #import "MapsAppDelegate.h"
 #import "Statistics.h"
+
 #import "3party/Alohalytics/src/alohalytics_objc.h"
 
 #include "Framework.h"
 
 #include "map/gps_tracker.hpp"
 
+#include "std/map.hpp"
+
 namespace
 {
-using Observer = id<MWMLocationObserver>;
-using Observers = NSHashTable<Observer>;
+using TObserver = id<MWMLocationObserver>;
+using TObservers = NSHashTable<__kindof TObserver>;
 
 location::GpsInfo gpsInfoFromLocation(CLLocation * l, location::TLocationSource source)
 {
@@ -119,10 +123,11 @@ BOOL keepRunningInBackground()
   if (needGPSForTrackRecorder)
     return YES;
 
-  auto const isRouteBuilt = [MWMRouter isRouteBuilt];
-  auto const isRouteFinished = [MWMRouter isRouteFinished];
-  auto const isRouteRebuildingOnly = [MWMRouter isRouteRebuildingOnly];
-  auto const needGPSForRouting = ((isRouteBuilt || isRouteRebuildingOnly) && !isRouteFinished);
+  auto const & f = GetFramework();
+  bool const isRouteBuilt = f.IsRouteBuilt();
+  bool const isRouteFinished = f.IsRouteFinished();
+  bool const isRouteRebuildingOnly = f.IsRouteRebuildingOnly();
+  bool const needGPSForRouting = ((isRouteBuilt || isRouteRebuildingOnly) && !isRouteFinished);
   if (needGPSForRouting)
     return YES;
 
@@ -133,12 +138,12 @@ NSString * const kLocationPermissionRequestedKey = @"kLocationPermissionRequeste
 
 BOOL isPermissionRequested()
 {
-  return [NSUserDefaults.standardUserDefaults boolForKey:kLocationPermissionRequestedKey];
+  return [[NSUserDefaults standardUserDefaults] boolForKey:kLocationPermissionRequestedKey];
 }
 
 void setPermissionRequested()
 {
-  NSUserDefaults * ud = NSUserDefaults.standardUserDefaults;
+  NSUserDefaults * ud = [NSUserDefaults standardUserDefaults];
   [ud setBool:YES forKey:kLocationPermissionRequestedKey];
   [ud synchronize];
 }
@@ -153,7 +158,7 @@ void setPermissionRequested()
 @property(nonatomic) CLLocation * lastLocationInfo;
 @property(nonatomic) location::TLocationError lastLocationStatus;
 @property(nonatomic) MWMLocationPredictor * predictor;
-@property(nonatomic) Observers * observers;
+@property(nonatomic) TObservers * observers;
 @property(nonatomic) MWMLocationFrameworkUpdate frameworkUpdateMode;
 @property(nonatomic) location::TLocationSource locationSource;
 
@@ -177,30 +182,30 @@ void setPermissionRequested()
 {
   self = [super init];
   if (self)
-    _observers = [Observers weakObjectsHashTable];
+    _observers = [TObservers weakObjectsHashTable];
   return self;
 }
 
 - (void)dealloc
 {
-  [NSNotificationCenter.defaultCenter removeObserver:self];
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
   self.locationManager.delegate = nil;
 }
 + (void)start { [self manager].started = YES; }
 #pragma mark - Add/Remove Observers
 
-+ (void)addObserver:(Observer)observer
++ (void)addObserver:(TObserver)observer
 {
-  dispatch_async(dispatch_get_main_queue(), ^{
+  runAsyncOnMainQueue(^{
     MWMLocationManager * manager = [self manager];
     [manager.observers addObject:observer];
     [manager processLocationUpdate:manager.lastLocationInfo];
   });
 }
 
-+ (void)removeObserver:(Observer)observer
++ (void)removeObserver:(TObserver)observer
 {
-  dispatch_async(dispatch_get_main_queue(), ^{
+  runAsyncOnMainQueue(^{
     [[self manager].observers removeObject:observer];
   });
 }
@@ -210,10 +215,7 @@ void setPermissionRequested()
 + (void)applicationDidBecomeActive
 {
   if (isPermissionRequested() || ![Alohalytics isFirstSession])
-  {
     [self start];
-    [[self manager] updateFrameworkInfo];
-  }
 }
 
 + (void)applicationWillResignActive
@@ -260,7 +262,7 @@ void setPermissionRequested()
   self.lastLocationStatus = locationError;
   if (self.lastLocationStatus != location::TLocationError::ENoError)
     self.frameworkUpdateMode |= MWMLocationFrameworkUpdateStatus;
-  for (Observer observer in self.observers)
+  for (TObserver observer in self.observers)
   {
     if ([observer respondsToSelector:@selector(onLocationError:)])
       [observer onLocationError:self.lastLocationStatus];
@@ -272,7 +274,7 @@ void setPermissionRequested()
   self.lastHeadingInfo = headingInfo;
   self.frameworkUpdateMode |= MWMLocationFrameworkUpdateHeading;
   location::CompassInfo const compassInfo = compassInfoFromHeading(headingInfo);
-  for (Observer observer in self.observers)
+  for (TObserver observer in self.observers)
   {
     if ([observer respondsToSelector:@selector(onHeadingUpdate:)])
       [observer onHeadingUpdate:compassInfo];
@@ -296,7 +298,7 @@ void setPermissionRequested()
   self.lastLocationInfo = locationInfo;
   self.locationSource = source;
   self.frameworkUpdateMode |= MWMLocationFrameworkUpdateLocation;
-  for (Observer observer in self.observers)
+  for (TObserver observer in self.observers)
   {
     if ([observer respondsToSelector:@selector(onLocationUpdate:)])
       [observer onLocationUpdate:gpsInfo];
@@ -330,15 +332,15 @@ void setPermissionRequested()
   MWMLocationManager * manager = [self manager];
   [manager.predictor setMyPositionMode:mode];
   [manager processLocationStatus:manager.lastLocationStatus];
-  if ([MWMRouter isRoutingActive])
+  auto const & f = GetFramework();
+  if (f.IsRoutingActive())
   {
-    switch ([MWMRouter type])
+    switch (f.GetRouter())
     {
-    case MWMRouterTypeVehicle: manager.geoMode = GeoMode::VehicleRouting; break;
-    case MWMRouterTypePublicTransport:
-    case MWMRouterTypePedestrian: manager.geoMode = GeoMode::PedestrianRouting; break;
-    case MWMRouterTypeBicycle: manager.geoMode = GeoMode::BicycleRouting; break;
-    case MWMRouterTypeTaxi: break;
+    case routing::RouterType::Vehicle: manager.geoMode = GeoMode::VehicleRouting; break;
+    case routing::RouterType::Pedestrian: manager.geoMode = GeoMode::PedestrianRouting; break;
+    case routing::RouterType::Bicycle: manager.geoMode = GeoMode::BicycleRouting; break;
+    case routing::RouterType::Taxi: break;
     }
   }
   else
@@ -372,7 +374,8 @@ void setPermissionRequested()
 
 - (void)orientationChanged
 {
-  self.locationManager.headingOrientation = (CLDeviceOrientation)UIDevice.currentDevice.orientation;
+  self.locationManager.headingOrientation =
+      (CLDeviceOrientation)[UIDevice currentDevice].orientation;
 }
 
 - (void)batteryStateChangedNotification:(NSNotification *)notification
@@ -405,7 +408,7 @@ void setPermissionRequested()
 
 - (void)refreshGeoModeSettings
 {
-  UIDeviceBatteryState const state = UIDevice.currentDevice.batteryState;
+  UIDeviceBatteryState const state = [UIDevice currentDevice].batteryState;
   BOOL const isCharging =
       (state == UIDeviceBatteryStateCharging || state == UIDeviceBatteryStateFull);
   GeoModeSettings const settings = kGeoSettings.at(self.geoMode);
@@ -462,10 +465,12 @@ void setPermissionRequested()
 {
   if (_started == started)
     return;
-  NSNotificationCenter * notificationCenter = NSNotificationCenter.defaultCenter;
+  UIDevice * device = [UIDevice currentDevice];
+  NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
   if (started)
   {
     _started = [self start];
+    device.batteryMonitoringEnabled = YES;
     [notificationCenter addObserver:self
                            selector:@selector(orientationChanged)
                                name:UIDeviceOrientationDidChangeNotification
@@ -479,6 +484,7 @@ void setPermissionRequested()
   {
     _started = NO;
     [self stop];
+    device.batteryMonitoringEnabled = NO;
     [notificationCenter removeObserver:self
                                   name:UIDeviceOrientationDidChangeNotification
                                 object:nil];
@@ -536,10 +542,8 @@ void setPermissionRequested()
 - (void)updateFrameworkInfo
 {
   auto app = UIApplication.sharedApplication;
-  if (app.applicationState != UIApplicationStateActive)
-    return;
   auto delegate = static_cast<MapsAppDelegate *>(app.delegate);
-  if (delegate.isDrapeEngineCreated)
+  if (delegate.isDrapeEngineCreated && app.applicationState == UIApplicationStateActive)
   {
     auto & f = GetFramework();
     if (self.frameworkUpdateMode & MWMLocationFrameworkUpdateLocation)
@@ -556,7 +560,7 @@ void setPermissionRequested()
   }
   else
   {
-    dispatch_async(dispatch_get_main_queue(), ^{
+    runAsyncOnMainQueue(^{
       [self updateFrameworkInfo];
     });
   }

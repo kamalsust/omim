@@ -68,8 +68,6 @@ public:
 
     bool HasParent() const { return m_parent != nullptr; }
 
-    bool IsRoot() const { return !HasParent(); }
-
     Node const & Parent() const
     {
       CHECK(HasParent(), ());

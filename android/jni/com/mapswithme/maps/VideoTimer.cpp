@@ -1,6 +1,6 @@
 #include "VideoTimer.hpp"
 
-#include "com/mapswithme/core/jni_helper.hpp"
+#include "../core/jni_helper.hpp"
 
 #include "base/assert.hpp"
 #include "base/logging.hpp"
@@ -82,3 +82,6 @@ extern "C"
     g_timer->SetParentObject(thiz);
   }
 }
+
+
+

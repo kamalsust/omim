@@ -104,10 +104,13 @@ private:
   bool m_vaoChanged = false;
 };
 
+////////////////////////////////////////////////////////////////
+
 Batcher::Batcher(uint32_t indexBufferSize, uint32_t vertexBufferSize)
   : m_indexBufferSize(indexBufferSize)
   , m_vertexBufferSize(vertexBufferSize)
-{}
+{
+}
 
 Batcher::~Batcher()
 {

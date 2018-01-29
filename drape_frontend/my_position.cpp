@@ -1,7 +1,6 @@
 #include "drape_frontend/my_position.hpp"
 #include "drape_frontend/color_constants.hpp"
 #include "drape_frontend/map_shape.hpp"
-#include "drape_frontend/shader_def.hpp"
 #include "drape_frontend/shape_view_params.hpp"
 #include "drape_frontend/tile_utils.hpp"
 
@@ -10,6 +9,7 @@
 #include "drape/glsl_types.hpp"
 #include "drape/overlay_handle.hpp"
 #include "drape/render_bucket.hpp"
+#include "drape/shader_def.hpp"
 
 #include "indexer/map_style_reader.hpp"
 
@@ -134,7 +134,7 @@ void MyPosition::RenderMyPosition(ScreenBase const & screen, int zoomLevel,
     uniforms.SetMatrix4x4Value("modelView", mv.m_data);
 
     m2::PointD const pos = MapShape::ConvertToLocal(m_position, key.GetGlobalRect().Center(), kShapeCoordScalar);
-    uniforms.SetFloatValue("u_position", pos.x, pos.y, dp::depth::kMyPositionMarkDepth);
+    uniforms.SetFloatValue("u_position", pos.x, pos.y, dp::depth::MY_POSITION_MARK);
     uniforms.SetFloatValue("u_azimut", -(m_azimuth + screen.GetAngle()));
     uniforms.SetFloatValue("u_opacity", 1.0);
     RenderPart(mng, uniforms, MY_POSITION_POINT);
@@ -164,7 +164,7 @@ void MyPosition::CacheAccuracySector(ref_ptr<dp::TextureManager> mng)
     buffer.emplace_back(nextNormal, colorCoord);
   }
 
-  auto state = CreateGLState(gpu::ACCURACY_PROGRAM, RenderState::OverlayLayer);
+  dp::GLState state(gpu::ACCURACY_PROGRAM, dp::GLState::OverlayLayer);
   state.SetColorTexture(color.GetTexture());
 
   {
@@ -215,7 +215,7 @@ void MyPosition::CachePointPosition(ref_ptr<dp::TextureManager> mng)
 
   m_arrow3d.SetTexture(mng);
 
-  auto state = CreateGLState(gpu::MY_POSITION_PROGRAM, RenderState::OverlayLayer);
+  dp::GLState state(gpu::MY_POSITION_PROGRAM, dp::GLState::OverlayLayer);
   state.SetColorTexture(pointSymbol.GetTexture());
 
   dp::TextureManager::SymbolRegion * symbols[kSymbolsCount] = { &pointSymbol };

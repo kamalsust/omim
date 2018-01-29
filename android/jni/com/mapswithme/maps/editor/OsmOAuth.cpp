@@ -129,7 +129,7 @@ Java_com_mapswithme_maps_editor_OsmOAuth_nativeUpdateOsmUserStats(JNIEnv * env, 
   // static void onUserStatsUpdated(UserStats stats)
   static jmethodID const listenerId = jni::GetStaticMethodID(env, osmAuthClazz, "onUserStatsUpdated", "(Lcom/mapswithme/maps/editor/data/UserStats;)V");
 
-  std::string const username = jni::ToNativeString(env, jUsername);
+  string const username = jni::ToNativeString(env, jUsername);
   auto const policy = forceUpdate ? editor::UserStatsLoader::UpdatePolicy::Force
                                   : editor::UserStatsLoader::UpdatePolicy::Lazy;
   g_framework->NativeFramework()->UpdateUserStats(username, policy, [username]()
@@ -138,7 +138,7 @@ Java_com_mapswithme_maps_editor_OsmOAuth_nativeUpdateOsmUserStats(JNIEnv * env, 
     if (!userStats.IsValid())
       return;
     int32_t count, rank;
-    std::string levelUp;
+    string levelUp;
     userStats.GetChangesCount(count);
     userStats.GetRank(rank);
     userStats.GetLevelUpRequiredFeat(levelUp);

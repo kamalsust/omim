@@ -152,9 +152,9 @@ void QuerySaver::Save()
 void QuerySaver::Load()
 {
   string hexData;
-  if (!settings::Get(kSettingsKey, hexData) || hexData.empty())
+  settings::Get(kSettingsKey, hexData);
+  if (hexData.empty())
     return;
-
   try
   {
     Deserialize(hexData);

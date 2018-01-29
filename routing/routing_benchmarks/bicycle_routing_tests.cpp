@@ -25,17 +25,16 @@ public:
 
 protected:
   // RoutingTest overrides:
-  unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine(
-    shared_ptr<routing::NumMwmIds> numMwmIds) override
+  unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine() override
   {
-    unique_ptr<routing::IDirectionsEngine> engine(new routing::BicycleDirectionsEngine(
-        m_index, numMwmIds));
+    unique_ptr<routing::IDirectionsEngine> engine(
+        new routing::BicycleDirectionsEngine(m_index, nullptr /* numMwmIds */));
     return engine;
   }
 
-  unique_ptr<routing::VehicleModelFactoryInterface> CreateModelFactory() override
+  unique_ptr<routing::VehicleModelFactory> CreateModelFactory() override
   {
-    unique_ptr<routing::VehicleModelFactoryInterface> factory(
+    unique_ptr<routing::VehicleModelFactory> factory(
         new SimplifiedModelFactory<routing::BicycleModel>());
     return factory;
   }

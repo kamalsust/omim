@@ -1,9 +1,6 @@
-#include "com/mapswithme/core/jni_helper.hpp"
-
+#include "../core/jni_helper.hpp"
 #include "platform/socket.hpp"
-
 #include "base/logging.hpp"
-#include "base/stl_add.hpp"
 
 namespace platform
 {
@@ -26,7 +23,7 @@ public:
     env->DeleteGlobalRef(m_self);
   }
 
-  bool Open(std::string const & host, uint16_t port)
+  bool Open(string const & host, uint16_t port)
   {
     JNIEnv * env = jni::GetEnv();
     static jmethodID const openMethod =
@@ -86,5 +83,5 @@ private:
   jobject m_self;
 };
 
-std::unique_ptr<Socket> CreateSocket() { return my::make_unique<SocketImpl>(); }
+unique_ptr<Socket> CreateSocket() { return make_unique<SocketImpl>(); }
 }

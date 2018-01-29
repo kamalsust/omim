@@ -6,9 +6,8 @@
 + (instancetype)routeFileNotExistAlert;
 + (instancetype)endPointNotFoundAlert;
 + (instancetype)startPointNotFoundAlert;
-+ (instancetype)intermediatePointNotFoundAlert;
 + (instancetype)internalRoutingErrorAlert;
-+ (instancetype)incorrectFeaturePositionAlert;
++ (instancetype)incorrectFeauturePositionAlert;
 + (instancetype)internalErrorAlert;
 + (instancetype)notEnoughSpaceAlert;
 + (instancetype)invalidUserNameOrPasswordAlert;

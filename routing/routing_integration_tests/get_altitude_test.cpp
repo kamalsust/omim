@@ -1,7 +1,5 @@
 #include "testing/testing.hpp"
 
-#include "routing/routing_integration_tests/routing_test_tools.hpp"
-
 #include "indexer/altitude_loader.hpp"
 #include "indexer/classificator.hpp"
 #include "indexer/classificator_loader.hpp"
@@ -25,36 +23,23 @@
 namespace
 {
 using namespace feature;
-using namespace platform;
-
-LocalCountryFile GetLocalCountryFileByCountryId(CountryFile const & country)
-{
-  vector<LocalCountryFile> localFiles;
-  integration::GetAllLocalFiles(localFiles);
-
-  for (auto const & lf : localFiles)
-  {
-    if (lf.GetCountryFile() == country)
-      return lf;
-  }
-  return {};
-}
 
 void TestAltitudeOfAllMwmFeatures(string const & countryId, TAltitude const altitudeLowerBoundMeters,
                                   TAltitude const altitudeUpperBoundMeters)
 {
   Index index;
-
-  LocalCountryFile const country = GetLocalCountryFileByCountryId(CountryFile(countryId));
-  TEST_NOT_EQUAL(country, LocalCountryFile(), ());
-  TEST_NOT_EQUAL(country.GetFiles(), MapOptions::Nothing, (country));
-
+  platform::LocalCountryFile const country = platform::LocalCountryFile::MakeForTesting(countryId);
   pair<MwmSet::MwmId, MwmSet::RegResult> const regResult = index.RegisterMap(country);
+
   TEST_EQUAL(regResult.second, MwmSet::RegResult::Success, ());
   TEST(regResult.first.IsAlive(), ());
 
-  unique_ptr<AltitudeLoader> altitudeLoader =
-      make_unique<AltitudeLoader>(index, regResult.first /* mwmId */);
+  MwmSet::MwmHandle handle = index.GetMwmHandleById(regResult.first);
+  TEST(handle.IsAlive(), ());
+
+  MwmValue * mwmValue = handle.GetValue<MwmValue>();
+  TEST(mwmValue != nullptr, ());
+  unique_ptr<AltitudeLoader> altitudeLoader = make_unique<AltitudeLoader>(*mwmValue);
 
   classificator::Load();
   classif().SortClassificator();

@@ -6,27 +6,24 @@
 
 #include "geometry/any_rect2d.hpp"
 
-#include <chrono>
-
 namespace df
 {
+
 class KineticScroller
 {
 public:
-  void Init(ScreenBase const & modelView);
-  void Update(ScreenBase const & modelView);
+  KineticScroller();
+
+  void InitGrab(ScreenBase const & modelView, double timeStamp);
   bool IsActive() const;
-  void Cancel();
+  void GrabViewRect(ScreenBase const & modelView, double timeStamp);
+  void CancelGrab();
   drape_ptr<Animation> CreateKineticAnimation(ScreenBase const & modelView);
 
 private:
-  m2::PointD GetDirection(ScreenBase const & modelView) const;
-
-  std::chrono::steady_clock::time_point m_lastTimestamp;
-  std::chrono::steady_clock::time_point m_updateTimestamp;
-  bool m_isActive = false;
+  double m_lastTimestamp;
   m2::AnyRectD m_lastRect;
-  m2::PointD m_updatePosition;
-  double m_instantVelocity = 0.0;
+  m2::PointD m_direction;
 };
-}  // namespace df
+
+} // namespace df

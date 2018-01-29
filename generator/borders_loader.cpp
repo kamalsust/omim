@@ -18,14 +18,13 @@
 #include "coding/read_write_utils.hpp"
 #include "coding/file_name_utils.hpp"
 
-#include "base/exception.hpp"
 #include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <vector>
+#include "std/iomanip.hpp"
+#include "std/fstream.hpp"
+#include "std/vector.hpp"
+#include "std/bind.hpp"
 
 
 namespace borders
@@ -42,7 +41,7 @@ public:
   PolygonLoader(CountriesContainerT & countries)
     : m_countries(countries) {}
 
-  void operator() (std::string const & name, std::vector<m2::RegionD> const & borders)
+  void operator() (string const & name, vector<m2::RegionD> const & borders)
   {
     if (m_polygons.m_name.empty())
       m_polygons.m_name = name;
@@ -69,16 +68,16 @@ public:
 };
 
 template <class ToDo>
-void ForEachCountry(std::string const & baseDir, ToDo & toDo)
+void ForEachCountry(string const & baseDir, ToDo & toDo)
 {
-  std::string const bordersDir = baseDir + BORDERS_DIR;
+  string const bordersDir = baseDir + BORDERS_DIR;
   CHECK(Platform::IsFileExistsByFullPath(bordersDir), ("Cannot read borders directory", bordersDir));
 
   Platform::FilesList files;
   Platform::GetFilesByExt(bordersDir, BORDERS_EXTENSION, files);
-  for (std::string file : files)
+  for (string file : files)
   {
-    std::vector<m2::RegionD> borders;
+    vector<m2::RegionD> borders;
     if (osm::LoadBorders(bordersDir + file, borders))
     {
       my::GetNameWithoutExt(file);
@@ -88,7 +87,7 @@ void ForEachCountry(std::string const & baseDir, ToDo & toDo)
   }
 }
 
-bool LoadCountriesList(std::string const & baseDir, CountriesContainerT & countries)
+bool LoadCountriesList(string const & baseDir, CountriesContainerT & countries)
 {
   countries.Clear();
 
@@ -106,15 +105,15 @@ class PackedBordersGenerator
 {
   FilesContainerW m_writer;
 
-  std::vector<storage::CountryDef> m_polys;
+  vector<storage::CountryDef> m_polys;
 
 public:
-  PackedBordersGenerator(std::string const & baseDir)
+  PackedBordersGenerator(string const & baseDir)
     : m_writer(baseDir + PACKED_POLYGONS_FILE)
   {
   }
 
-  void operator() (std::string const & name, std::vector<m2::RegionD> const & borders)
+  void operator() (string const & name, vector<m2::RegionD> const & borders)
   {
     // use index in vector as tag
     FileWriter w = m_writer.GetWriter(strings::to_string(m_polys.size()));
@@ -132,7 +131,7 @@ public:
     WriteVarUint(w, borders.size());
     for (m2::RegionD const & border : borders)
     {
-      typedef std::vector<m2::PointD> VectorT;
+      typedef vector<m2::PointD> VectorT;
       typedef m2::DistanceToLineSquare<m2::PointD> DistanceT;
 
       VectorT const & in = border.Data();
@@ -157,33 +156,34 @@ public:
   }
 };
 
-void GeneratePackedBorders(std::string const & baseDir)
+void GeneratePackedBorders(string const & baseDir)
 {
   PackedBordersGenerator generator(baseDir);
   ForEachCountry(baseDir, generator);
   generator.WritePolygonsInfo();
 }
 
-void UnpackBorders(std::string const & baseDir, std::string const & targetDir)
+void UnpackBorders(string const & baseDir, string const & targetDir)
 {
-  if (!Platform::IsFileExistsByFullPath(targetDir) && !Platform::MkDirChecked(targetDir))
-    MYTHROW(FileSystemException, ("Unable to find or create directory", targetDir));
+  Platform & platform = GetPlatform();
+  if (!Platform::IsFileExistsByFullPath(targetDir))
+    platform.MkDir(targetDir);
 
-  std::vector<storage::CountryDef> countries;
+  vector<storage::CountryDef> countries;
   FilesContainerR reader(my::JoinFoldersToPath(baseDir, PACKED_POLYGONS_FILE));
   ReaderSource<ModelReaderPtr> src(reader.GetReader(PACKED_POLYGONS_INFO_TAG));
   rw::Read(src, countries);
 
   for (size_t id = 0; id < countries.size(); id++)
   {
-    std::ofstream poly(my::JoinFoldersToPath(targetDir, countries[id].m_countryId + ".poly"));
+    ofstream poly(my::JoinFoldersToPath(targetDir, countries[id].m_countryId + ".poly"));
     poly << countries[id].m_countryId << endl;
     src = reader.GetReader(strings::to_string(id));
     uint32_t const count = ReadVarUint<uint32_t>(src);
     for (size_t i = 0; i < count; ++i)
     {
       poly << i + 1 << endl;
-      std::vector<m2::PointD> points;
+      vector<m2::PointD> points;
       serial::LoadOuterPath(src, serial::CodingParams(), points);
       for (auto p : points)
       {

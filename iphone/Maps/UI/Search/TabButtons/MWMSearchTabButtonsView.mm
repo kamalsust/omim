@@ -27,8 +27,7 @@ static CGFloat const kIconToLabelSpacing = 4.0;
   self = [super initWithCoder:aDecoder];
   if (self)
   {
-    _rootView =
-        [NSBundle.mainBundle loadNibNamed:self.class.className owner:self options:nil].firstObject;
+    self.rootView = [[NSBundle.mainBundle loadNibNamed:self.class.className owner:self options:nil] firstObject];
     [self addSubview:self.rootView];
     CALayer * sl = self.layer;
     sl.shouldRasterize = YES;

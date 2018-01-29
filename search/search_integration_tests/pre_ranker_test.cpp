@@ -1,7 +1,6 @@
 #include "testing/testing.hpp"
 
 #include "search/categories_cache.hpp"
-#include "search/cities_boundaries_table.hpp"
 #include "search/emitter.hpp"
 #include "search/intermediate_result.hpp"
 #include "search/model.hpp"
@@ -38,13 +37,6 @@
 using namespace generator::tests_support;
 using namespace search::tests_support;
 
-class Index;
-
-namespace storage
-{
-class CountryInfoGetter;
-}
-
 namespace search
 {
 namespace
@@ -52,11 +44,10 @@ namespace
 class TestRanker : public Ranker
 {
 public:
-  TestRanker(Index & index, storage::CountryInfoGetter & infoGetter,
-             CitiesBoundariesTable const & boundariesTable, KeywordLangMatcher & keywordsScorer,
-             Emitter & emitter, vector<Suggest> const & suggests, VillagesCache & villagesCache,
-             my::Cancellable const & cancellable, vector<PreRankerResult> & results)
-    : Ranker(index, boundariesTable, infoGetter, keywordsScorer, emitter,
+  TestRanker(TestSearchEngine & engine, Emitter & emitter, vector<Suggest> const & suggests,
+             VillagesCache & villagesCache, my::Cancellable const & cancellable,
+             vector<PreResult1> & results)
+    : Ranker(static_cast<Index const &>(engine), engine.GetCountryInfoGetter(), emitter,
              GetDefaultCategories(), suggests, villagesCache, cancellable)
     , m_results(results)
   {
@@ -65,11 +56,11 @@ public:
   inline bool Finished() const { return m_finished; }
 
   // Ranker overrides:
-  void SetPreRankerResults(vector<PreRankerResult> && preRankerResults) override
+  void SetPreResults1(vector<PreResult1> && preResults1) override
   {
     CHECK(!Finished(), ());
-    move(preRankerResults.begin(), preRankerResults.end(), back_inserter(m_results));
-    preRankerResults.clear();
+    move(preResults1.begin(), preResults1.end(), back_inserter(m_results));
+    preResults1.clear();
   }
 
   void UpdateResults(bool lastUpdate) override
@@ -80,7 +71,7 @@ public:
   }
 
 private:
-  vector<PreRankerResult> & m_results;
+  vector<PreResult1> & m_results;
   bool m_finished = false;
 };
 
@@ -120,23 +111,19 @@ UNIT_CLASS_TEST(PreRankerTest, Smoke)
       builder.Add(poi);
   });
 
-  vector<PreRankerResult> results;
+  vector<PreResult1> results;
   Emitter emitter;
-  CitiesBoundariesTable boundariesTable(m_index);
   VillagesCache villagesCache(m_cancellable);
-  KeywordLangMatcher keywordsScorer(0 /* maxLanguageTiers */);
-  TestRanker ranker(m_index, m_engine.GetCountryInfoGetter(), boundariesTable, keywordsScorer,
-                    emitter, m_suggests, villagesCache, m_cancellable, results);
+  TestRanker ranker(m_engine, emitter, m_suggests, villagesCache, m_cancellable, results);
 
-  PreRanker preRanker(m_index, ranker);
+  PreRanker preRanker(m_engine, ranker, pois.size());
   PreRanker::Params params;
   params.m_viewport = kViewport;
   params.m_accuratePivotCenter = kPivot;
   params.m_scale = scales::GetUpperScale();
   params.m_batchSize = kBatchSize;
-  params.m_limit = pois.size();
-  params.m_viewportSearch = true;
   preRanker.Init(params);
+  preRanker.SetViewportSearch(true);
 
   vector<double> distances(pois.size());
   vector<bool> emit(pois.size());
@@ -144,7 +131,7 @@ UNIT_CLASS_TEST(PreRankerTest, Smoke)
   FeaturesVectorTest fv(mwmId.GetInfo()->GetLocalFile().GetPath(MapOptions::Map));
   fv.GetVector().ForEach([&](FeatureType & ft, uint32_t index) {
     FeatureID id(mwmId, index);
-    preRanker.Emplace(id, PreRankingInfo(Model::TYPE_POI, TokenRange(0, 1)));
+    preRanker.Emplace(id, PreRankingInfo(SearchModel::SEARCH_TYPE_POI, TokenRange(0, 1)));
 
     TEST_LESS(index, pois.size(), ());
     distances[index] = MercatorBounds::DistanceOnEarth(feature::GetCenter(ft), kPivot);

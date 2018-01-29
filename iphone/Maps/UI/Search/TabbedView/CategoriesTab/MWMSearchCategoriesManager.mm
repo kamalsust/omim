@@ -1,22 +1,28 @@
 #import "MWMSearchCategoriesManager.h"
-#import <MyTrackerSDK/MRMyTracker.h>
+#import "AppInfo.h"
 #import "MWMSearchCategoryCell.h"
 #import "Statistics.h"
 #import "SwiftBridge.h"
 
-#include "Framework.h"
+#include "search/displayed_categories.hpp"
 
-extern NSString * const kCianCategory = @"cian";
+#include "base/macros.hpp"
 
 @implementation MWMSearchCategoriesManager
 {
   vector<string> m_categories;
 }
 
+- (instancetype)init
+{
+  self = [super init];
+  if (self)
+    m_categories = search::DisplayedCategories::GetKeys();
+  return self;
+}
+
 - (void)attachCell:(MWMSearchTabbedCollectionViewCell *)cell
 {
-  if (m_categories.empty())
-    m_categories = GetFramework().GetDisplayedCategories().GetKeys();
   [cell removeNoResultsView];
   UITableView * tableView = cell.tableView;
   tableView.estimatedRowHeight = 44.;
@@ -29,7 +35,6 @@ extern NSString * const kCianCategory = @"cian";
   [tableView reloadData];
 }
 
-- (void)resetCategories { m_categories.clear(); }
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
@@ -49,18 +54,6 @@ extern NSString * const kCianCategory = @"cian";
 
 #pragma mark - UITableViewDelegate
 
-- (void)tableView:(UITableView *)tableView
-      willDisplayCell:(UITableViewCell *)cell
-    forRowAtIndexPath:(NSIndexPath *)indexPath
-{
-  NSString * string = @(m_categories[indexPath.row].c_str());
-  if ([string isEqualToString:kCianCategory])
-  {
-    [MRMyTracker trackEventWithName:@"Search_SponsoredCategory_shown_Cian"];
-    [Statistics logEvent:kStatSearchSponsoredShow withParameters:@{kStatProvider : kStatCian}];
-  }
-}
-
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
   NSString * string = @(m_categories[indexPath.row].c_str());
@@ -70,12 +63,6 @@ extern NSString * const kCianCategory = @"cian";
   [delegate searchText:[L(string) stringByAppendingString:@" "]
         forInputLocale:[[AppInfo sharedInfo] languageId]];
   [delegate dismissKeyboard];
-  if ([string isEqualToString:kCianCategory])
-  {
-    delegate.state = MWMSearchManagerStateMapSearch;
-    [MRMyTracker trackEventWithName:@"Search_SponsoredCategory_selected_Cian"];
-    [Statistics logEvent:kStatSearchSponsoredSelect withParameters:@{kStatProvider : kStatCian}];
-  }
 }
 
 @end

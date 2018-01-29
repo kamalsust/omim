@@ -14,7 +14,6 @@
 #include "std/vector.hpp"
 
 using namespace routing;
-using namespace std::placeholders;
 
 using ResultCode = routing::IRouter::ResultCode;
 
@@ -30,11 +29,12 @@ public:
   
   // IRouter overrides:
   string GetName() const override { return "Dummy"; }
-  ResultCode CalculateRoute(Checkpoints const & checkpoints, m2::PointD const & startDirection,
-                            bool adjustToPrevRoute, RouterDelegate const & delegate,
+  ResultCode CalculateRoute(m2::PointD const & startPoint, m2::PointD const & startDirection,
+                            m2::PointD const & finalPoint, RouterDelegate const & delegate,
                             Route & route) override
   {
-    route = Route("dummy", checkpoints.GetPoints().cbegin(), checkpoints.GetPoints().cend());
+    vector<m2::PointD> points({startPoint, finalPoint});
+    route = Route("dummy", points.begin(), points.end());
 
     for (auto const & absent : m_absent)
       route.AddAbsentCountry(absent);
@@ -51,7 +51,7 @@ public:
   DummyFetcher(vector<string> const & absent) : m_absent(absent) {}
 
   // IOnlineFetcher overrides:
-  void GenerateRequest(Checkpoints const &) override {}
+  void GenerateRequest(m2::PointD const & startPoint, m2::PointD const & finalPoint) override {}
   void GetAbsentCountries(vector<string> & countries) override { countries = m_absent; }
 };
 
@@ -97,8 +97,8 @@ UNIT_TEST(NeedMoreMapsSignalTest)
   DummyResultCallback resultCallback(2 /* expectedCalls */);
   AsyncRouter async(DummyStatisticsCallback, nullptr /* pointCheckCallback */);
   async.SetRouter(move(router), move(fetcher));
-  async.CalculateRoute(Checkpoints({1, 2} /* start */, {5, 6} /* finish */), {3, 4}, false,
-                       bind(ref(resultCallback), _1, _2), nullptr, 0);
+  async.CalculateRoute({1, 2}, {3, 4}, {5, 6}, bind(ref(resultCallback), _1, _2),
+                       nullptr /* progressCallback */, 0 /* timeoutSec */);
 
   resultCallback.WaitFinish();
 
@@ -118,8 +118,8 @@ UNIT_TEST(StandartAsyncFogTest)
   DummyResultCallback resultCallback(1 /* expectedCalls */);
   AsyncRouter async(DummyStatisticsCallback, nullptr /* pointCheckCallback */);
   async.SetRouter(move(router), move(fetcher));
-  async.CalculateRoute(Checkpoints({1, 2} /* start */, {5, 6} /* finish */), {3, 4}, false,
-                       bind(ref(resultCallback), _1, _2), nullptr, 0);
+  async.CalculateRoute({1, 2}, {3, 4}, {5, 6}, bind(ref(resultCallback), _1, _2),
+                       nullptr /* progressCallback */, 0 /* timeoutSec */);
 
   resultCallback.WaitFinish();
 

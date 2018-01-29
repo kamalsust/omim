@@ -1,7 +1,5 @@
 #include "testing/testing.hpp"
 
-#include "indexer/indexer_tests_support/test_with_classificator.hpp"
-
 #include "indexer/data_header.hpp"
 #include "indexer/index.hpp"
 #include "indexer/classificator_loader.hpp"
@@ -18,7 +16,12 @@
 
 namespace
 {
-class LocalityFinderTest : public indexer::tests_support::TestWithClassificator
+struct TestWithClassificator
+{
+  TestWithClassificator() { classificator::Load(); }
+};
+
+class LocalityFinderTest : public TestWithClassificator
 {
   platform::LocalCountryFile m_worldFile;
 
@@ -26,16 +29,12 @@ class LocalityFinderTest : public indexer::tests_support::TestWithClassificator
 
   my::Cancellable m_cancellable;
   search::VillagesCache m_villagesCache;
-  search::CitiesBoundariesTable m_boundariesTable;
 
   search::LocalityFinder m_finder;
   m2::RectD m_worldRect;
 
 public:
-  LocalityFinderTest()
-    : m_villagesCache(m_cancellable)
-    , m_boundariesTable(m_index)
-    , m_finder(m_index, m_boundariesTable, m_villagesCache)
+  LocalityFinderTest() : m_villagesCache(m_cancellable), m_finder(m_index, m_villagesCache)
   {
     m_worldFile = platform::LocalCountryFile::MakeForTesting("World");
 
@@ -48,12 +47,13 @@ public:
       TEST(id.IsAlive(), ());
 
       m_worldRect = id.GetInfo()->m_limitRect;
-      m_boundariesTable.Load();
     }
     catch (RootException const & ex)
     {
       LOG(LERROR, ("Read World.mwm error:", ex.Msg()));
     }
+
+    m_finder.SetLanguage(StringUtf8Multilang::kEnglishCode);
   }
 
   ~LocalityFinderTest()
@@ -66,10 +66,7 @@ public:
     for (size_t i = 0; i < input.size(); ++i)
     {
       string result;
-      m_finder.GetLocality(
-          MercatorBounds::FromLatLon(input[i]), [&](search::LocalityItem const & item) {
-            item.GetSpecifiedOrDefaultName(StringUtf8Multilang::kEnglishCode, result);
-          });
+      m_finder.GetLocality(MercatorBounds::FromLatLon(input[i]), result);
       TEST_EQUAL(result, results[i], ());
     }
   }
@@ -78,6 +75,7 @@ public:
 
   void ClearCaches() { m_finder.ClearCache(); }
 };
+
 } // namespace
 
 UNIT_CLASS_TEST(LocalityFinderTest, Smoke)

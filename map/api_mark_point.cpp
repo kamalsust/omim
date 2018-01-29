@@ -41,12 +41,9 @@ ApiMarkPoint::ApiMarkPoint(string const & name, string const & id, string const 
     m_style(style)
 {}
 
-drape_ptr<df::UserPointMark::SymbolNameZoomInfo> ApiMarkPoint::GetSymbolNames() const
+string ApiMarkPoint::GetSymbolName() const
 {
-  auto const name = m_style.empty() ? "api-result" : m_style;
-  auto symbol = make_unique_dp<SymbolNameZoomInfo>();
-  symbol->insert(std::make_pair(1 /* zoomLevel */, name));
-  return symbol;
+  return m_style.empty() ? "api-result" : m_style;
 }
 
 UserMark::Type ApiMarkPoint::GetMarkType() const
@@ -57,22 +54,4 @@ UserMark::Type ApiMarkPoint::GetMarkType() const
 m2::PointD ApiMarkPoint::GetPixelOffset() const
 {
   return m_style.empty() ? m2::PointD(0.0, 0.0) : m2::PointD(0.0, 3.0);
-}
-
-void ApiMarkPoint::SetName(string const & name)
-{
-  SetDirty();
-  m_name = name;
-}
-
-void ApiMarkPoint::SetApiID(string const & id)
-{
-  SetDirty();
-  m_id = id;
-}
-
-void ApiMarkPoint::SetStyle(string const & style)
-{
-  SetDirty();
-  m_style = style;
 }

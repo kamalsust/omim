@@ -4,7 +4,6 @@
 #include "routing/router.hpp"
 #include "routing/road_graph_router.hpp"
 
-#include "routing_common/num_mwm_id.hpp"
 #include "routing_common/vehicle_model.hpp"
 
 #include "indexer/index.hpp"
@@ -31,9 +30,8 @@ public:
   void TestTwoPointsOnFeature(m2::PointD const & startPos, m2::PointD const & finalPos);
 
 protected:
-  virtual unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine(
-      shared_ptr<routing::NumMwmIds> numMwmIds) = 0;
-  virtual unique_ptr<routing::VehicleModelFactoryInterface> CreateModelFactory() = 0;
+  virtual unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine() = 0;
+  virtual unique_ptr<routing::VehicleModelFactory> CreateModelFactory() = 0;
 
   template <typename Algorithm>
   unique_ptr<routing::IRouter> CreateRouter(string const & name)
@@ -42,7 +40,7 @@ protected:
     unique_ptr<routing::IRoutingAlgorithm> algorithm(new Algorithm());
     unique_ptr<routing::IRouter> router(
         new routing::RoadGraphRouter(name, m_index, getter, m_mode, CreateModelFactory(),
-                                     move(algorithm), CreateDirectionsEngine(m_numMwmIds)));
+                                     move(algorithm), CreateDirectionsEngine()));
     return router;
   }
 
@@ -51,13 +49,11 @@ protected:
 
   routing::IRoadGraph::Mode const m_mode;
   Index m_index;
-
-  shared_ptr<routing::NumMwmIds> m_numMwmIds;
   unique_ptr<storage::CountryInfoGetter> m_cig;
 };
 
 template <typename Model>
-class SimplifiedModelFactory : public routing::VehicleModelFactoryInterface
+class SimplifiedModelFactory : public routing::VehicleModelFactory
 {
 public:
   // Since for test purposes we compare routes lengths to check
@@ -66,7 +62,7 @@ public:
   class SimplifiedModel : public Model
   {
   public:
-    // VehicleModelInterface overrides:
+    // IVehicleModel overrides:
     //
     // SimplifiedModel::GetSpeed() filters features and returns zero
     // speed if feature is not allowed by the base model, or otherwise
@@ -83,10 +79,9 @@ public:
   };
 
   SimplifiedModelFactory() : m_model(make_shared<SimplifiedModel>()) {}
-
-  // VehicleModelFactoryInterface overrides:
-  shared_ptr<routing::VehicleModelInterface> GetVehicleModel() const override { return m_model; }
-  shared_ptr<routing::VehicleModelInterface> GetVehicleModelForCountry(
+  // VehicleModelFactory overrides:
+  shared_ptr<routing::IVehicleModel> GetVehicleModel() const override { return m_model; }
+  shared_ptr<routing::IVehicleModel> GetVehicleModelForCountry(
       string const & /*country*/) const override
   {
     return m_model;

@@ -54,10 +54,9 @@ NSArray<NSString *> * arrayFromClosedTimes(TTimespans const & closedTimes)
 
 WeekDayView getWeekDayView()
 {
-  return [NSBundle.mainBundle loadNibNamed:@"MWMPlacePageOpeningHoursWeekDayView"
-                                     owner:nil
-                                   options:nil]
-      .firstObject;
+  return [[[NSBundle mainBundle] loadNibNamed:@"MWMPlacePageOpeningHoursWeekDayView"
+                                        owner:nil
+                                      options:nil] firstObject];
 }
 
 @implementation MWMPlacePageOpeningHoursCell
@@ -101,8 +100,8 @@ WeekDayView getWeekDayView()
 
 - (void)processSchedule
 {
-  NSCalendar * cal = NSCalendar.currentCalendar;
-  cal.locale = NSLocale.currentLocale;
+  NSCalendar * cal = [NSCalendar currentCalendar];
+  cal.locale = [NSLocale currentLocale];
   Weekday currentDay =
       static_cast<Weekday>([cal components:NSCalendarUnitWeekday fromDate:[NSDate date]].weekday);
   BOOL haveCurrentDay = NO;
@@ -156,15 +155,15 @@ WeekDayView getWeekDayView()
   NSString * openTime;
   NSArray<NSString *> * breaks;
 
-  BOOL const everyDay = isEveryDay(timeTable);
   if (timeTable.IsTwentyFourHours())
   {
-    label = everyDay ? L(@"twentyfour_seven") : L(@"editor_time_allday");
+    label = L(@"twentyfour_seven");
     openTime = @"";
     breaks = @[];
   }
   else
   {
+    BOOL const everyDay = (timeTable.GetOpeningDays().size() == 7);
     self.haveExpandSchedule |= !everyDay;
     label = everyDay ? L(@"daily") : L(@"today");
     openTime = stringFromTimeSpan(timeTable.GetOpeningTime());
@@ -194,8 +193,7 @@ WeekDayView getWeekDayView()
   [wd setLabelText:stringFromOpeningDays(timeTable.GetOpeningDays()) isRed:NO];
   if (timeTable.IsTwentyFourHours())
   {
-    BOOL const everyDay = isEveryDay(timeTable);
-    [wd setOpenTimeText:everyDay ? L(@"twentyfour_seven") : L(@"editor_time_allday")];
+    [wd setOpenTimeText:L(@"twentyfour_seven")];
     [wd setBreaks:@[]];
   }
   else

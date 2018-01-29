@@ -9,7 +9,8 @@
 
 UserMark::UserMark(m2::PointD const & ptOrg, UserMarkContainer * container)
   : m_ptOrg(ptOrg), m_container(container)
-{}
+{
+}
 
 m2::PointD const & UserMark::GetPivot() const
 {
@@ -18,7 +19,7 @@ m2::PointD const & UserMark::GetPivot() const
 
 m2::PointD UserMark::GetPixelOffset() const
 {
-  return {};
+  return m2::PointD(0.0, 0.0);
 }
 
 dp::Anchor UserMark::GetAnchor() const
@@ -31,9 +32,9 @@ float UserMark::GetDepth() const
   return GetContainer()->GetPointDepth();
 }
 
-df::RenderState::DepthLayer UserMark::GetDepthLayer() const
+bool UserMark::RunCreationAnim() const
 {
-  return df::RenderState::UserMarkLayer;
+  return false;
 }
 
 UserMarkContainer const * UserMark::GetContainer() const
@@ -47,34 +48,52 @@ ms::LatLon UserMark::GetLatLon() const
   return MercatorBounds::ToLatLon(m_ptOrg);
 }
 
-StaticMarkPoint::StaticMarkPoint(UserMarkContainer * container)
-  : UserMark(m2::PointD{}, container)
-{}
-
-UserMark::Type StaticMarkPoint::GetMarkType() const
+SearchMarkPoint::SearchMarkPoint(m2::PointD const & ptOrg, UserMarkContainer * container)
+: UserMark(ptOrg, container)
 {
-  return UserMark::Type::STATIC;
 }
 
-void StaticMarkPoint::SetPtOrg(m2::PointD const & ptOrg)
+string SearchMarkPoint::GetSymbolName() const
 {
-  SetDirty();
+  return m_customSymbol.empty() ? "search-result" : m_customSymbol;
+}
+
+UserMark::Type SearchMarkPoint::GetMarkType() const
+{
+  return UserMark::Type::SEARCH;
+}
+
+PoiMarkPoint::PoiMarkPoint(UserMarkContainer * container)
+  : SearchMarkPoint(m2::PointD::Zero(), container) {}
+
+UserMark::Type PoiMarkPoint::GetMarkType() const
+{
+  return UserMark::Type::POI;
+}
+
+void PoiMarkPoint::SetPtOrg(m2::PointD const & ptOrg)
+{
   m_ptOrg = ptOrg;
 }
 
 MyPositionMarkPoint::MyPositionMarkPoint(UserMarkContainer * container)
-  : StaticMarkPoint(container)
-{}
+  : PoiMarkPoint(container)
+{
+}
+
+UserMark::Type MyPositionMarkPoint::GetMarkType() const
+{
+  return UserMark::Type::MY_POSITION;
+}
 
 DebugMarkPoint::DebugMarkPoint(const m2::PointD & ptOrg, UserMarkContainer * container)
   : UserMark(ptOrg, container)
-{}
-
-drape_ptr<df::UserPointMark::SymbolNameZoomInfo> DebugMarkPoint::GetSymbolNames() const
 {
-  auto symbol = make_unique_dp<SymbolNameZoomInfo>();
-  symbol->insert(std::make_pair(1 /* zoomLevel */, "api-result"));
-  return symbol;
+}
+
+string DebugMarkPoint::GetSymbolName() const
+{
+  return "api-result";
 }
 
 string DebugPrint(UserMark::Type type)
@@ -83,11 +102,9 @@ string DebugPrint(UserMark::Type type)
   {
   case UserMark::Type::API: return "API";
   case UserMark::Type::SEARCH: return "SEARCH";
-  case UserMark::Type::STATIC: return "STATIC";
+  case UserMark::Type::POI: return "POI";
   case UserMark::Type::BOOKMARK: return "BOOKMARK";
+  case UserMark::Type::MY_POSITION: return "MY_POSITION";
   case UserMark::Type::DEBUG_MARK: return "DEBUG_MARK";
-  case UserMark::Type::ROUTING: return "ROUTING";
-  case UserMark::Type::LOCAL_ADS: return "LOCAL_ADS";
-  case UserMark::Type::TRANSIT: return "TRANSIT";
   }
 }

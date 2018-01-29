@@ -5,15 +5,14 @@
 
 #include "base/matrix.hpp"
 
-#include <string>
-
 namespace df
 {
+
 struct TileKey
 {
   TileKey();
   TileKey(int x, int y, int zoomLevel);
-  TileKey(TileKey const & key, uint64_t generation, uint64_t userMarksGeneration);
+  TileKey(TileKey const & key, uint64_t generation);
 
   // Operators < and == do not consider parameter m_generation.
   // m_generation is used to determine a generation of geometry for this tile key.
@@ -37,7 +36,6 @@ struct TileKey
   int m_zoomLevel;
 
   uint64_t m_generation;
-  uint64_t m_userMarksGeneration;
 };
 
 struct TileKeyStrictComparator
@@ -48,5 +46,6 @@ struct TileKeyStrictComparator
   }
 };
 
-std::string DebugPrint(TileKey const & key);
-}  // namespace df
+string DebugPrint(TileKey const & key);
+
+} // namespace df

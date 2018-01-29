@@ -5,7 +5,6 @@
 
 #include "std/cstdint.hpp"
 #include "std/unique_ptr.hpp"
-#include "std/utility.hpp"
 
 namespace search
 {

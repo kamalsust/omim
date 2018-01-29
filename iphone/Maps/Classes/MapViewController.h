@@ -1,7 +1,16 @@
-#import "MWMMapDownloaderMode.h"
+#import "MWMMapDownloaderTypes.h"
 #import "MWMViewController.h"
+#import "SwiftBridge.h"
 
-@class MWMWelcomePageController;
+#include "geometry/point2d.hpp"
+#include "geometry/rect2d.hpp"
+#include "indexer/map_style.hpp"
+
+namespace search
+{
+struct AddressInfo;
+}
+
 @class MWMMapViewControlsManager;
 @class MWMAPIBar;
 @class MWMPlacePageData;
@@ -22,17 +31,16 @@
 
 - (void)openMigration;
 - (void)openBookmarks;
-- (void)openMapsDownloader:(MWMMapDownloaderMode)mode;
+- (void)openMapsDownloader:(mwm::DownloaderMode)mode;
 - (void)openEditor;
 - (void)openHotelFacilities;
 - (void)openBookmarkEditorWithData:(MWMPlacePageData *)data;
-
-- (void)setPlacePageTopBound:(CGFloat)bound;
 
 - (void)initialize;
 
 @property(nonatomic, readonly) MWMMapViewControlsManager * controlsManager;
 @property(nonatomic) MWMAPIBar * apiBar;
 @property(nonatomic) MWMWelcomePageController * welcomePageController;
+@property(nonatomic) CGFloat visibleAreaBottomOffset;
 
 @end

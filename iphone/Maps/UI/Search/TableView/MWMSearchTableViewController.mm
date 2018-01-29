@@ -1,11 +1,14 @@
 #import "MWMSearchTableViewController.h"
+#import "MWMLocationManager.h"
+#import "MWMSearchChangeModeView.h"
 #import "MWMSearchCommonCell.h"
 #import "MWMSearchSuggestionCell.h"
 #import "MWMSearchTableView.h"
+#import "MapsAppDelegate.h"
 #import "Statistics.h"
 #import "SwiftBridge.h"
 
-@interface MWMSearchTableViewController ()<UITableViewDataSource, UITableViewDelegate, MWMGoogleFallbackBannerDynamicSizeDelegate>
+@interface MWMSearchTableViewController ()<UITableViewDataSource, UITableViewDelegate>
 
 @property(weak, nonatomic) IBOutlet UITableView * tableView;
 
@@ -45,7 +48,19 @@
   tableView.rowHeight = UITableViewAutomaticDimension;
   [tableView registerWithCellClass:[MWMSearchSuggestionCell class]];
   [tableView registerWithCellClass:[MWMSearchCommonCell class]];
-  [tableView registerWithCellClass:[MWMAdBanner class]];
+}
+
+- (Class)cellClassForIndexPath:(NSIndexPath *)indexPath
+{
+  size_t const numSuggests = [MWMSearch suggestionsCount];
+  if (numSuggests > 0 && indexPath.row < numSuggests)
+    return [MWMSearchSuggestionCell class];
+  return [MWMSearchCommonCell class];
+}
+
+- (search::Result const &)searchResultForIndexPath:(NSIndexPath *)indexPath
+{
+  return [MWMSearch resultAtIndex:indexPath.row];
 }
 
 - (void)reloadData { [self.tableView reloadData]; }
@@ -54,10 +69,9 @@
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
-  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
   [coordinator
       animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        [self reloadData];
+        [self onSearchResultsUpdated];
       }
                       completion:nil];
 }
@@ -72,89 +86,41 @@
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-  if ([MWMSearch resultsCount] == 0)
+  Class cls = [self cellClassForIndexPath:indexPath];
+  auto cell = [tableView dequeueReusableCellWithCellClass:cls indexPath:indexPath];
+  if (cls == [MWMSearchSuggestionCell class])
   {
-    NSAssert(false, @"Invalid reload with outdated SearchIndex");
-    return [tableView dequeueReusableCellWithCellClass:[MWMSearchCommonCell class] indexPath:indexPath];
+    auto tCell = static_cast<MWMSearchSuggestionCell *>(cell);
+    [tCell config:[self searchResultForIndexPath:indexPath]];
+    tCell.isLastCell = indexPath.row == [MWMSearch suggestionsCount] - 1;
   }
-  auto const row = indexPath.row;
-  auto const containerIndex = [MWMSearch containerIndexWithRow:row];
-  switch ([MWMSearch resultTypeWithRow:row])
+  else if (cls == [MWMSearchCommonCell class])
   {
-  case MWMSearchItemTypeRegular:
-  {
-    auto cell = static_cast<MWMSearchCommonCell *>([tableView
-        dequeueReusableCellWithCellClass:[MWMSearchCommonCell class]
-                               indexPath:indexPath]);
-    auto const & result = [MWMSearch resultWithContainerIndex:containerIndex];
-    auto const isBookingAvailable = [MWMSearch isBookingAvailableWithContainerIndex:containerIndex];
-    auto const & productInfo = [MWMSearch productInfoWithContainerIndex:containerIndex];
-    [cell config:result isAvailable:isBookingAvailable productInfo:productInfo];
-    return cell;
+    auto tCell = static_cast<MWMSearchCommonCell *>(cell);
+    [tCell config:[self searchResultForIndexPath:indexPath]];
   }
-  case MWMSearchItemTypeMopub:
-  case MWMSearchItemTypeFacebook:
-  case MWMSearchItemTypeGoogle:
-  {
-    auto cell = static_cast<MWMAdBanner *>([tableView dequeueReusableCellWithCellClass:[MWMAdBanner class] indexPath:indexPath]);
-    auto ad = [MWMSearch adWithContainerIndex:containerIndex];
-    if ([ad isKindOfClass:[MWMGoogleFallbackBanner class]])
-    {
-      auto fallbackAd = static_cast<MWMGoogleFallbackBanner *>(ad);
-      fallbackAd.cellIndexPath = indexPath;
-      fallbackAd.dynamicSizeDelegate = self;
-    }
-    [cell configWithAd:ad containerType:MWMAdBannerContainerTypeSearch];
-    return cell;
-  }
-  case MWMSearchItemTypeSuggestion:
-  {
-    auto cell = static_cast<MWMSearchSuggestionCell *>([tableView
-        dequeueReusableCellWithCellClass:[MWMSearchSuggestionCell class]
-                               indexPath:indexPath]);
-    auto const & suggestion = [MWMSearch resultWithContainerIndex:containerIndex];
-    [cell config:suggestion];
-    cell.isLastCell = row == [MWMSearch suggestionsCount] - 1;
-    return cell;
-  }
-  }
-}
-
-#pragma mark - MWMGoogleFallbackBannerDynamicSizeDelegate
-
-- (void)dynamicSizeUpdatedWithBanner:(MWMGoogleFallbackBanner * _Nonnull)banner
-{
-  [self.tableView reloadRowsAtIndexPaths:@[banner.cellIndexPath] withRowAnimation:UITableViewRowAnimationFade];
+  return cell;
 }
 
 #pragma mark - UITableViewDelegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
+  Class cls = [self cellClassForIndexPath:indexPath];
   id<MWMSearchTableViewProtocol> delegate = self.delegate;
-  auto const row = indexPath.row;
-  auto const containerIndex = [MWMSearch containerIndexWithRow:row];
-  switch ([MWMSearch resultTypeWithRow:row])
+  search::Result const & result = [self searchResultForIndexPath:indexPath];
+  if (cls == [MWMSearchSuggestionCell class])
   {
-  case MWMSearchItemTypeRegular:
-  {
-    MWMSearchTextField * textField = delegate.searchTextField;
-    [MWMSearch saveQuery:textField.text forInputLocale:textField.textInputMode.primaryLanguage];
-    auto const & result = [MWMSearch resultWithContainerIndex:containerIndex];
-    [delegate processSearchWithResult:result];
-    break;
-  }
-  case MWMSearchItemTypeMopub: 
-  case MWMSearchItemTypeFacebook:
-  case MWMSearchItemTypeGoogle: break;
-  case MWMSearchItemTypeSuggestion:
-  {
-    auto const & suggestion = [MWMSearch resultWithContainerIndex:containerIndex];
-    NSString * suggestionString = @(suggestion.GetSuggestionString().c_str());
+    NSString * suggestionString = @(result.GetSuggestionString());
     [Statistics logEvent:kStatEventName(kStatSearch, kStatSelectResult)
           withParameters:@{kStatValue : suggestionString, kStatScreen : kStatSearch}];
     [delegate searchText:suggestionString forInputLocale:nil];
   }
+  else if (cls == [MWMSearchCommonCell class])
+  {
+    MWMSearchTextField * textField = delegate.searchTextField;
+    [MWMSearch saveQuery:textField.text forInputLocale:textField.textInputMode.primaryLanguage];
+    [delegate processSearchWithResult:result];
   }
 }
 
@@ -162,10 +128,17 @@
 
 - (void)onSearchCompleted
 {
-  [self reloadData];
   BOOL const noResults = [MWMSearch resultsCount] == 0;
   self.tableView.hidden = noResults;
   [(MWMSearchTableView *)self.view hideNoResultsView:!noResults];
+}
+
+- (void)onSearchResultsUpdated
+{
+  if (!IPAD && [MWMSearch isSearchOnMap])
+    return;
+
+  [self reloadData];
 }
 
 @end

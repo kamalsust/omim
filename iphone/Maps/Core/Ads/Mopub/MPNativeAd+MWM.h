@@ -3,7 +3,7 @@
 
 @interface MPNativeAd (MWM) <MPNativeViewDelegate>
 
-- (void)setAdView:(UIView *)view actionButtons:(NSArray<UIButton *> *)buttons;
-- (void)unregister;
+- (void)setAdView:(UIView *)view;
+- (void)setActionButtons:(NSArray<UIButton *> *)buttons;
 
 @end

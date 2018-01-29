@@ -18,8 +18,7 @@ UNIT_TEST(EditorConfig_TypeDescription)
     feature::Metadata::FMD_OPEN_HOURS,
     feature::Metadata::FMD_PHONE_NUMBER,
     feature::Metadata::FMD_WEBSITE,
-    feature::Metadata::FMD_EMAIL,
-    feature::Metadata::FMD_LEVEL
+    feature::Metadata::FMD_EMAIL
   };
 
   pugi::xml_document doc;

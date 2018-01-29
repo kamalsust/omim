@@ -13,7 +13,7 @@
 
 UNIT_TEST(Framework_ForEachFeatureAtPoint_And_Others)
 {
-  Framework frm(FrameworkParams(false /* m_enableLocalAds */, false /* m_enableDiffs */));
+  Framework frm;
   frm.DeregisterAllMaps();
   frm.RegisterMap(platform::LocalCountryFile::MakeForTesting("minsk-pass"));
 

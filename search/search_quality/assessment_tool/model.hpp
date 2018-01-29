@@ -3,7 +3,6 @@
 #include <string>
 
 class View;
-struct FeatureID;
 
 class Model
 {
@@ -18,13 +17,9 @@ public:
 
   virtual void OnSampleSelected(int index) = 0;
   virtual void OnResultSelected(int index) = 0;
-  virtual void OnNonFoundResultSelected(int index) = 0;
   virtual void OnShowViewportClicked() = 0;
   virtual void OnShowPositionClicked() = 0;
   virtual bool HasChanges() = 0;
-
-  virtual bool AlreadyInSamples(FeatureID const & id) = 0;
-  virtual void AddNonFoundResult(FeatureID const & id) = 0;
 
 protected:
   View * m_view = nullptr;

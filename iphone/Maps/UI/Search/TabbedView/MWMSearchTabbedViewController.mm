@@ -2,7 +2,10 @@
 #import "MWMCommon.h"
 #import "MWMSearchCategoriesManager.h"
 #import "MWMSearchHistoryManager.h"
+#import "MWMSearchTabbedCollectionViewCell.h"
 #import "MWMSearchTabbedViewLayout.h"
+#import "MWMSearchTabbedViewProtocol.h"
+#import "Statistics.h"
 #import "SwiftBridge.h"
 
 #include "Framework.h"
@@ -60,14 +63,13 @@ BOOL isOffsetInButton(CGFloat offset, MWMSearchTabButtonsView * button)
 - (void)mwm_refreshUI { [self.view mwm_refreshUI]; }
 - (void)resetSelectedTab
 {
-  if (GetFramework().GetLastSearchQueries().empty())
+  if (GetFramework().GetLastSearchQueries().empty() && !self.historyManager.isRouteSearchMode)
     self.selectedButtonTag = 1;
   else
     self.selectedButtonTag =
-        [NSUserDefaults.standardUserDefaults integerForKey:kSelectedButtonTagKey];
+        [[NSUserDefaults standardUserDefaults] integerForKey:kSelectedButtonTagKey];
 }
 
-- (void)resetCategories { [self.categoriesManager resetCategories]; }
 - (void)viewWillAppear:(BOOL)animated
 {
   self.scrollIndicator.hidden = YES;
@@ -88,7 +90,6 @@ BOOL isOffsetInButton(CGFloat offset, MWMSearchTabButtonsView * button)
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
-  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
   self.isRotating = YES;
   [coordinator
       animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
@@ -116,7 +117,7 @@ BOOL isOffsetInButton(CGFloat offset, MWMSearchTabButtonsView * button)
 
 - (void)tabButtonPressed:(MWMSearchTabButtonsView *)sender
 {
-  dispatch_async(dispatch_get_main_queue(), ^{
+  runAsyncOnMainQueue(^{
     [self.tablesCollectionView
         scrollToItemAtIndexPath:[NSIndexPath indexPathForItem:sender.tag inSection:0]
                atScrollPosition:UICollectionViewScrollPositionCenteredHorizontally
@@ -130,7 +131,7 @@ BOOL isOffsetInButton(CGFloat offset, MWMSearchTabButtonsView * button)
   CGFloat const btnMid = position + 0.5 * scrollIndicatorWidth;
   if (isInterfaceRightToLeft())
     position = scrollIndicatorWidth - position;
-  dispatch_async(dispatch_get_main_queue(), ^{
+  runAsyncOnMainQueue(^{
     self.scrollIndicatorOffset.constant = nearbyint(position);
   });
   MWMSearchTabButtonsView * selectedButton = self.selectedButton;
@@ -211,7 +212,7 @@ BOOL isOffsetInButton(CGFloat offset, MWMSearchTabButtonsView * button)
       }];
   _selectedButton = selectedButton;
   selectedButton.selected = YES;
-  NSUserDefaults * ud = NSUserDefaults.standardUserDefaults;
+  NSUserDefaults * ud = [NSUserDefaults standardUserDefaults];
   [ud setInteger:selectedButton.tag forKey:kSelectedButtonTagKey];
   [ud synchronize];
 }

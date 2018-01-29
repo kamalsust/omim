@@ -6,10 +6,11 @@
 
 #include "base/assert.hpp"
 
+#include "std/limits.hpp"
+
 namespace routing
 {
-using namespace std;
-
+NearestEdgeFinder::Candidate::Candidate() : m_dist(numeric_limits<double>::max()), m_segId(0) {}
 NearestEdgeFinder::NearestEdgeFinder(m2::PointD const & point)
     : m_point(point)
 {
@@ -40,6 +41,7 @@ void NearestEdgeFinder::AddInformationSource(FeatureID const & featureId, IRoadG
       feature::TAltitude projPointAlt = feature::kDefaultAltitudeMeters;
       if (segLenM == 0.0)
       {
+        LOG(LWARNING, ("Length of segment", i, " of feature", featureId, "is zero."));
         projPointAlt = startAlt;
       }
       else
@@ -54,7 +56,6 @@ void NearestEdgeFinder::AddInformationSource(FeatureID const & featureId, IRoadG
       res.m_segId = static_cast<uint32_t>(i - 1);
       res.m_segStart = segStart;
       res.m_segEnd = segEnd;
-      res.m_bidirectional = roadInfo.m_bidirectional;
 
       ASSERT_NOT_EQUAL(res.m_segStart.GetAltitude() , feature::kInvalidAltitude, ());
       ASSERT_NOT_EQUAL(res.m_segEnd.GetAltitude(), feature::kInvalidAltitude, ());
@@ -67,7 +68,8 @@ void NearestEdgeFinder::AddInformationSource(FeatureID const & featureId, IRoadG
     m_candidates.push_back(res);
 }
 
-void NearestEdgeFinder::MakeResult(vector<pair<Edge, Junction>> & res, size_t const maxCountFeatures)
+void NearestEdgeFinder::MakeResult(vector<pair<Edge, Junction>> & res,
+                                   size_t const maxCountFeatures)
 {
   sort(m_candidates.begin(), m_candidates.end(), [](Candidate const & r1, Candidate const & r2)
   {
@@ -76,23 +78,17 @@ void NearestEdgeFinder::MakeResult(vector<pair<Edge, Junction>> & res, size_t co
 
   res.clear();
   res.reserve(maxCountFeatures);
-  
+
+  size_t i = 0;
   for (Candidate const & candidate : m_candidates)
   {
-    res.emplace_back(Edge::MakeReal(candidate.m_fid, true /* forward */, candidate.m_segId,
-                                    candidate.m_segStart, candidate.m_segEnd),
+    res.emplace_back(Edge(candidate.m_fid, true /* forward */, candidate.m_segId,
+                          candidate.m_segStart, candidate.m_segEnd),
                      candidate.m_projPoint);
-    if (res.size() >= maxCountFeatures)
-      return;
-
-    if (candidate.m_bidirectional)
-    {
-      res.emplace_back(Edge::MakeReal(candidate.m_fid, false /* forward */, candidate.m_segId,
-                                      candidate.m_segEnd, candidate.m_segStart),
-                       candidate.m_projPoint);
-      if (res.size() >= maxCountFeatures)
-        return;
-    }
+    ++i;
+    if (i == maxCountFeatures)
+      break;
   }
 }
+
 }  // namespace routing

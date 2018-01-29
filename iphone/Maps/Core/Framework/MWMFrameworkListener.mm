@@ -1,26 +1,29 @@
 #import "MWMFrameworkListener.h"
+#import "MapsAppDelegate.h"
 
 #include "Framework.h"
 
+#include "std/mutex.hpp"
+
 namespace
 {
-using Observer = id<MWMFrameworkObserver>;
+using TObserver = id<MWMFrameworkObserver>;
 using TRouteBuildingObserver = id<MWMFrameworkRouteBuilderObserver>;
 using TStorageObserver = id<MWMFrameworkStorageObserver>;
 using TDrapeObserver = id<MWMFrameworkDrapeObserver>;
 
-using Observers = NSHashTable<Observer>;
+using TObservers = NSHashTable<__kindof TObserver>;
 
 Protocol * pRouteBuildingObserver = @protocol(MWMFrameworkRouteBuilderObserver);
 Protocol * pStorageObserver = @protocol(MWMFrameworkStorageObserver);
 Protocol * pDrapeObserver = @protocol(MWMFrameworkDrapeObserver);
 
-using TLoopBlock = void (^)(__kindof Observer observer);
+using TLoopBlock = void (^)(__kindof TObserver observer);
 
-void loopWrappers(Observers * observers, TLoopBlock block)
+void loopWrappers(TObservers * observers, TLoopBlock block)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
-    for (Observer observer in observers)
+    for (TObserver observer in observers)
     {
       if (observer)
         block(observer);
@@ -31,9 +34,9 @@ void loopWrappers(Observers * observers, TLoopBlock block)
 
 @interface MWMFrameworkListener ()
 
-@property(nonatomic) Observers * routeBuildingObservers;
-@property(nonatomic) Observers * storageObservers;
-@property(nonatomic) Observers * drapeObservers;
+@property(nonatomic) TObservers * routeBuildingObservers;
+@property(nonatomic) TObservers * storageObservers;
+@property(nonatomic) TObservers * drapeObservers;
 
 @end
 
@@ -49,7 +52,7 @@ void loopWrappers(Observers * observers, TLoopBlock block)
   return listener;
 }
 
-+ (void)addObserver:(Observer)observer
++ (void)addObserver:(TObserver)observer
 {
   dispatch_async(dispatch_get_main_queue(), ^{
     MWMFrameworkListener * listener = [MWMFrameworkListener listener];
@@ -62,7 +65,7 @@ void loopWrappers(Observers * observers, TLoopBlock block)
   });
 }
 
-+ (void)removeObserver:(Observer)observer
++ (void)removeObserver:(TObserver)observer
 {
   dispatch_async(dispatch_get_main_queue(), ^{
     MWMFrameworkListener * listener = [MWMFrameworkListener listener];
@@ -77,9 +80,9 @@ void loopWrappers(Observers * observers, TLoopBlock block)
   self = [super init];
   if (self)
   {
-    _routeBuildingObservers = [Observers weakObjectsHashTable];
-    _storageObservers = [Observers weakObjectsHashTable];
-    _drapeObservers = [Observers weakObjectsHashTable];
+    _routeBuildingObservers = [TObservers weakObjectsHashTable];
+    _storageObservers = [TObservers weakObjectsHashTable];
+    _drapeObservers = [TObservers weakObjectsHashTable];
 
     [self registerRouteBuilderListener];
     [self registerStorageObserver];
@@ -88,37 +91,31 @@ void loopWrappers(Observers * observers, TLoopBlock block)
   return self;
 }
 
-#pragma mark - MWMFrameworkRouteBuilderObserver
+#pragma mark - MWMFrameworkRouteBuildingObserver
 
 - (void)registerRouteBuilderListener
 {
   using namespace routing;
   using namespace storage;
-  Observers * observers = self.routeBuildingObservers;
-  auto & rm = GetFramework().GetRoutingManager();
-  rm.SetRouteBuildingListener(
+  TObservers * observers = self.routeBuildingObservers;
+  auto & f = GetFramework();
+  // TODO(ldragunov,rokuz): Thise two routing callbacks are the only framework callbacks which does
+  // not guarantee
+  // that they are called on a main UI thread context. Discuss it with Lev.
+  // Simplest solution is to insert RunOnGuiThread() call in the core where callbacks are called.
+  // This will help to avoid unnecessary parameters copying and will make all our framework
+  // callbacks
+  // consistent: every notification to UI will run on a main UI thread.
+  f.SetRouteBuildingListener(
       [observers](IRouter::ResultCode code, TCountriesVec const & absentCountries) {
         loopWrappers(observers, [code, absentCountries](TRouteBuildingObserver observer) {
           [observer processRouteBuilderEvent:code countries:absentCountries];
         });
       });
-  rm.SetRouteProgressListener([observers](float progress) {
+  f.SetRouteProgressListener([observers](float progress) {
     loopWrappers(observers, [progress](TRouteBuildingObserver observer) {
       if ([observer respondsToSelector:@selector(processRouteBuilderProgress:)])
         [observer processRouteBuilderProgress:progress];
-    });
-  });
-  rm.SetRouteRecommendationListener([observers](RoutingManager::Recommendation recommendation) {
-    MWMRouterRecommendation rec;
-    switch (recommendation)
-    {
-    case RoutingManager::Recommendation::RebuildAfterPointsLoading:
-      rec = MWMRouterRecommendationRebuildAfterPointsLoading;
-      break;
-    }
-    loopWrappers(observers, [rec](TRouteBuildingObserver observer) {
-      if ([observer respondsToSelector:@selector(processRouteRecommendation:)])
-        [observer processRouteRecommendation:rec];
     });
   });
 }
@@ -127,7 +124,7 @@ void loopWrappers(Observers * observers, TLoopBlock block)
 
 - (void)registerStorageObserver
 {
-  Observers * observers = self.storageObservers;
+  TObservers * observers = self.storageObservers;
   auto & s = GetFramework().GetStorage();
   s.Subscribe(
       [observers](TCountryId const & countryId) {
@@ -147,22 +144,11 @@ void loopWrappers(Observers * observers, TLoopBlock block)
 
 - (void)registerDrapeObserver
 {
-  Observers * observers = self.drapeObservers;
+  TObservers * observers = self.drapeObservers;
   auto & f = GetFramework();
   f.SetCurrentCountryChangedListener([observers](TCountryId const & countryId) {
     for (TDrapeObserver observer in observers)
-    {
-      if ([observer respondsToSelector:@selector(processViewportCountryEvent:)])
-        [observer processViewportCountryEvent:countryId];
-    }
-  });
-
-  f.SetViewportListener([observers](ScreenBase const & screen) {
-    for (TDrapeObserver observer in observers)
-    {
-      if ([observer respondsToSelector:@selector(processViewportChangedEvent)])
-        [observer processViewportChangedEvent];
-    }
+      [observer processViewportCountryEvent:countryId];
   });
 }
 

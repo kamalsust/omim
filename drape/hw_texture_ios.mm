@@ -3,7 +3,6 @@
 #include "base/logging.hpp"
 
 #include "drape/glfunctions.hpp"
-#include "drape/glIncludes.hpp"
 
 #import <QuartzCore/CAEAGLLayer.h>
 
@@ -53,8 +52,8 @@ CVPixelBufferRef HWTextureAllocatorApple::CVCreatePixelBuffer(uint32_t width, ui
 
   CFDictionaryRef attrsRef = (__bridge CFDictionaryRef)attrs;
 
-  CVPixelBufferRef result = nullptr;
-  CVReturn cvRetval = 0;
+  CVPixelBufferRef result;
+  CVReturn cvRetval;
   switch (format)
   {
   case dp::RGBA8:

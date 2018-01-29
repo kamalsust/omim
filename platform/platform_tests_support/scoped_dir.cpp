@@ -17,7 +17,8 @@ ScopedDir::ScopedDir(string const & relativePath)
       m_relativePath(relativePath),
       m_reset(false)
 {
-  Platform::EError ret = Platform::MkDir(GetFullPath());
+  Platform & platform = GetPlatform();
+  Platform::EError ret = platform.MkDir(GetFullPath());
   switch (ret)
   {
     case Platform::ERR_OK:
@@ -50,13 +51,13 @@ ScopedDir::~ScopedDir()
     case Platform::ERR_OK:
       break;
     case Platform::ERR_FILE_DOES_NOT_EXIST:
-      LOG(LERROR, (fullPath, "was deleted before destruction of ScopedDir."));
+      LOG(LWARNING, (fullPath, "was deleted before destruction of ScopedDir."));
       break;
     case Platform::ERR_DIRECTORY_NOT_EMPTY:
-      LOG(LERROR, ("There are files in", fullPath));
+      LOG(LWARNING, ("There are files in", fullPath));
       break;
     default:
-      LOG(LERROR, ("Platform::RmDir() error for", fullPath, ":", ret));
+      LOG(LWARNING, ("Platform::RmDir() error for", fullPath, ":", ret));
       break;
   }
 }

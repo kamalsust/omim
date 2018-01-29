@@ -6,8 +6,8 @@
 
 #include "base/newtype.hpp"
 
-#include <limits>
-#include <string>
+#include "std/limits.hpp"
+#include "std/string.hpp"
 
 namespace generator
 {
@@ -32,10 +32,10 @@ struct OpentableRestaurant
 
   static constexpr ObjectId InvalidObjectId()
   {
-    return ObjectId(std::numeric_limits<typename ObjectId::RepType>::max());
+    return ObjectId(numeric_limits<typename ObjectId::RepType>::max());
   }
 
-  explicit OpentableRestaurant(std::string const & src);
+  explicit OpentableRestaurant(string const & src);
 
   static constexpr size_t FieldIndex(Fields field) { return static_cast<size_t>(field); }
   static constexpr size_t FieldsCount() { return static_cast<size_t>(Fields::Counter); }
@@ -44,12 +44,12 @@ struct OpentableRestaurant
 
   ObjectId m_id{InvalidObjectId()};
   ms::LatLon m_latLon = ms::LatLon::Zero();
-  std::string m_name;
-  std::string m_street;
-  std::string m_houseNumber;
+  string m_name;
+  string m_street;
+  string m_houseNumber;
 
-  std::string m_address;
-  std::string m_descUrl;
+  string m_address;
+  string m_descUrl;
   // string m_translations;
 };
 

@@ -1,7 +1,6 @@
 #pragma once
 #include "indexer/feature_altitude.hpp"
 #include "indexer/index.hpp"
-#include "indexer/mwm_set.hpp"
 
 #include "coding/memory_region.hpp"
 
@@ -16,15 +15,13 @@ namespace feature
 class AltitudeLoader
 {
 public:
-  AltitudeLoader(Index const & index, MwmSet::MwmId const & mwmId);
+  explicit AltitudeLoader(MwmValue const & mwmValue);
 
   /// \returns altitude of feature with |featureId|. All items of the returned vector are valid
   /// or the returned vector is empty.
   TAltitudes const & GetAltitudes(uint32_t featureId, size_t pointCount);
 
   bool HasAltitudes() const;
-
-  void ClearCache() { m_cache.clear(); }
 
 private:
   unique_ptr<CopiedMemoryRegion> m_altitudeAvailabilityRegion;
@@ -37,6 +34,5 @@ private:
   map<uint32_t, TAltitudes> m_cache;
   AltitudeHeader m_header;
   string m_countryFileName;
-  MwmSet::MwmHandle m_handle;
 };
 }  // namespace feature

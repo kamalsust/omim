@@ -12,6 +12,7 @@ public:
   StatisticsGuard(local_ads::Statistics & statistics) : m_statistics(statistics) {}
   ~StatisticsGuard()
   {
+    m_statistics.Teardown();
     m_statistics.CleanupAfterTesting();
   }
 

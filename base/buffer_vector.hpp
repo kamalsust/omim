@@ -224,7 +224,10 @@ public:
   T const * data() const
   {
     if (IsDynamic())
-      return m_dynamic.data();
+    {
+      ASSERT(!m_dynamic.empty(), ());
+      return &m_dynamic[0];
+    }
 
     return &m_static[0];
   }
@@ -232,7 +235,10 @@ public:
   T * data()
   {
     if (IsDynamic())
-      return m_dynamic.data();
+    {
+      ASSERT(!m_dynamic.empty(), ());
+      return &m_dynamic[0];
+    }
 
     return &m_static[0];
   }
@@ -403,12 +409,12 @@ public:
     insert(where, &value, &value + 1);
   }
 
-  template <class Fn>
-  void erase_if(Fn && fn)
+  template <class TFn>
+  void erase_if(TFn fn)
   {
     iterator b = begin();
     iterator e = end();
-    iterator i = std::remove_if(b, e, std::forward<Fn>(fn));
+    iterator i = std::remove_if(b, e, fn);
     if (i != e)
       resize(std::distance(b, i));
   }
@@ -456,10 +462,4 @@ template <typename T, size_t N1, size_t N2>
 inline bool operator<(buffer_vector<T, N1> const & v1, buffer_vector<T, N2> const & v2)
 {
   return std::lexicographical_compare(v1.begin(), v1.end(), v2.begin(), v2.end());
-}
-
-template <typename T, size_t N1, size_t N2>
-inline bool operator>(buffer_vector<T, N1> const & v1, buffer_vector<T, N2> const & v2)
-{
-  return v2 < v1;
 }

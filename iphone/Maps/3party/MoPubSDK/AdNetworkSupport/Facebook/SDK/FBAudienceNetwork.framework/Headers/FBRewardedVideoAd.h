@@ -93,15 +93,6 @@ FB_CLASS_EXPORT FB_SUBCLASSING_RESTRICTED
 - (void)loadAd;
 
 /**
- Begins loading the FBRewardedVideoAd content from a bid payload attained through a server side bid.
-
-
- You can implement `rewardedVideoAdDidLoad:` and `rewardedVideoAd:didFailWithError:` methods
- of `FBRewardedVideoAdDelegate` if you would like to be notified as loading succeeds or fails.
- */
-- (void)loadAdWithBidPayload:(NSString *)bidPayload;
-
-/**
   Presents the rewarded video ad modally from the specified view controller.
 
  - Parameter rootViewController: The view controller that will be used to present the rewarded video ad.
@@ -192,7 +183,7 @@ FB_CLASS_EXPORT FB_SUBCLASSING_RESTRICTED
 
  - Parameter rewardedVideoAd: An FBRewardedVideoAd object sending the message.
  */
-- (void)rewardedVideoAdServerRewardDidSucceed:(FBRewardedVideoAd *)rewardedVideoAd;
+- (void)rewardedVideoAdServerSuccess:(FBRewardedVideoAd *)rewardedVideoAd;
 
 /**
   Sent if server call to publisher's reward endpoint did not return HTTP status code 200
@@ -200,7 +191,7 @@ FB_CLASS_EXPORT FB_SUBCLASSING_RESTRICTED
 
  - Parameter rewardedVideoAd: An FBRewardedVideoAd object sending the message.
  */
-- (void)rewardedVideoAdServerRewardDidFail:(FBRewardedVideoAd *)rewardedVideoAd;
+- (void)rewardedVideoAdServerFailed:(FBRewardedVideoAd *)rewardedVideoAd;
 
 @end
 

@@ -2,7 +2,7 @@
 
 #include "graphics/opengl/gl_render_context.hpp"
 
-#include <memory>
+#include "std/shared_ptr.hpp"
 
 namespace android
 {

@@ -1,10 +1,9 @@
 #import "MWMAlert.h"
-#import "MWMViewController.h"
 
 #include "routing/router.hpp"
 #include "storage/storage.hpp"
 
-@interface MWMAlertViewController : MWMViewController
+@interface MWMAlertViewController : UIViewController
 
 + (nonnull MWMAlertViewController *)activeAlertController;
 

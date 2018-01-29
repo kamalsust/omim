@@ -20,7 +20,9 @@ static NSString * const kStatisticsEvent = @"Routing Disclaimer Alert";
 {
   [Statistics logEvent:kStatisticsEvent withParameters:@{kStatAction : kStatOpen}];
   MWMRoutingDisclaimerAlert * alert =
-      [NSBundle.mainBundle loadNibNamed:[self className] owner:nil options:nil].firstObject;
+      [[[NSBundle mainBundle] loadNibNamed:[self className]
+                                     owner:nil
+                                   options:nil] firstObject];
   NSString * message = [NSString stringWithFormat:@"%@\n\n%@\n\n%@\n\n%@\n\n%@",
                                                   L(@"dialog_routing_disclaimer_priority"),
                                                   L(@"dialog_routing_disclaimer_precision"),

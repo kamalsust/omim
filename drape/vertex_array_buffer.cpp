@@ -1,35 +1,14 @@
 #include "drape/vertex_array_buffer.hpp"
-
-#include "drape/glextensions_list.hpp"
 #include "drape/glfunctions.hpp"
+#include "drape/glextensions_list.hpp"
 #include "drape/index_storage.hpp"
 #include "drape/support_manager.hpp"
 
+#include "base/stl_add.hpp"
 #include "base/assert.hpp"
-#include "base/logging.hpp"
 
 namespace dp
 {
-namespace
-{
-std::pair<uint32_t, uint32_t> CalculateMappingPart(std::vector<dp::MutateNode> const & nodes)
-{
-  uint32_t minOffset = std::numeric_limits<uint32_t>::max();
-  uint32_t maxOffset = std::numeric_limits<uint32_t>::min();
-  for (size_t i = 0; i < nodes.size(); ++i)
-  {
-    MutateNode const & node = nodes[i];
-    ASSERT_GREATER(node.m_region.m_count, 0, ());
-    if (node.m_region.m_offset < minOffset)
-      minOffset = node.m_region.m_offset;
-    uint32_t const endOffset = node.m_region.m_offset + node.m_region.m_count;
-    if (endOffset > maxOffset)
-      maxOffset = endOffset;
-  }
-  ASSERT_LESS(minOffset, maxOffset, ());
-  return std::make_pair(minOffset, maxOffset - minOffset);
-};
-}  // namespace
 
 VertexArrayBuffer::VertexArrayBuffer(uint32_t indexBufferSize, uint32_t dataBufferSize)
   : m_VAO(0)
@@ -54,10 +33,10 @@ VertexArrayBuffer::~VertexArrayBuffer()
 
   if (m_VAO != 0)
   {
-    // Build is called only when VertexArrayBuffer is full and transferred to FrontendRenderer.
-    // If user move screen before all geometry read from MWM we delete VertexArrayBuffer on
-    // BackendRenderer. In this case m_VAO will be equal 0 also m_VAO == 0 is on devices
-    // that do not support OES_vertex_array_object extension.
+    /// Build called only when VertexArrayBuffer fulled and transfer to FrontendRenderer
+    /// but if user move screen before all geometry readed from MWM we delete VertexArrayBuffer on BackendRenderer
+    /// in this case m_VAO will be equal a 0
+    /// also m_VAO == 0 will be on device that not support OES_vertex_array_object extension
     GLFunctions::glDeleteVertexArray(m_VAO);
   }
 }
@@ -73,10 +52,10 @@ void VertexArrayBuffer::PreflushImpl()
   ASSERT(!m_isPreflushed, ());
 
   // Buffers are ready, so moving them from CPU to GPU.
-  for (auto & buffer : m_staticBuffers)
+  for(auto & buffer : m_staticBuffers)
     buffer.second->MoveToGPU(GPUBuffer::ElementBuffer);
 
-  for (auto & buffer : m_dynamicBuffers)
+  for(auto & buffer : m_dynamicBuffers)
     buffer.second->MoveToGPU(GPUBuffer::ElementBuffer);
 
   ASSERT(m_indexBuffer != nullptr, ());
@@ -98,16 +77,16 @@ void VertexArrayBuffer::RenderRange(bool drawAsLine, IndicesRange const & range)
   if (!(m_staticBuffers.empty() && m_dynamicBuffers.empty()) && GetIndexCount() > 0)
   {
     ASSERT(m_program != nullptr, ("Somebody not call Build. It's very bad. Very very bad"));
-    // If OES_vertex_array_object is supported than all bindings have already saved in VAO
-    // and we need only bind VAO.
+    /// if OES_vertex_array_object is supported than all bindings already saved in VAO
+    /// and we need only bind VAO.
     if (!Bind())
       BindStaticBuffers();
 
     BindDynamicBuffers();
     GetIndexBuffer()->Bind();
     GLFunctions::glDrawElements(drawAsLine ? gl_const::GLLines : gl_const::GLTriangles,
-                                dp::IndexStorage::SizeOfIndex(), range.m_idxCount,
-                                range.m_idxStart);
+                                dp::IndexStorage::SizeOfIndex(),
+                                range.m_idxCount, range.m_idxStart);
 
     Unbind();
   }
@@ -119,10 +98,10 @@ void VertexArrayBuffer::Build(ref_ptr<GpuProgram> program)
     PreflushImpl();
 
   if (m_VAO != 0 && m_program == program)
-    return;
+      return;
 
   m_program = program;
-  // If OES_vertex_array_object not supported, than buffers will be bound on each render call.
+  /// if OES_vertex_array_object not supported, than buffers will be bind on each Render call
   if (!GLExtensionsList::Instance().IsSupported(GLExtensionsList::VertexArrayObject))
     return;
 
@@ -137,8 +116,7 @@ void VertexArrayBuffer::Build(ref_ptr<GpuProgram> program)
   Unbind();
 }
 
-void VertexArrayBuffer::UploadData(BindingInfo const & bindingInfo, void const * data,
-                                   uint32_t count)
+void VertexArrayBuffer::UploadData(BindingInfo const & bindingInfo, void const * data, uint32_t count)
 {
   ref_ptr<DataBuffer> buffer;
   if (!bindingInfo.IsDynamic())
@@ -166,38 +144,35 @@ ref_ptr<DataBuffer> VertexArrayBuffer::GetOrCreateStaticBuffer(BindingInfo const
   return GetOrCreateBuffer(bindingInfo, false);
 }
 
-ref_ptr<DataBuffer> VertexArrayBuffer::GetBuffer(BindingInfo const & bindingInfo,
-                                                 bool isDynamic) const
+ref_ptr<DataBuffer> VertexArrayBuffer::GetBuffer(BindingInfo const & bindingInfo, bool isDynamic) const
 {
-  BuffersMap const * buffers = nullptr;
+  TBuffersMap const * buffers = nullptr;
   if (isDynamic)
     buffers = &m_dynamicBuffers;
   else
     buffers = &m_staticBuffers;
 
-  auto it = buffers->find(bindingInfo);
+  TBuffersMap::const_iterator it = buffers->find(bindingInfo);
   if (it == buffers->end())
     return nullptr;
 
   return make_ref(it->second);
 }
 
-ref_ptr<DataBuffer> VertexArrayBuffer::GetOrCreateBuffer(BindingInfo const & bindingInfo,
-                                                         bool isDynamic)
+ref_ptr<DataBuffer> VertexArrayBuffer::GetOrCreateBuffer(BindingInfo const & bindingInfo, bool isDynamic)
 {
-  BuffersMap * buffers = nullptr;
+  TBuffersMap * buffers = nullptr;
   if (isDynamic)
     buffers = &m_dynamicBuffers;
   else
     buffers = &m_staticBuffers;
 
-  auto it = buffers->find(bindingInfo);
+  TBuffersMap::iterator it = buffers->find(bindingInfo);
   if (it == buffers->end())
   {
-    drape_ptr<DataBuffer> dataBuffer =
-        make_unique_dp<DataBuffer>(bindingInfo.GetElementSize(), m_dataBufferSize);
+    drape_ptr<DataBuffer> dataBuffer = make_unique_dp<DataBuffer>(bindingInfo.GetElementSize(), m_dataBufferSize);
     ref_ptr<DataBuffer> result = make_ref(dataBuffer);
-    (*buffers).insert(std::make_pair(bindingInfo, move(dataBuffer)));
+    (*buffers).insert(make_pair(bindingInfo, move(dataBuffer)));
     return result;
   }
 
@@ -215,8 +190,8 @@ uint32_t VertexArrayBuffer::GetAvailableVertexCount() const
     return m_dataBufferSize;
 
 #ifdef DEBUG
-  auto it = m_staticBuffers.begin();
-  uint32_t const prev = it->second->GetBuffer()->GetAvailableSize();
+  TBuffersMap::const_iterator it = m_staticBuffers.begin();
+  uint32_t prev = it->second->GetBuffer()->GetAvailableSize();
   for (; it != m_staticBuffers.end(); ++it)
     ASSERT_EQUAL(prev, it->second->GetBuffer()->GetAvailableSize(), ());
 #endif
@@ -230,8 +205,8 @@ uint32_t VertexArrayBuffer::GetStartIndexValue() const
     return 0;
 
 #ifdef DEBUG
-  auto it = m_staticBuffers.begin();
-  uint32_t const prev = it->second->GetBuffer()->GetCurrentSize();
+  TBuffersMap::const_iterator it = m_staticBuffers.begin();
+  uint32_t prev = it->second->GetBuffer()->GetCurrentSize();
   for (; it != m_staticBuffers.end(); ++it)
     ASSERT(prev == it->second->GetBuffer()->GetCurrentSize(), ());
 #endif
@@ -244,7 +219,10 @@ uint32_t VertexArrayBuffer::GetDynamicBufferOffset(BindingInfo const & bindingIn
   return GetOrCreateDynamicBuffer(bindingInfo)->GetBuffer()->GetCurrentSize();
 }
 
-uint32_t VertexArrayBuffer::GetIndexCount() const { return GetIndexBuffer()->GetCurrentSize(); }
+uint32_t VertexArrayBuffer::GetIndexCount() const
+{
+  return GetIndexBuffer()->GetCurrentSize();
+}
 
 void VertexArrayBuffer::UploadIndexes(void const * data, uint32_t count)
 {
@@ -255,8 +233,8 @@ void VertexArrayBuffer::UploadIndexes(void const * data, uint32_t count)
 void VertexArrayBuffer::ApplyMutation(ref_ptr<IndexBufferMutator> indexMutator,
                                       ref_ptr<AttributeBufferMutator> attrMutator)
 {
-  // We need to bind current VAO before calling glBindBuffer if OES_vertex_array_object is
-  // supported. Otherwise we risk affecting a previously bound VAO.
+  /// We need to bind current VAO before calling glBindBuffer if OES_vertex_array_object is supported.
+  /// Otherwise we risk affecting a previously binded VAO.
   Bind();
 
   if (indexMutator != nullptr)
@@ -276,24 +254,21 @@ void VertexArrayBuffer::ApplyMutation(ref_ptr<IndexBufferMutator> indexMutator,
     return;
   }
 
-  auto const & data = attrMutator->GetMutateData();
-  for (auto it = data.begin(); it != data.end(); ++it)
+  typedef AttributeBufferMutator::TMutateData TMutateData;
+  typedef AttributeBufferMutator::TMutateNodes TMutateNodes;
+  TMutateData const & data = attrMutator->GetMutateData();
+  for (TMutateData::const_iterator it = data.begin(); it != data.end(); ++it)
   {
-    auto const & nodes = it->second;
-    if (nodes.empty())
-      continue;
-
-    auto const offsets = CalculateMappingPart(nodes);
-
     ref_ptr<DataBuffer> buffer = GetDynamicBuffer(it->first);
     ASSERT(buffer != nullptr, ());
-    DataBufferMapper mapper(buffer, offsets.first, offsets.second);
+    DataBufferMapper mapper(buffer);
+    TMutateNodes const & nodes = it->second;
+
     for (size_t i = 0; i < nodes.size(); ++i)
     {
       MutateNode const & node = nodes[i];
       ASSERT_GREATER(node.m_region.m_count, 0, ());
-      mapper.UpdateData(node.m_data.get(), node.m_region.m_offset - offsets.first,
-                        node.m_region.m_count);
+      mapper.UpdateData(node.m_data.get(), node.m_region.m_offset, node.m_region.m_count);
     }
   }
 
@@ -317,13 +292,20 @@ void VertexArrayBuffer::Unbind() const
     GLFunctions::glBindVertexArray(0);
 }
 
-void VertexArrayBuffer::BindStaticBuffers() const { BindBuffers(m_staticBuffers); }
-
-void VertexArrayBuffer::BindDynamicBuffers() const { BindBuffers(m_dynamicBuffers); }
-
-void VertexArrayBuffer::BindBuffers(BuffersMap const & buffers) const
+void VertexArrayBuffer::BindStaticBuffers() const
 {
-  for (auto it = buffers.begin(); it != buffers.end(); ++it)
+  BindBuffers(m_staticBuffers);
+}
+
+void VertexArrayBuffer::BindDynamicBuffers() const
+{
+  BindBuffers(m_dynamicBuffers);
+}
+
+void VertexArrayBuffer::BindBuffers(TBuffersMap const & buffers) const
+{
+  TBuffersMap::const_iterator it = buffers.begin();
+  for (; it != buffers.end(); ++it)
   {
     BindingInfo const & binding = it->first;
     ref_ptr<DataBuffer> buffer = make_ref(it->second);
@@ -335,8 +317,11 @@ void VertexArrayBuffer::BindBuffers(BuffersMap const & buffers) const
       int8_t attributeLocation = m_program->GetAttributeLocation(decl.m_attributeName);
       assert(attributeLocation != -1);
       GLFunctions::glEnableVertexAttribute(attributeLocation);
-      GLFunctions::glVertexAttributePointer(attributeLocation, decl.m_componentCount,
-                                            decl.m_componentType, false, decl.m_stride,
+      GLFunctions::glVertexAttributePointer(attributeLocation,
+                                            decl.m_componentCount,
+                                            decl.m_componentType,
+                                            false,
+                                            decl.m_stride,
                                             decl.m_offset);
     }
   }
@@ -347,4 +332,5 @@ ref_ptr<DataBufferBase> VertexArrayBuffer::GetIndexBuffer() const
   ASSERT(m_indexBuffer != nullptr, ());
   return m_indexBuffer->GetBuffer();
 }
-}  // namespace dp
+
+} // namespace dp

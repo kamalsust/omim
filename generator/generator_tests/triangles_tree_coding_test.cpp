@@ -64,12 +64,12 @@ namespace
     tesselator::PointsInfo points;
     m2::PointU (* D2U)(m2::PointD const &, uint32_t) = &PointD2PointU;
     info.GetPointsInfo(saver.GetBasePoint(), saver.GetMaxPoint(),
-                       std::bind(D2U, std::placeholders::_1, cp.GetCoordBits()), points);
+                       bind(D2U, _1, cp.GetCoordBits()), points);
 
     info.ProcessPortions(points, saver);
 
-    std::vector<char> buffer;
-    MemWriter<std::vector<char> > writer(buffer);
+    vector<char> buffer;
+    MemWriter<vector<char> > writer(buffer);
     saver.Save(writer);
 
     TEST ( !buffer.empty(), () );

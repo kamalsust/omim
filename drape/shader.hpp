@@ -1,25 +1,31 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
+#include "drape/glfunctions.hpp"
+
+#include "std/string.hpp"
+#include "std/cstdint.hpp"
 
 namespace dp
 {
+
 class Shader
 {
 public:
-  enum class Type
+  enum Type
   {
     VertexShader,
     FragmentShader
   };
 
-  Shader(std::string const & shaderSource, std::string const & defines, Type type);
+  Shader(string const & shaderSource, string const & defines, Type type);
   ~Shader();
 
-  uint32_t GetID() const;
+  int GetID() const;
 
 private:
   uint32_t m_glID;
 };
-}  // namespace dp
+
+void PreprocessShaderSource(string & src);
+
+} // namespace dp

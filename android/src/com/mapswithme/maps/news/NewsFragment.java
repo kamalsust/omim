@@ -1,19 +1,14 @@
 package com.mapswithme.maps.news;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 
 import com.mapswithme.maps.BuildConfig;
 import com.mapswithme.maps.R;
-import com.mapswithme.maps.downloader.UpdaterDialogFragment;
-import com.mapswithme.util.Counters;
+import com.mapswithme.util.Config;
 
 public class NewsFragment extends BaseNewsFragment
 {
-
   private class Adapter extends BaseNewsFragment.Adapter
   {
     @Override
@@ -59,42 +54,26 @@ public class NewsFragment extends BaseNewsFragment
     return new Adapter();
   }
 
-  @Override
-  protected void onDoneClick()
-  {
-    if (!UpdaterDialogFragment.showOn(getActivity(), getListener()))
-      super.onDoneClick();
-    else
-      dismissAllowingStateLoss();
-  }
-
   /**
    * Displays "What's new" dialog on given {@code activity}. Or not.
    * @return whether "What's new" dialog should be shown.
    */
-  public static boolean showOn(@NonNull FragmentActivity activity,
-                               final @Nullable NewsDialogListener listener)
+  public static boolean showOn(FragmentActivity activity)
   {
-    if (Counters.getFirstInstallVersion() >= BuildConfig.VERSION_CODE)
+    if (Config.getFirstInstallVersion() >= BuildConfig.VERSION_CODE)
       return false;
 
     FragmentManager fm = activity.getSupportFragmentManager();
     if (fm.isDestroyed())
       return false;
 
-    Fragment f = fm.findFragmentByTag(UpdaterDialogFragment.class.getName());
-    if (f != null)
-      return UpdaterDialogFragment.showOn(activity, listener);
-
-    if (Counters.getLastWhatsNewVersion() / 10 >= BuildConfig.VERSION_CODE / 10 &&
+    if (Config.getLastWhatsNewVersion() / 10 >= BuildConfig.VERSION_CODE / 10 &&
         !recreate(activity, NewsFragment.class))
       return false;
 
-    create(activity, NewsFragment.class, listener);
+    create(activity, NewsFragment.class);
 
-    Counters.setWhatsNewShown();
-    Counters.setShowReviewForOldUser(true);
-
+    Config.setWhatsNewShown();
     return true;
   }
 }

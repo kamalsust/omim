@@ -10,37 +10,12 @@ using namespace routing;
 
 namespace
 {
-  static const m2::PolylineD kTestDirectedPolyline1({{0.0, 0.0}, {3.0, 0.0}, {5.0, 0.0}});
-  static const m2::PolylineD kTestDirectedPolyline2({{6.0, 0.0}, {7.0, 0.0}});
+  static const m2::PolylineD kTestDirectedPolyline({{0.0, 0.0}, {3.0, 0.0}, {5.0, 0.0}});
 }  // namespace
-
-UNIT_TEST(FollowedPolylineAppend)
-{
-  FollowedPolyline followedPolyline1(kTestDirectedPolyline1.Begin(), kTestDirectedPolyline1.End());
-  FollowedPolyline const followedPolyline2(kTestDirectedPolyline2.Begin(), kTestDirectedPolyline2.End());
-
-  TEST_EQUAL(followedPolyline1.GetPolyline(), kTestDirectedPolyline1, ());
-  followedPolyline1.Append(followedPolyline2);
-  TEST_EQUAL(followedPolyline1.GetPolyline().GetSize(), 5, ());
-
-  m2::PolylineD polyline1 = kTestDirectedPolyline1;
-  polyline1.Append(kTestDirectedPolyline2);
-  TEST_EQUAL(followedPolyline1.GetPolyline(), polyline1, ());
-}
-
-UNIT_TEST(FollowedPolylinePop)
-{
-  FollowedPolyline followedPolyline(kTestDirectedPolyline1.Begin(), kTestDirectedPolyline1.End());
-
-  TEST_EQUAL(followedPolyline.GetPolyline(), kTestDirectedPolyline1, ());
-  TEST_EQUAL(followedPolyline.GetPolyline().GetSize(), 3, ());
-  followedPolyline.PopBack();
-  TEST_EQUAL(followedPolyline.GetPolyline().GetSize(), 2, ());
-}
 
 UNIT_TEST(FollowedPolylineInitializationFogTest)
 {
-  FollowedPolyline polyline(kTestDirectedPolyline1.Begin(), kTestDirectedPolyline1.End());
+  FollowedPolyline polyline(kTestDirectedPolyline.Begin(), kTestDirectedPolyline.End());
   TEST(polyline.IsValid(), ());
   TEST_EQUAL(polyline.GetCurrentIter().m_ind, 0, ());
   TEST_EQUAL(polyline.GetPolyline().GetSize(), 3, ());
@@ -48,7 +23,7 @@ UNIT_TEST(FollowedPolylineInitializationFogTest)
 
 UNIT_TEST(FollowedPolylineFollowingTestByProjection)
 {
-  FollowedPolyline polyline(kTestDirectedPolyline1.Begin(), kTestDirectedPolyline1.End());
+  FollowedPolyline polyline(kTestDirectedPolyline.Begin(), kTestDirectedPolyline.End());
   TEST_EQUAL(polyline.GetCurrentIter().m_ind, 0, ());
   polyline.UpdateProjection(MercatorBounds::RectByCenterXYAndSizeInMeters({0, 0}, 2));
   TEST_EQUAL(polyline.GetCurrentIter().m_ind, 0, ());
@@ -88,30 +63,30 @@ UNIT_TEST(FollowedPolylineFollowingTestByPrediction)
 UNIT_TEST(FollowedPolylineDistanceCalculationTest)
 {
   // Test full length case.
-  FollowedPolyline polyline(kTestDirectedPolyline1.Begin(), kTestDirectedPolyline1.End());
+  FollowedPolyline polyline(kTestDirectedPolyline.Begin(), kTestDirectedPolyline.End());
   double distance = polyline.GetDistanceM(polyline.Begin(), polyline.End());
-  double masterDistance = MercatorBounds::DistanceOnEarth(kTestDirectedPolyline1.Front(),
-                                                          kTestDirectedPolyline1.Back());
+  double masterDistance = MercatorBounds::DistanceOnEarth(kTestDirectedPolyline.Front(),
+                                                          kTestDirectedPolyline.Back());
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
-  distance = polyline.GetTotalDistanceMeters();
+  distance = polyline.GetTotalDistanceM();
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
 
   // Test partial length case.
   polyline.UpdateProjection(MercatorBounds::RectByCenterXYAndSizeInMeters({3, 0}, 2));
   distance = polyline.GetDistanceM(polyline.GetCurrentIter(), polyline.End());
-  masterDistance = MercatorBounds::DistanceOnEarth(kTestDirectedPolyline1.GetPoint(1),
-                                                   kTestDirectedPolyline1.Back());
+  masterDistance = MercatorBounds::DistanceOnEarth(kTestDirectedPolyline.GetPoint(1),
+                                                   kTestDirectedPolyline.Back());
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
-  distance = polyline.GetDistanceToEndMeters();
+  distance = polyline.GetDistanceToEndM();
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
 
   // Test point in the middle case.
   polyline.UpdateProjection(MercatorBounds::RectByCenterXYAndSizeInMeters({4, 0}, 2));
   distance = polyline.GetDistanceM(polyline.GetCurrentIter(), polyline.End());
   masterDistance = MercatorBounds::DistanceOnEarth(m2::PointD(4, 0),
-                                                   kTestDirectedPolyline1.Back());
+                                                   kTestDirectedPolyline.Back());
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
-  distance = polyline.GetDistanceToEndMeters();
+  distance = polyline.GetDistanceToEndM();
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
 }
 
@@ -136,10 +111,9 @@ UNIT_TEST(FollowedPolylineGetDistanceFromBeginM)
   FollowedPolyline polyline(testPolyline.Begin(), testPolyline.End());
   m2::PointD point(4, 0);
   polyline.UpdateProjection(MercatorBounds::RectByCenterXYAndSizeInMeters(point, 2));
-
-  double const distance = polyline.GetDistanceFromStartMeters();
-  double const masterDistance =
-      MercatorBounds::DistanceOnEarth(kTestDirectedPolyline1.Front(), point);
+  double distance = polyline.GetDistanceFromBeginM();
+  double masterDistance = MercatorBounds::DistanceOnEarth(kTestDirectedPolyline.Front(),
+                                                          point);
   TEST_ALMOST_EQUAL_ULPS(distance, masterDistance, ());
 }
 }  // namespace routing_test

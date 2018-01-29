@@ -15,7 +15,7 @@ auto const kEntertainmentPlacementId = "9";
 auto const kBuildingPlacementId = "11";
 auto const kBannerIdForOtherTypes = "14";
 
-std::initializer_list<storage::TCountryId> const kSupportedCountries =
+std::vector<storage::TCountryId> const kSupportedCountries =
 {
   "Azerbaijan Region",
   "Armenia",
@@ -29,8 +29,6 @@ std::initializer_list<storage::TCountryId> const kSupportedCountries =
   "Uzbekistan",
   "Ukraine"
 };
-
-std::initializer_list<std::string> const kSupportedLanguages = {"be", "hy", "kk", "ru", "uk"};
 }  // namespace
 
 namespace ads
@@ -104,10 +102,7 @@ Rb::Rb()
 
   AppendEntry({{"building"}}, kBuildingPlacementId);
 
-  AppendExcludedTypes({{"sponsored", "banner"}});
-
   AppendSupportedCountries(kSupportedCountries);
-  AppendSupportedUserLanguages(kSupportedLanguages);
 }
 
 std::string Rb::GetBannerIdForOtherTypes() const

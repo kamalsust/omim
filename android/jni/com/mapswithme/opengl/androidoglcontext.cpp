@@ -1,28 +1,21 @@
 #include "androidoglcontext.hpp"
 #include "android_gl_utils.hpp"
-
 #include "base/assert.hpp"
 #include "base/logging.hpp"
-#include "base/src_point.hpp"
 
 namespace android
 {
 
-static EGLint * getContextAttributesList(bool supportedES3)
+static EGLint * getContextAttributesList()
 {
   static EGLint contextAttrList[] = {
     EGL_CONTEXT_CLIENT_VERSION, 2,
     EGL_NONE
   };
-  static EGLint contextAttrListES3[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 3,
-    EGL_NONE
-  };
-  return supportedES3 ? contextAttrListES3 : contextAttrList;
+  return contextAttrList;
 }
 
-AndroidOGLContext::AndroidOGLContext(bool supportedES3, EGLDisplay display, EGLSurface surface,
-                                     EGLConfig config, AndroidOGLContext * contextToShareWith)
+AndroidOGLContext::AndroidOGLContext(EGLDisplay display, EGLSurface surface, EGLConfig config, AndroidOGLContext * contextToShareWith)
   : m_nativeContext(EGL_NO_CONTEXT)
   , m_surface(surface)
   , m_display(display)
@@ -31,7 +24,7 @@ AndroidOGLContext::AndroidOGLContext(bool supportedES3, EGLDisplay display, EGLS
   ASSERT(m_display != EGL_NO_DISPLAY, ());
 
   EGLContext sharedContext = (contextToShareWith == NULL) ? EGL_NO_CONTEXT : contextToShareWith->m_nativeContext;
-  m_nativeContext = eglCreateContext(m_display, config, sharedContext, getContextAttributesList(supportedES3));
+  m_nativeContext = eglCreateContext(m_display, config, sharedContext, getContextAttributesList());
   CHECK(m_nativeContext != EGL_NO_CONTEXT, ());
 }
 

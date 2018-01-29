@@ -1,5 +1,4 @@
 #import "Statistics.h"
-#import "Statistics+ConnectionTypeLogging.h"
 #import "AppInfo.h"
 #import "MWMCustomFacebookEvents.h"
 #import "MWMSettings.h"
@@ -39,9 +38,7 @@ void checkFlurryLogStatus(FlurryEventRecordStatus status)
   // _enabled should be already correctly set up in init method.
   if ([MWMSettings statisticsEnabled])
   {
-    auto sessionBuilder = [[[FlurrySessionBuilder alloc] init]
-                           withAppVersion:[AppInfo sharedInfo].bundleVersion];
-    [Flurry startSession:@(FLURRY_KEY) withSessionBuilder:sessionBuilder];
+    [Flurry startSession:@(FLURRY_KEY)];
     [Flurry logAllPageViewsForTarget:application.windows.firstObject.rootViewController];
 
     [MRMyTracker createTracker:@(MY_TRACKER_KEY)];
@@ -92,7 +89,7 @@ void checkFlurryLogStatus(FlurryEventRecordStatus status)
 - (NSMutableDictionary *)addDefaultAttributesToParameters:(NSDictionary *)parameters
 {
   NSMutableDictionary * params = [parameters mutableCopy];
-  BOOL isLandscape = UIDeviceOrientationIsLandscape(UIDevice.currentDevice.orientation);
+  BOOL isLandscape = UIDeviceOrientationIsLandscape([UIDevice currentDevice].orientation);
   params[kStatOrientation] = isLandscape ? kStatLandscape : kStatPortrait;
   AppInfo * info = [AppInfo sharedInfo];
   params[kStatCountry] = info.countryCode;
@@ -149,23 +146,6 @@ void checkFlurryLogStatus(FlurryEventRecordStatus status)
 + (void)logEvent:(NSString *)eventName withParameters:(NSDictionary *)parameters atLocation:(CLLocation *)location
 {
   [[self instance] logEvent:eventName withParameters:parameters atLocation:location];
-}
-
-@end
-
-@implementation Statistics (ConnectionTypeLogging)
-
-+ (NSString *)connectionTypeToString:(Platform::EConnectionType)type
-{
-  switch (type)
-  {
-  case Platform::EConnectionType::CONNECTION_WWAN:
-    return kStatOffline;
-  case Platform::EConnectionType::CONNECTION_WIFI:
-    return kStatWifi;
-  case Platform::EConnectionType::CONNECTION_NONE:
-    return kStatNone;
-  }
 }
 
 @end

@@ -171,15 +171,14 @@ using namespace osmoh;
   id<MWMOpeningHoursModelProtocol> delegate = self.delegate;
   NSString * oh = delegate.openingHours;
 
-  auto isSimple = isSimpleMode;
-  if (isSimple && oh)
-    isSimple = MakeTimeTableSet(osmoh::OpeningHours(oh.UTF8String), timeTableSet);
+  if (isSimpleMode && oh)
+    isSimpleMode = MakeTimeTableSet(osmoh::OpeningHours(oh.UTF8String), timeTableSet);
 
-  delegate.advancedEditor.hidden = isSimple;
+  delegate.advancedEditor.hidden = isSimpleMode;
   UITableView * tv = delegate.tableView;
   UIButton * toggleModeButton = delegate.toggleModeButton;
 
-  if (isSimple)
+  if (isSimpleMode)
   {
     _isSimpleMode = YES;
     tv.hidden = NO;

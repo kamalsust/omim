@@ -2,7 +2,6 @@ package com.mapswithme.maps.downloader;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.CallSuper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
@@ -18,6 +17,7 @@ import com.mapswithme.maps.base.OnBackPressListener;
 import com.mapswithme.maps.search.NativeMapSearchListener;
 import com.mapswithme.maps.search.SearchEngine;
 import com.mapswithme.maps.widget.PlaceholderView;
+import com.mapswithme.util.UiUtils;
 
 public class DownloaderFragment extends BaseMwmRecyclerFragment
                              implements OnBackPressListener
@@ -25,7 +25,6 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
   private DownloaderToolbarController mToolbarController;
 
   private BottomPanel mBottomPanel;
-  @Nullable
   private DownloaderAdapter mAdapter;
 
   private long mCurrentSearch;
@@ -58,8 +57,7 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
         rs.add(item);
       }
 
-      if (mAdapter != null)
-        mAdapter.setSearchResultsMode(rs, mToolbarController.getQuery());
+      mAdapter.setSearchResultsMode(rs, mToolbarController.getQuery());
 
       if (isLast)
         onSearchEnd();
@@ -77,8 +75,7 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
     mCurrentSearch = System.nanoTime();
     SearchEngine.searchMaps(mToolbarController.getQuery(), mCurrentSearch);
     mToolbarController.showProgress(true);
-    if (mAdapter != null)
-      mAdapter.clearAdsAndCancelMyTarget();
+    mAdapter.clearAdsAndCancelMyTarget();
   }
 
   void clearSearchQuery()
@@ -88,7 +85,7 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
 
   void cancelSearch()
   {
-    if (mAdapter == null || !mAdapter.isSearchResultsMode())
+    if (!mAdapter.isSearchResultsMode())
       return;
 
     mAdapter.resetSearchResultsMode();
@@ -108,7 +105,6 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
     mBottomPanel.update();
   }
 
-  @CallSuper
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState)
   {
@@ -116,7 +112,8 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
     getActivity().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
   }
 
-  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState)
+  @Override
+  public void onViewCreated(View view, Bundle savedInstanceState)
   {
     super.onViewCreated(view, savedInstanceState);
     mSubscriberSlot = MapManager.nativeSubscribe(new MapManager.StorageCallback()
@@ -135,11 +132,8 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
     SearchEngine.INSTANCE.addMapListener(mSearchListener);
 
     getRecyclerView().addOnScrollListener(mScrollListener);
-    if (mAdapter != null)
-    {
-      mAdapter.refreshData();
-      mAdapter.attach();
-    }
+    mAdapter.refreshData();
+    mAdapter.attach();
 
     mBottomPanel = new BottomPanel(this, view);
     mToolbarController = new DownloaderToolbarController(view, getActivity(), this);
@@ -151,8 +145,7 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
   public void onDestroyView()
   {
     super.onDestroyView();
-    if (mAdapter != null)
-      mAdapter.detach();
+    mAdapter.detach();
     mAdapter = null;
 
     if (mSubscriberSlot != 0)
@@ -181,7 +174,7 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
       return true;
     }
 
-    return mAdapter != null && mAdapter.goUpwards();
+    return mAdapter.goUpwards();
   }
 
   @Override
@@ -207,23 +200,21 @@ public class DownloaderFragment extends BaseMwmRecyclerFragment
   }
 
   @Override
-  @Nullable
   public DownloaderAdapter getAdapter()
   {
     return mAdapter;
   }
 
-  @NonNull
-  String getCurrentRoot()
+  @NonNull String getCurrentRoot()
   {
-    return mAdapter != null ? mAdapter.getCurrentRootId() : "";
+    return mAdapter.getCurrentRootId();
   }
 
   @Override
   protected void setupPlaceholder(@NonNull PlaceholderView placeholder)
   {
-    if (mAdapter != null && mAdapter.isSearchResultsMode())
-      placeholder.setContent(R.drawable.img_mappyny,
+    if (mAdapter.isSearchResultsMode())
+      placeholder.setContent(R.drawable.img_search_nothing_found_light,
                              R.string.search_not_found, R.string.search_not_found_query);
     else
       placeholder.setContent(R.drawable.img_search_no_maps,

@@ -17,11 +17,9 @@
 #include "platform/platform.hpp"
 
 #include "search/engine.hpp"
-#include "search/locality_finder.hpp"
 #include "search/reverse_geocoder.hpp"
 #include "search/search_quality/helpers.hpp"
 
-#include "storage/country_info_getter.hpp"
 #include "storage/index.hpp"
 #include "storage/storage.hpp"
 
@@ -120,7 +118,11 @@ string BuildUniqueId(ms::LatLon const & coords, string const & name)
 void AppendNames(FeatureType const & f, vector<string> & columns)
 {
   vector<string> names(kLangCount);
-  f.GetNames().ForEach([&names](int8_t code, string const & name) { names[code] = name; });
+  f.GetNames().ForEach([&names](int8_t code, string const & name) -> bool
+  {
+    names[code] = string(name);
+    return true;
+  });
   columns.insert(columns.end(), next(names.begin()), names.end());
 }
 
@@ -161,16 +163,13 @@ class Processor
 {
   search::ReverseGeocoder m_geocoder;
   my::Cancellable m_cancellable;
-  search::CitiesBoundariesTable m_boundariesTable;
   search::VillagesCache m_villagesCache;
   search::LocalityFinder m_finder;
 
 public:
-  Processor(Index const &index)
-      : m_geocoder(index), m_boundariesTable(index),
-        m_villagesCache(m_cancellable),
-        m_finder(index, m_boundariesTable, m_villagesCache) {
-    m_boundariesTable.Load();
+  Processor(Index const & index)
+    : m_geocoder(index), m_villagesCache(m_cancellable), m_finder(index, m_villagesCache)
+  {
   }
 
   void ClearCache() { m_villagesCache.Clear(); }
@@ -181,9 +180,7 @@ public:
   {
     f.ParseBeforeStatistic();
     string const & category = GetReadableType(f);
-    // "operator" is a reserved word, hence "operatr". This word is pretty common in C++ projects.
-    string const & operatr = f.GetMetadata().Get(feature::Metadata::FMD_OPERATOR);
-    if ((!f.HasName() && operatr.empty()) || f.GetFeatureType() == feature::GEOM_LINE || category.empty())
+    if (!f.HasName() || f.GetFeatureType() == feature::GEOM_LINE || category.empty())
       return;
     m2::PointD const & center = FindCenter(f);
     ms::LatLon const & ll = MercatorBounds::ToLatLon(center);
@@ -191,41 +188,28 @@ public:
     obj.SetFromFeatureType(f);
 
     string city;
-    m_finder.GetLocality(center, [&city](search::LocalityItem const & item) {
-      item.GetSpecifiedOrDefaultName(StringUtf8Multilang::kDefaultCode, city);
-    });
+    m_finder.GetLocality(center, city);
 
     string const & mwmName = f.GetID().GetMwmName();
     string name, secondary;
-    f.GetPreferredNames(name, secondary);
-    if (name.empty())
-      name = operatr;
+    f.GetPreferredNames(false /* allowTranslit */, name, secondary);
     string const & uid = BuildUniqueId(ll, name);
     string const & lat = strings::to_string_with_digits_after_comma(ll.lat, 6);
     string const & lon = strings::to_string_with_digits_after_comma(ll.lon, 6);
     search::ReverseGeocoder::Address addr;
     string addrStreet = "";
     string addrHouse = "";
-    double constexpr kDistanceThresholdMeters = 0.5;
     if (m_geocoder.GetExactAddress(f, addr))
     {
       addrStreet = addr.GetStreetName();
       addrHouse = addr.GetHouseNumber();
-    }
-    else
-    {
-      m_geocoder.GetNearbyAddress(center, addr);
-      if (addr.GetDistance() < kDistanceThresholdMeters)
-      {
-        addrStreet = addr.GetStreetName();
-        addrHouse = addr.GetHouseNumber();
-      }
     }
     string const & phone = f.GetMetadata().Get(feature::Metadata::FMD_PHONE_NUMBER);
     string const & website = f.GetMetadata().Get(feature::Metadata::FMD_WEBSITE);
     string cuisine = f.GetMetadata().Get(feature::Metadata::FMD_CUISINE);
     replace(cuisine.begin(), cuisine.end(), ';', ',');
     string const & stars = f.GetMetadata().Get(feature::Metadata::FMD_STARS);
+    string const & operatr = f.GetMetadata().Get(feature::Metadata::FMD_OPERATOR);
     string const & internet = f.GetMetadata().Get(feature::Metadata::FMD_INTERNET);
     string const & denomination = f.GetMetadata().Get(feature::Metadata::FMD_DENOMINATION);
     string const & wheelchair = GetWheelchairType(f);
@@ -298,6 +282,8 @@ int main(int argc, char ** argv)
                                        mwms);
   for (auto & mwm : mwms)
   {
+    if (argc > 3 && !strings::StartsWith(mwm.GetCountryName(), argv[3]))
+      continue;
     mwm.SyncWithDisk();
     auto const & p = index.RegisterMap(mwm);
     CHECK_EQUAL(MwmSet::RegResult::Success, p.second, ("Could not register map", mwm));
@@ -312,8 +298,6 @@ int main(int argc, char ** argv)
   for (auto const & mwmInfo : mwmInfos)
   {
     if (mwmInfo->GetType() != MwmInfo::COUNTRY)
-      continue;
-    if (argc > 3 && !strings::StartsWith(mwmInfo->GetCountryName() + DATA_FILE_EXTENSION, argv[3]))
       continue;
     LOG(LINFO, ("Processing", mwmInfo->GetCountryName()));
     MwmSet::MwmId mwmId(mwmInfo);

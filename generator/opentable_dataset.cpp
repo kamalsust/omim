@@ -6,26 +6,25 @@
 #include "indexer/classificator.hpp"
 #include "indexer/ftypes_matcher.hpp"
 
-#include "base/logging.hpp"
 #include "base/string_utils.hpp"
 
-#include <iomanip>
+#include "std/iomanip.hpp"
 
 #include "boost/algorithm/string/replace.hpp"
 
 namespace generator
 {
 // OpentableRestaurant ------------------------------------------------------------------------------
-OpentableRestaurant::OpentableRestaurant(std::string const & src)
+OpentableRestaurant::OpentableRestaurant(string const & src)
 {
-  vector<std::string> rec;
+  vector<string> rec;
   strings::ParseCSVRow(src, '\t', rec);
   CHECK_EQUAL(rec.size(), FieldsCount(), ("Error parsing restaurants.tsv line:",
                                           boost::replace_all_copy(src, "\t", "\\t")));
 
-  CLOG(LDEBUG, strings::to_uint(rec[FieldIndex(Fields::Id)], m_id.Get()), ());
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::Latitude)], m_latLon.lat), ());
-  CLOG(LDEBUG, strings::to_double(rec[FieldIndex(Fields::Longtitude)], m_latLon.lon), ());
+  strings::to_uint(rec[FieldIndex(Fields::Id)], m_id.Get());
+  strings::to_double(rec[FieldIndex(Fields::Latitude)], m_latLon.lat);
+  strings::to_double(rec[FieldIndex(Fields::Longtitude)], m_latLon.lon);
 
   m_name = rec[FieldIndex(Fields::Name)];
   m_address = rec[FieldIndex(Fields::Address)];
@@ -34,7 +33,7 @@ OpentableRestaurant::OpentableRestaurant(std::string const & src)
 
 ostream & operator<<(ostream & s, OpentableRestaurant const & h)
 {
-  s << std::fixed << std::setprecision(7);
+  s << fixed << setprecision(7);
   return s << "Id: " << h.m_id << "\t Name: " << h.m_name << "\t Address: " << h.m_address
            << "\t lat: " << h.m_latLon.lat << " lon: " << h.m_latLon.lon;
 }
@@ -55,7 +54,7 @@ void OpentableDataset::PreprocessMatchedOsmObject(ObjectId const matchedObjId, F
 {
   FeatureParams params = fb.GetParams();
 
-  auto const & restaurant = m_storage.GetObjectById(matchedObjId);
+  auto restaurant = GetObjectById(matchedObjId);
   auto & metadata = params.GetMetadata();
   metadata.Set(feature::Metadata::FMD_SPONSORED_ID, strings::to_string(restaurant.m_id.Get()));
 
@@ -82,11 +81,12 @@ OpentableDataset::ObjectId OpentableDataset::FindMatchingObjectIdImpl(FeatureBui
     return Object::InvalidObjectId();
 
   // Find |kMaxSelectedElements| nearest values to a point.
-  auto const nearbyIds = m_storage.GetNearestObjects(MercatorBounds::ToLatLon(fb.GetKeyPoint()));
+  auto const nearbyIds = GetNearestObjects(MercatorBounds::ToLatLon(fb.GetKeyPoint()),
+                                           kMaxSelectedElements, kDistanceLimitInMeters);
 
   for (auto const objId : nearbyIds)
   {
-    if (sponsored_scoring::Match(m_storage.GetObjectById(objId), fb).IsMatched())
+    if (sponsored_scoring::Match(GetObjectById(objId), fb).IsMatched())
       return objId;
   }
 

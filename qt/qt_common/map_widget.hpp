@@ -14,9 +14,6 @@ class Framework;
 class QMouseEvent;
 class QWidget;
 class ScreenBase;
-class QOpenGLShaderProgram;
-class QOpenGLVertexArrayObject;
-class QOpenGLBuffer;
 
 namespace qt
 {
@@ -29,17 +26,14 @@ class MapWidget : public QOpenGLWidget
   Q_OBJECT
 
 public:
-  MapWidget(Framework & framework, bool apiOpenGLES3, QWidget * parent);
+  MapWidget(Framework & framework, QWidget * parent);
   ~MapWidget() override;
 
   void BindHotkeys(QWidget & parent);
   void BindSlider(ScaleSlider & slider);
   void CreateEngine();
 
-signals:
-  void OnContextMenuRequested(QPoint const & p);
-
-public slots:
+public Q_SLOTS:
   void ScalePlus();
   void ScaleMinus();
   void ScalePlusLight();
@@ -48,9 +42,6 @@ public slots:
   void ScaleChanged(int action);
   void SliderPressed();
   void SliderReleased();
-
-  void AntialiasingOn();
-  void AntialiasingOff();
 
 public:
   Q_SIGNAL void BeforeEngineCreation();
@@ -69,7 +60,6 @@ protected:
   df::Touch GetSymmetrical(df::Touch const & touch) const;
 
   void UpdateScaleControl();
-  void Build();
 
   // QOpenGLWidget overrides:
   void initializeGL() override;
@@ -83,7 +73,6 @@ protected:
   void wheelEvent(QWheelEvent * e) override;
 
   Framework & m_framework;
-  bool m_apiOpenGLES3;
   ScaleSlider * m_slider;
   SliderState m_sliderState;
 
@@ -92,10 +81,6 @@ protected:
   std::unique_ptr<gui::Skin> m_skin;
 
   std::unique_ptr<QTimer> m_updateTimer;
-
-  unique_ptr<QOpenGLShaderProgram> m_program;
-  unique_ptr<QOpenGLVertexArrayObject> m_vao;
-  unique_ptr<QOpenGLBuffer> m_vbo;
 };
 }  // namespace common
 }  // namespace qt

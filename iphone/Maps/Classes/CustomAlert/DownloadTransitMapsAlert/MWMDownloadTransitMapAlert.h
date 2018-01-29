@@ -1,5 +1,7 @@
 #import "MWMAlert.h"
 
+#include "storage/storage.hpp"
+
 @interface MWMDownloadTransitMapAlert : MWMAlert
 
 + (instancetype)downloaderAlertWithMaps:(storage::TCountriesVec const &)countries

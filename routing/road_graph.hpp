@@ -1,7 +1,5 @@
 #pragma once
 
-#include "routing/segment.hpp"
-
 #include "geometry/point2d.hpp"
 
 #include "base/string_utils.hpp"
@@ -9,9 +7,9 @@
 #include "indexer/feature_altitude.hpp"
 #include "indexer/feature_data.hpp"
 
-#include <initializer_list>
-#include <map>
-#include <vector>
+#include "std/initializer_list.hpp"
+#include "std/map.hpp"
+#include "std/vector.hpp"
 
 namespace routing
 {
@@ -54,73 +52,51 @@ inline bool AlmostEqualAbs(Junction const & lhs, Junction const & rhs)
 /// The Edge class represents an edge description on a road network graph
 class Edge
 {
-  enum class Type
-  {
-    Real,               // An edge that corresponds to some real segment.
-    FakeWithRealPart,   // A fake edge that is a part of some real segment.
-    FakeWithoutRealPart  // A fake edge that is not part of any real segment.
-  };
-
 public:
-  Edge() = default;
+  static Edge MakeFake(Junction const & startJunction, Junction const & endJunction,
+                       bool partOfReal);
+
+  Edge();
+  Edge(FeatureID const & featureId, bool forward, uint32_t segId, Junction const & startJunction,
+       Junction const & endJunction);
   Edge(Edge const &) = default;
   Edge & operator=(Edge const &) = default;
-
-  static Edge MakeReal(FeatureID const & featureId, bool forward, uint32_t segId,
-                       Junction const & startJunction, Junction const & endJunction);
-  static Edge MakeFake(Junction const & startJunction, Junction const & endJunction);
-  static Edge MakeFake(Junction const & startJunction, Junction const & endJunction,
-                       Edge const & prototype);
 
   inline FeatureID GetFeatureId() const { return m_featureId; }
   inline bool IsForward() const { return m_forward; }
   inline uint32_t GetSegId() const { return m_segId; }
   inline Junction const & GetStartJunction() const { return m_startJunction; }
   inline Junction const & GetEndJunction() const { return m_endJunction; }
-  inline m2::PointD const & GetStartPoint() const { return m_startJunction.GetPoint(); }
-  inline m2::PointD const & GetEndPoint() const { return m_endJunction.GetPoint(); }
-  inline bool IsFake() const { return  m_type != Type::Real; }
-  inline bool HasRealPart() const { return m_type != Type::FakeWithoutRealPart; }
-  inline m2::PointD GetDirection() const
-  {
-    return GetEndJunction().GetPoint() - GetStartJunction().GetPoint();
-  }
+  inline bool IsFake() const { return !m_featureId.IsValid(); }
+  inline bool IsPartOfReal() const { return m_partOfReal; }
 
   Edge GetReverseEdge() const;
 
   bool SameRoadSegmentAndDirection(Edge const & r) const;
 
   bool operator==(Edge const & r) const;
-  bool operator!=(Edge const & r) const { return !(*this == r); }
   bool operator<(Edge const & r) const;
 
 private:
-  Edge(Type type, FeatureID const & featureId, bool forward, uint32_t segId,
-       Junction const & startJunction, Junction const & endJunction);
-
   friend string DebugPrint(Edge const & r);
-
-  Type m_type = Type::FakeWithoutRealPart;
 
   // Feature for which edge is defined.
   FeatureID m_featureId;
 
   // Is the feature along the road.
-  bool m_forward = true;
+  bool m_forward;
+
+  // This flag is set for edges that are parts of some real edges.
+  bool m_partOfReal;
 
   // Ordinal number of the segment on the road.
-  uint32_t m_segId = 0;
+  uint32_t m_segId;
 
   // Start junction of the segment on the road.
   Junction m_startJunction;
 
   // End junction of the segment on the road.
   Junction m_endJunction;
-
-  // Note. If |m_forward| == true index of |m_startJunction| point at the feature |m_featureId|
-  // is less than index |m_endJunction|.
-  // If |m_forward| == false index of |m_startJunction| point at the feature |m_featureId|
-  // is more than index |m_endJunction|.
 };
 
 class RoadGraphBase
@@ -142,23 +118,12 @@ public:
 
   /// @return Types for specified junction
   virtual void GetJunctionTypes(Junction const & junction, feature::TypesHolder & types) const = 0;
-
-  // TODO: remove IsRouteEdgesImplemented and IsRouteSegmentsImplemented as soon as we get rid of
-  // IRoadGraph and RoadGraphRouter
-  virtual bool IsRouteEdgesImplemented() const;
-  virtual bool IsRouteSegmentsImplemented() const;
-
-  virtual void GetRouteEdges(TEdgeVector & routeEdges) const;
-  virtual void GetRouteSegments(std::vector<Segment> & segments) const;
 };
 
 class IRoadGraph : public RoadGraphBase
 {
 public:
-  // CheckGraphConnectivity() types aliases:
-  using Vertex = Junction;
-  using Edge = routing::Edge;
-  using Weight = double;
+  typedef vector<Junction> TJunctionVector;
 
   enum class Mode
   {
@@ -172,7 +137,7 @@ public:
   {
     RoadInfo();
     RoadInfo(RoadInfo && ri);
-    RoadInfo(bool bidirectional, double speedKMPH, std::initializer_list<Junction> const & points);
+    RoadInfo(bool bidirectional, double speedKMPH, initializer_list<Junction> const & points);
     RoadInfo(RoadInfo const &) = default;
     RoadInfo & operator=(RoadInfo const &) = default;
 
@@ -272,8 +237,6 @@ public:
   /// Adds fake edges from fake position rp to real vicinity
   /// positions.
   void AddFakeEdges(Junction const & junction, vector<pair<Edge, Junction>> const & vicinities);
-  void AddOutgoingFakeEdge(Edge const & e);
-  void AddIngoingFakeEdge(Edge const & e);
 
   /// Returns RoadInfo for a road corresponding to featureId.
   virtual RoadInfo GetRoadInfo(FeatureID const & featureId) const = 0;
@@ -315,8 +278,6 @@ public:
   void GetFakeIngoingEdges(Junction const & junction, TEdgeVector & edges) const;
 
 private:
-  void AddEdge(Junction const & j, Edge const & e, std::map<Junction, TEdgeVector> & edges);
-
   template <typename Fn>
   void ForEachFakeEdge(Fn && fn)
   {
@@ -333,16 +294,14 @@ private:
     }
   }
 
-  /// \note |m_fakeIngoingEdges| and |m_fakeOutgoingEdges| map junctions to sorted vectors.
-  /// Items to these maps should be inserted with AddEdge() method only.
-  std::map<Junction, TEdgeVector> m_fakeIngoingEdges;
-  std::map<Junction, TEdgeVector> m_fakeOutgoingEdges;
+  map<Junction, TEdgeVector> m_fakeIngoingEdges;
+  map<Junction, TEdgeVector> m_fakeOutgoingEdges;
 };
 
 string DebugPrint(IRoadGraph::Mode mode);
 
 IRoadGraph::RoadInfo MakeRoadInfoForTesting(bool bidirectional, double speedKMPH,
-                                            std::initializer_list<m2::PointD> const & points);
+                                            initializer_list<m2::PointD> const & points);
 
 inline void JunctionsToPoints(vector<Junction> const & junctions, vector<m2::PointD> & points)
 {

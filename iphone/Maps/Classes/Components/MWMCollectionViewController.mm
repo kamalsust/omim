@@ -1,5 +1,4 @@
 #import "MWMCollectionViewController.h"
-#import "3party/Alohalytics/src/alohalytics_objc.h"
 #import "MWMAlertViewController.h"
 #import "MapViewController.h"
 

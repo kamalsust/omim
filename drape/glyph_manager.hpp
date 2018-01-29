@@ -3,12 +3,15 @@
 #include "base/shared_buffer_manager.hpp"
 #include "base/string_utils.hpp"
 
-#include <string>
-#include <vector>
-#include <functional>
+#include "std/unique_ptr.hpp"
+#include "std/string.hpp"
+#include "std/vector.hpp"
+
+#include "std/function.hpp"
 
 namespace dp
 {
+
 uint32_t constexpr kSdfBorder = 4;
 
 struct UnicodeBlock;
@@ -20,11 +23,11 @@ public:
 
   struct Params
   {
-    std::string m_uniBlocks;
-    std::string m_whitelist;
-    std::string m_blacklist;
+    string m_uniBlocks;
+    string m_whitelist;
+    string m_blacklist;
 
-    std::vector<std::string> m_fonts;
+    vector<string> m_fonts;
 
     uint32_t m_baseGlyphHeight = 22;
     uint32_t m_sdfScale = 4;
@@ -73,23 +76,21 @@ public:
     int m_fixedSize;
   };
 
-  explicit GlyphManager(Params const & params);
+  GlyphManager(Params const & params);
   ~GlyphManager();
 
   Glyph GetGlyph(strings::UniChar unicodePoints, int fixedHeight);
+  Glyph GenerateGlyph(Glyph const & glyph) const;
 
   void MarkGlyphReady(Glyph const & glyph);
   bool AreGlyphsReady(strings::UniString const & str, int fixedSize) const;
 
-  using TUniBlockCallback = std::function<void(strings::UniChar start, strings::UniChar end)>;
+  typedef function<void (strings::UniChar start, strings::UniChar end)> TUniBlockCallback;
   void ForEachUnicodeBlock(TUniBlockCallback const & fn) const;
 
   Glyph GetInvalidGlyph(int fixedSize) const;
 
   uint32_t GetBaseGlyphHeight() const;
-  uint32_t GetSdfScale() const;
-
-  static Glyph GenerateGlyph(Glyph const & glyph, uint32_t sdfScale);
 
 private:
   int GetFontIndex(strings::UniChar unicodePoint);
@@ -101,4 +102,5 @@ private:
   struct Impl;
   Impl * m_impl;
 };
-}  // namespace dp
+
+}

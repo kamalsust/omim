@@ -40,9 +40,6 @@
     <item>nl</item>
     <item>pl</item>
     <item>ro</item>
-    <item>fa</item>
-    <item>uk</item>
-    <item>vi</item>
   </string-array>
 
   <string-array name="tts_language_names"
@@ -71,8 +68,5 @@
     <item>Nederlands</item>
     <item>Polski</item>
     <item>Română</item>
-    <item>فارسی</item>
-    <item>Українська</item>
-    <item>Tiếng Việt</item>
   </string-array>
 </resources>

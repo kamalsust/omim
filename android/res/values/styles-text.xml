@@ -76,11 +76,6 @@
     <item name="android:textColor">?android:textColorPrimaryInverse</item>
   </style>
 
-  <style name="MwmTextAppearance.Body5">
-    <item name="android:textSize">@dimen/text_size_body_5</item>
-    <item name="android:textColor">?android:textColorSecondary</item>
-  </style>
-
   <style name="MwmTextAppearance.Button">
     <item name="android:textSize">@dimen/text_size_button</item>
     <item name="android:textColor">?colorAccent</item>
@@ -190,24 +185,5 @@
 
   <style name="MwmTextAppearance.Tab" parent="MwmTextAppearance.Body4">
     <item name="android:textAllCaps">true</item>
-  </style>
-
-  <style name="MwmTextAppearance.Discovery.Subtitle" parent="MwmTextAppearance.Body3">
-    <item name="android:fontFamily" tools:targetApi="jelly_bean">@string/robotoMedium</item>
-    <item name="android:textAllCaps">true</item>
-  </style>
-
-  <style name="MwmTextAppearance.Discovery.Item.Title" parent="MwmTextAppearance.Body3.Primary">
-    <item name="android:textStyle">bold</item>
-  </style>
-
-  <style name="MwmTextAppearance.Discovery.Item.Button" parent="MwmTextAppearance.Body3.Primary">
-    <item name="android:textStyle">bold</item>
-    <item name="android:textColor">?colorAccent</item>
-    <item name="android:textAllCaps">true</item>
-  </style>
-
-  <style name="MwmTextAppearance.Discovery.Item.Distance" parent="MwmTextAppearance.Body3.Primary">
-    <item name="android:textColor">?colorAccent</item>
   </style>
 </resources>

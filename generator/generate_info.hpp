@@ -1,16 +1,13 @@
 #pragma once
 
-#include "generator/cities_boundaries_builder.hpp"
-
-#include "coding/file_name_utils.hpp"
+#include "defines.hpp"
 
 #include "base/logging.hpp"
 
-#include "defines.hpp"
+#include "coding/file_name_utils.hpp"
 
-#include <memory>
-#include <string>
-#include <vector>
+#include "std/string.hpp"
+#include "std/vector.hpp"
 
 namespace feature
 {
@@ -30,30 +27,27 @@ struct GenerateInfo
   };
 
   // Directory for .mwm.tmp files.
-  std::string m_tmpDir;
+  string m_tmpDir;
   // Directory for result .mwm files.
-  std::string m_targetDir;
+  string m_targetDir;
   // Directory for all intermediate files.
-  std::string m_intermediateDir;
+  string m_intermediateDir;
 
   // Current generated file name if --output option is defined.
-  std::string m_fileName;
+  string m_fileName;
 
   NodeStorageType m_nodeStorageType;
   OsmSourceType m_osmFileType;
-  std::string m_osmFileName;
+  string m_osmFileName;
 
-  std::string m_bookingDatafileName;
-  std::string m_bookingReferenceDir;
-  std::string m_opentableDatafileName;
-  std::string m_opentableReferenceDir;
-  std::string m_viatorDatafileName;
-
-  std::shared_ptr<generator::OsmIdToBoundariesTable> m_boundariesTable;
+  string m_bookingDatafileName;
+  string m_bookingReferenceDir;
+  string m_opentableDatafileName;
+  string m_opentableReferenceDir;
 
   uint32_t m_versionDate = 0;
 
-  std::vector<std::string> m_bucketNames;
+  vector<string> m_bucketNames;
 
   bool m_createWorld = false;
   bool m_splitByPolygons = false;
@@ -66,7 +60,7 @@ struct GenerateInfo
 
   GenerateInfo() = default;
 
-  void SetOsmFileType(std::string const & type)
+  void SetOsmFileType(string const & type)
   {
     if (type == "xml")
       m_osmFileType = OsmSourceType::XML;
@@ -76,7 +70,7 @@ struct GenerateInfo
       LOG(LCRITICAL, ("Unknown source type:", type));
   }
 
-  void SetNodeStorageType(std::string const & type)
+  void SetNodeStorageType(string const & type)
   {
     if (type == "raw")
       m_nodeStorageType = NodeStorageType::File;
@@ -88,24 +82,24 @@ struct GenerateInfo
       LOG(LCRITICAL, ("Incorrect node_storage type:", type));
   }
 
-  std::string GetTmpFileName(std::string const & fileName, char const * ext = DATA_FILE_EXTENSION_TMP) const
+  string GetTmpFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION_TMP) const
   {
     return my::JoinFoldersToPath(m_tmpDir, fileName + ext);
   }
 
-  std::string GetTargetFileName(std::string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
+  string GetTargetFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
   {
     return my::JoinFoldersToPath(m_targetDir, fileName + ext);
   }
 
-  std::string GetIntermediateFileName(std::string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
+  string GetIntermediateFileName(string const & fileName, char const * ext = DATA_FILE_EXTENSION) const
   {
     return my::JoinFoldersToPath(m_intermediateDir, fileName + ext);
   }
 
-  std::string GetAddressesFileName() const
+  string GetAddressesFileName() const
   {
-    return ((m_genAddresses && !m_fileName.empty()) ? GetTargetFileName(m_fileName, ADDR_FILE_EXTENSION) : std::string());
+    return ((m_genAddresses && !m_fileName.empty()) ? GetTargetFileName(m_fileName, ADDR_FILE_EXTENSION) : string());
   }
 };
 }  // namespace feature

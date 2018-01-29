@@ -7,12 +7,8 @@
 
 #include "routing_common/pedestrian_model.hpp"
 
-#include <memory>
-#include <set>
-#include <string>
-#include <utility>
-
-using namespace std;
+#include "std/set.hpp"
+#include "std/string.hpp"
 
 namespace
 {
@@ -42,17 +38,15 @@ public:
 
 protected:
   // RoutingTest overrides:
-  unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine(
-    shared_ptr<routing::NumMwmIds> numMwmIds) override
+  unique_ptr<routing::IDirectionsEngine> CreateDirectionsEngine() override
   {
-    unique_ptr<routing::IDirectionsEngine> engine(
-        new routing::PedestrianDirectionsEngine(move(numMwmIds)));
+    unique_ptr<routing::IDirectionsEngine> engine(new routing::PedestrianDirectionsEngine());
     return engine;
   }
 
-  unique_ptr<routing::VehicleModelFactoryInterface> CreateModelFactory() override
+  unique_ptr<routing::VehicleModelFactory> CreateModelFactory() override
   {
-    unique_ptr<routing::VehicleModelFactoryInterface> factory(
+    unique_ptr<routing::VehicleModelFactory> factory(
         new SimplifiedModelFactory<routing::PedestrianModel>());
     return factory;
   }

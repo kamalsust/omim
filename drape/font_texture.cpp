@@ -1,5 +1,4 @@
 #include "drape/font_texture.hpp"
-
 #include "drape/pointers.hpp"
 
 #include "platform/platform.hpp"
@@ -9,16 +8,19 @@
 #include "base/string_utils.hpp"
 #include "base/stl_add.hpp"
 
-#include <functional>
-#include <iterator>
-
-using namespace std::placeholders;
+#include "std/chrono.hpp"
+#include "std/string.hpp"
+#include "std/vector.hpp"
+#include "std/map.hpp"
+#include "std/bind.hpp"
 
 namespace dp
 {
+
 GlyphPacker::GlyphPacker(const m2::PointU & size)
   : m_size(size)
-{}
+{
+}
 
 bool GlyphPacker::PackGlyph(uint32_t width, uint32_t height, m2::RectU & rect)
 {
@@ -70,142 +72,91 @@ bool GlyphPacker::CanBePacked(uint32_t glyphsCount, uint32_t width, uint32_t hei
 
 m2::RectF GlyphPacker::MapTextureCoords(const m2::RectU & pixelRect) const
 {
-  auto const width = static_cast<float>(m_size.x);
-  auto const height = static_cast<float>(m_size.y);
+  float fWidth = static_cast<float>(m_size.x);
+  float fHeight = static_cast<float>(m_size.y);
 
-  // Half-pixel offset to eliminate artefacts on fetching from texture.
+  // Half-pixel offset to eliminate arfefacts on fetching from texture.
   float offset = 0.0f;
   if (pixelRect.SizeX() != 0 && pixelRect.SizeY() != 0)
     offset = 0.5f;
 
-  return {(pixelRect.minX() + offset) / width,
-          (pixelRect.minY() + offset) / height,
-          (pixelRect.maxX() - offset) / width,
-          (pixelRect.maxY() - offset) / height};
+  return m2::RectF((pixelRect.minX() + offset) / fWidth,
+                   (pixelRect.minY() + offset) / fHeight,
+                   (pixelRect.maxX() - offset) / fWidth,
+                   (pixelRect.maxY() - offset) / fHeight);
 }
 
 bool GlyphPacker::IsFull() const { return m_isFull; }
 
-void GlyphGenerator::GenerateGlyphTask::Run(uint32_t sdfScale)
-{
-  m_generatedGlyphs.reserve(m_glyphs.size());
-  for (auto & data : m_glyphs)
-  {
-    if (m_isCancelled)
-      return;
-
-    auto const g = GlyphManager::GenerateGlyph(data.m_glyph, sdfScale);
-    data.DestroyGlyph();
-    m_generatedGlyphs.emplace_back(GlyphGenerator::GlyphGenerationData{data.m_rect, g});
-  }
-}
-
-void GlyphGenerator::GenerateGlyphTask::DestroyAllGlyphs()
-{
-  for (auto & data : m_glyphs)
-    data.DestroyGlyph();
-
-  for (auto & data : m_generatedGlyphs)
-    data.DestroyGlyph();
-}
-
-GlyphGenerator::GlyphGenerator(uint32_t sdfScale,
-                               CompletionHandler const & completionHandler)
-  : m_sdfScale(sdfScale)
+GlyphGenerator::GlyphGenerator(ref_ptr<GlyphManager> mng, TCompletionHandler const & completionHandler)
+  : m_mng(mng)
   , m_completionHandler(completionHandler)
+  , m_isRunning(true)
+  , m_isSuspended(false)
+  , m_thread(&GlyphGenerator::Routine, this)
 {
   ASSERT(m_completionHandler != nullptr, ());
 }
 
 GlyphGenerator::~GlyphGenerator()
 {
-  {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_completionHandler = nullptr;
-  }
+  m_isRunning = false;
+  m_condition.notify_one();
+  m_thread.join();
+  m_completionHandler = nullptr;
 
-  // Here we have to wait for active tasks completion,
-  // because they capture 'this' pointer.
-  m_activeTasks.FinishAll();
-
-  std::lock_guard<std::mutex> lock(m_mutex);
-  for (auto & data : m_queue)
-    data.DestroyGlyph();
+  for (GlyphGenerationData & data : m_queue)
+    data.m_glyph.m_image.Destroy();
   m_queue.clear();
+}
+
+void GlyphGenerator::WaitForGlyph(list<GlyphGenerationData> & queue)
+{
+  unique_lock<mutex> lock(m_queueLock);
+  m_isSuspended = true;
+  m_condition.wait(lock, [this] { return !m_queue.empty() || !m_isRunning; });
+  m_isSuspended = false;
+  queue.swap(m_queue);
 }
 
 bool GlyphGenerator::IsSuspended() const
 {
-  std::lock_guard<std::mutex> lock(m_mutex);
-  return m_glyphsCounter == 0;
+  lock_guard<mutex> lock(m_queueLock);
+  return m_isSuspended;
 }
 
-void GlyphGenerator::GenerateGlyph(m2::RectU const & rect, GlyphManager::Glyph & glyph)
+void GlyphGenerator::Routine(GlyphGenerator * generator)
 {
-  GenerateGlyph(GlyphGenerationData(rect, glyph));
-}
-
-void GlyphGenerator::GenerateGlyph(GlyphGenerationData && data)
-{
-  GenerateGlyphs({std::move(data)});
-}
-
-void GlyphGenerator::GenerateGlyphs(GlyphGenerationDataArray && generationData)
-{
-  std::lock_guard<std::mutex> lock(m_mutex);
-  if (!m_completionHandler)
+  ASSERT(generator != nullptr, ());
+  while (generator->m_isRunning)
   {
-    for (auto & data : generationData)
-      data.DestroyGlyph();
-    return;
+    list<GlyphGenerationData> queue;
+    generator->WaitForGlyph(queue);
+
+    // generate glyphs
+    for (GlyphGenerationData & data : queue)
+    {
+      GlyphManager::Glyph glyph = generator->m_mng->GenerateGlyph(data.m_glyph);
+      data.m_glyph.m_image.Destroy();
+      generator->m_completionHandler(data.m_rect, glyph);
+    }
   }
-
-  GlyphGenerationDataArray queue;
-  std::move(generationData.begin(), generationData.end(), std::back_inserter(m_queue));
-  std::swap(m_queue, queue);
-  m_glyphsCounter += queue.size();
-
-  // Generate glyphs on the separate thread.
-  auto generateTask = std::make_shared<GenerateGlyphTask>(std::move(queue));
-  auto result = DrapeRoutine::Run([this, generateTask]() mutable
-  {
-    generateTask->Run(m_sdfScale);
-    OnTaskFinished(generateTask);
-  });
-
-  if (result)
-    m_activeTasks.Add(generateTask, result);
-  else
-    generateTask->DestroyAllGlyphs();
 }
 
-void GlyphGenerator::OnTaskFinished(std::shared_ptr<GenerateGlyphTask> const & task)
+void GlyphGenerator::GenerateGlyph(m2::RectU const & rect, GlyphManager::Glyph const & glyph)
 {
-  if (task->IsCancelled())
-  {
-    task->DestroyAllGlyphs();
-    return;
-  }
-
-  auto glyphs = task->StealGeneratedGlyphs();
-
-  std::lock_guard<std::mutex> lock(m_mutex);
-  ASSERT_GREATER_OR_EQUAL(m_glyphsCounter, glyphs.size(), ());
-  m_glyphsCounter -= glyphs.size();
-  m_completionHandler(std::move(glyphs));
-
-  m_activeTasks.Remove(task);
+  lock_guard<mutex> lock(m_queueLock);
+  m_queue.emplace_back(rect, glyph);
+  m_condition.notify_one();
 }
 
 GlyphIndex::GlyphIndex(m2::PointU size, ref_ptr<GlyphManager> mng)
   : m_packer(size)
   , m_mng(mng)
-  , m_generator(my::make_unique<GlyphGenerator>(mng->GetSdfScale(),
-                std::bind(&GlyphIndex::OnGlyphGenerationCompletion, this, _1)))
+  , m_generator(new GlyphGenerator(mng, bind(&GlyphIndex::OnGlyphGenerationCompletion, this, _1, _2)))
 {
   // Cache invalid glyph.
-  auto const key = GlyphKey(m_mng->GetInvalidGlyph(GlyphManager::kDynamicGlyphSize).m_code,
-                            GlyphManager::kDynamicGlyphSize);
+  GlyphKey const key = GlyphKey(m_mng->GetInvalidGlyph(GlyphManager::kDynamicGlyphSize).m_code, GlyphManager::kDynamicGlyphSize);
   bool newResource = false;
   MapResource(key, newResource);
 }
@@ -213,51 +164,17 @@ GlyphIndex::GlyphIndex(m2::PointU size, ref_ptr<GlyphManager> mng)
 GlyphIndex::~GlyphIndex()
 {
   m_generator.reset();
-
-  std::lock_guard<std::mutex> lock(m_mutex);
-  for (auto & node : m_pendingNodes)
-    node.second.m_image.Destroy();
-  m_pendingNodes.clear();
+  {
+    threads::MutexGuard g(m_lock);
+    for_each(m_pendingNodes.begin(), m_pendingNodes.end(), [](TPendingNode & node)
+    {
+      node.second.m_image.Destroy();
+    });
+    m_pendingNodes.clear();
+  }
 }
 
 ref_ptr<Texture::ResourceInfo> GlyphIndex::MapResource(GlyphKey const & key, bool & newResource)
-{
-  GlyphGenerator::GlyphGenerationData data;
-  auto result = MapResource(key, newResource, data);
-  if (result != nullptr && newResource)
-    m_generator->GenerateGlyph(data.m_rect, data.m_glyph);
-  return result;
-}
-
-std::vector<ref_ptr<Texture::ResourceInfo>> GlyphIndex::MapResources(std::vector<GlyphKey> const & keys,
-                                                                     bool & hasNewResources)
-{
-  GlyphGenerator::GlyphGenerationDataArray dataArray;
-  dataArray.reserve(keys.size());
-
-  std::vector<ref_ptr<Texture::ResourceInfo>> info;
-  info.reserve(keys.size());
-
-  hasNewResources = false;
-  for (auto const & glyphKey : keys)
-  {
-    bool newResource = false;
-    GlyphGenerator::GlyphGenerationData data;
-    auto result = MapResource(glyphKey, newResource, data);
-    hasNewResources |= newResource;
-    if (result != nullptr && newResource)
-      dataArray.push_back(std::move(data));
-    info.push_back(std::move(result));
-  }
-
-  if (!dataArray.empty())
-    m_generator->GenerateGlyphs(std::move(dataArray));
-
-  return info;
-}
-
-ref_ptr<Texture::ResourceInfo> GlyphIndex::MapResource(GlyphKey const & key, bool & newResource,
-                                                       GlyphGenerator::GlyphGenerationData & generationData)
 {
   newResource = false;
   auto it = m_index.find(key);
@@ -271,23 +188,17 @@ ref_ptr<Texture::ResourceInfo> GlyphIndex::MapResource(GlyphKey const & key, boo
   if (!m_packer.PackGlyph(glyph.m_image.m_width, glyph.m_image.m_height, r))
   {
     glyph.m_image.Destroy();
-    LOG(LWARNING, ("Glyphs packer could not pack a glyph", key.GetUnicodePoint(),
-                   "w =", glyph.m_image.m_width, "h =", glyph.m_image.m_height,
-                   "packerSize =", m_packer.GetSize()));
+    LOG(LWARNING, ("Glyphs packer could not pack a glyph", key.GetUnicodePoint()));
 
-    auto const invalidGlyph = m_mng->GetInvalidGlyph(key.GetFixedSize());
-    auto invalidGlyphIndex = m_index.find(GlyphKey(invalidGlyph.m_code, key.GetFixedSize()));
-    if (invalidGlyphIndex != m_index.end())
-    {
-      generationData.m_glyph = invalidGlyph;
-      generationData.m_rect = r;
-      return make_ref(&invalidGlyphIndex->second);
-    }
+    auto invalidGlyph = m_index.find(GlyphKey(m_mng->GetInvalidGlyph(key.GetFixedSize()).m_code,
+                                              key.GetFixedSize()));
+    if (invalidGlyph != m_index.end())
+      return make_ref(&invalidGlyph->second);
 
     return nullptr;
   }
-  generationData.m_glyph = glyph;
-  generationData.m_rect = r;
+
+  m_generator->GenerateGlyph(r, glyph);
 
   auto res = m_index.emplace(key, GlyphInfo(m_packer.MapTextureCoords(r), glyph.m_metrics));
   ASSERT(res.second, ());
@@ -303,7 +214,7 @@ bool GlyphIndex::CanBeGlyphPacked(uint32_t glyphsCount) const
     return false;
 
   float const kGlyphScalar = 1.5f;
-  auto const baseSize = static_cast<uint32_t>(m_mng->GetBaseGlyphHeight() * kGlyphScalar);
+  uint32_t const baseSize = static_cast<uint32_t>(m_mng->GetBaseGlyphHeight() * kGlyphScalar);
   return m_packer.CanBePacked(glyphsCount, baseSize, baseSize);
 }
 
@@ -314,24 +225,24 @@ bool GlyphIndex::HasAsyncRoutines() const
 
 size_t GlyphIndex::GetPendingNodesCount()
 {
-  std::lock_guard<std::mutex> lock(m_mutex);
+  threads::MutexGuard g(m_lock);
   return m_pendingNodes.size();
 }
 
-void GlyphIndex::OnGlyphGenerationCompletion(GlyphGenerator::GlyphGenerationDataArray && glyphs)
+void GlyphIndex::OnGlyphGenerationCompletion(m2::RectU const & rect, GlyphManager::Glyph const & glyph)
 {
-  std::lock_guard<std::mutex> lock(m_mutex);
-  for (auto & g : glyphs)
-    m_pendingNodes.emplace_back(g.m_rect, g.m_glyph);
+  threads::MutexGuard g(m_lock);
+  m_pendingNodes.emplace_back(rect, glyph);
 }
 
 void GlyphIndex::UploadResources(ref_ptr<Texture> texture)
 {
-  PendingNodes pendingNodes;
+  if (m_pendingNodes.empty())
+    return;
+
+  TPendingNodes pendingNodes;
   {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_pendingNodes.empty())
-      return;
+    threads::MutexGuard g(m_lock);
     m_pendingNodes.swap(pendingNodes);
   }
 
@@ -378,4 +289,5 @@ uint32_t GlyphIndex::GetAbsentGlyphsCount(strings::UniString const & text, int f
   }
   return count;
 }
-}  // namespace dp
+
+} // namespace dp

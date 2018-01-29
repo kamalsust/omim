@@ -38,14 +38,6 @@
 + (UIColor *)bannerButtonBackground;
 + (UIColor *)toastBackground;
 + (UIColor *)statusBarBackground;
-+ (UIColor *)transparentGreen;
-+ (UIColor *)ratingRed;
-+ (UIColor *)ratingOrange;
-+ (UIColor *)ratingYellow;
-+ (UIColor *)ratingLightGreen;
-+ (UIColor *)ratingGreen;
-+ (UIColor *)partner1Background;
-+ (UIColor *)partner1TextColor;
 
 + (UIColor *)colorWithName:(NSString *)colorName;
 

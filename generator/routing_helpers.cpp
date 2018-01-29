@@ -1,6 +1,6 @@
 #include "generator/routing_helpers.hpp"
 
-#include "generator/utils.hpp"
+#include "generator/gen_mwm_info.hpp"
 
 #include "coding/file_reader.hpp"
 #include "coding/reader.hpp"
@@ -15,11 +15,25 @@ namespace
 template <class ToDo>
 bool ForEachRoadFromFile(string const & filename, ToDo && toDo)
 {
-  return generator::ForEachOsmId2FeatureId(filename,
-                                           [&](osm::Id const & osmId, uint32_t const featureId) {
-                                             if (osmId.IsWay())
-                                               toDo(featureId, osmId);
-                                           });
+  gen::OsmID2FeatureID osmIdsToFeatureIds;
+  try
+  {
+    FileReader reader(filename);
+    ReaderSource<FileReader> src(reader);
+    osmIdsToFeatureIds.Read(src);
+  }
+  catch (FileReader::Exception const & e)
+  {
+    LOG(LERROR, ("Exception while reading file:", filename, ". Msg:", e.Msg()));
+    return false;
+  }
+
+  osmIdsToFeatureIds.ForEach([&](gen::OsmID2FeatureID::ValueT const & p) {
+    if (p.first.IsWay())
+      toDo(p.second /* feature id */, p.first /* osm id */);
+  });
+
+  return true;
 }
 }  // namespace
 
@@ -27,9 +41,12 @@ namespace routing
 {
 void AddFeatureId(osm::Id osmId, uint32_t featureId, map<osm::Id, uint32_t> &osmIdToFeatureId)
 {
-  // Failing to insert here usually means that two features were created
-  // from one osm id, for example an area and its boundary.
-  osmIdToFeatureId.insert(make_pair(osmId, featureId));
+  auto const result = osmIdToFeatureId.insert(make_pair(osmId, featureId));
+  if (!result.second)
+  {
+    LOG(LERROR, ("Osm id", osmId, "is included in two feature ids:", featureId,
+                 osmIdToFeatureId.find(osmId)->second));
+  }
 }
 
 bool ParseOsmIdToFeatureIdMapping(string const & osmIdsToFeatureIdPath,
@@ -47,7 +64,7 @@ bool ParseFeatureIdToOsmIdMapping(string const & osmIdsToFeatureIdPath,
   bool idsAreOk = true;
 
   bool const readSuccess =
-      ForEachRoadFromFile(osmIdsToFeatureIdPath, [&](uint32_t featureId, osm::Id const & osmId) {
+      ForEachRoadFromFile(osmIdsToFeatureIdPath, [&](uint32_t featureId, osm::Id osmId) {
         auto const emplaced = featureIdToOsmId.emplace(featureId, osmId);
         if (emplaced.second)
           return;

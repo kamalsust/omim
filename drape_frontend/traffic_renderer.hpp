@@ -10,10 +10,11 @@
 #include "geometry/screenbase.hpp"
 #include "geometry/spline.hpp"
 
-#include <vector>
+#include "std/vector.hpp"
 
 namespace df
 {
+
 class TrafficRenderer final
 {
 public:
@@ -42,6 +43,7 @@ private:
   static float GetPixelWidth(RoadClass const & roadClass, int zoomLevel);
   static float GetPixelWidthInternal(RoadClass const & roadClass, int zoomLevel);
 
-  std::vector<TrafficRenderData> m_renderData;
+  vector<TrafficRenderData> m_renderData;
 };
-}  // namespace df
+
+} // namespace df

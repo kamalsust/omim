@@ -19,7 +19,7 @@ using namespace storage;
 
 - (instancetype)initWithSearchResults:(DownloaderSearchResults const &)results delegate:(id<MWMMapDownloaderProtocol, MWMMapDownloaderButtonTableViewCellProtocol>)delegate
 {
-  self = [super initWithDelegate:delegate mode:MWMMapDownloaderModeAvailable];
+  self = [super initWithDelegate:delegate mode:mwm::DownloaderMode::Available];
   if (self)
   {
     NSMutableOrderedSet<NSString *> * nsSearchCountryIds =

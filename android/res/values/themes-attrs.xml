@@ -28,6 +28,9 @@
     <attr name="ppPositive" format="reference"/>
     <attr name="ppNegative" format="reference"/>
 
+    <attr name="routingSlot" format="reference"/>
+    <attr name="routingSlotPressed" format="reference"/>
+    <attr name="routingSlotMarker" format="reference"/>
     <attr name="navNextTurnFrame" format="reference"/>
     <attr name="navNextNextTurnFrame" format="reference"/>
 
@@ -37,7 +40,6 @@
     <attr name="buttonDialogTextColor" format="color"/>
 
     <attr name="accentButtonBackground" format="reference"/>
-    <attr name="accentButtonRoundBackground" format="reference"/>
     <attr name="accentButtonTextColor" format="color"/>
     <attr name="accentButtonTextColorDisabled" format="color"/>
 
@@ -80,20 +82,6 @@
     <attr name="activeIconBackground" format="reference"/>
 
     <attr name="warmGray" format="color"/>
-
-    <attr name="localAdSearchResBackground" format="color"/>
-
-    <attr name="tagBackground" format="reference"/>
-
-    <attr name="sponsoredGalleryMore" format="reference"/>
-
-    <attr name="cianLogo" format="reference"/>
-    <attr name="viatorLogo" format="reference" />
-
-    <attr name="ratingButtonBackground" format="reference"/>
-    <attr name="reviewButtonBackground" format="reference"/>
-    <attr name="transitPedestrianBackground" format="color"/>
-    <attr name="transitStepDivider" format="reference"/>
   </declare-styleable>
 
   <declare-styleable name="ThemeAttrs.NavButtons">

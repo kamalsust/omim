@@ -4,9 +4,7 @@
 #include "base/logging.hpp"
 #include "base/string_utils.hpp"
 #include "base/timer.hpp"
-#include "base/waiter.hpp"
 
-#include "std/chrono.hpp"
 #include "std/cstring.hpp"
 #include "std/iomanip.hpp"
 #include "std/iostream.hpp"
@@ -26,7 +24,11 @@
 #if defined(OMIM_UNIT_TEST_WITH_QT_EVENT_LOOP) && !defined(OMIM_OS_IPHONE)
   #include <QtCore/Qt>
   #ifdef OMIM_OS_MAC // on Mac OS X native run loop works only for QApplication :(
-    #include <QtWidgets/QApplication>
+    #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+      #include <QtGui/QApplication>
+    #else
+      #include <QtWidgets/QApplication>
+    #endif
     #define QAPP QApplication
   #else
     #include <QtCore/QCoreApplication>
@@ -34,10 +36,6 @@
   #endif
 #endif
 
-namespace
-{
-base::Waiter g_waiter;
-}  // namespace
 namespace testing
 {
 
@@ -59,16 +57,6 @@ void StopEventLoop()
 #endif
 }
 
-void Wait()
-{
-  g_waiter.Wait();
-  g_waiter.Reset();
-}
-
-void Notify()
-{
-  g_waiter.Notify();
-}
 } //  namespace testing
 
 namespace

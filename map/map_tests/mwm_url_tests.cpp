@@ -5,8 +5,6 @@
 
 #include "drape_frontend/visual_params.hpp"
 
-#include "platform/settings.hpp"
-
 #include "coding/uri.hpp"
 
 #include "base/string_format.hpp"
@@ -17,99 +15,90 @@ using namespace url_scheme;
 
 namespace
 {
-static FrameworkParams const kFrameworkParams(false /* m_enableLocalAds */, false /* m_enableDiffs */);
-
-void ToMercatoToLatLon(double & lat, double & lon)
-{
-  lon = MercatorBounds::XToLon(MercatorBounds::LonToX(lon));
-  lat = MercatorBounds::YToLat(MercatorBounds::LatToY(lat));
-}
-
-UserMark::Type const type = UserMark::Type::API;
-
-class ApiTest
-{
-public:
-  ApiTest(string const & uriString)
-    : m_fm(kFrameworkParams)
+  void ToMercatoToLatLon(double & lat, double & lon)
   {
-    m_m = &m_fm.GetBookmarkManager();
-    m_api.SetBookmarkManager(m_m);
+    lon = MercatorBounds::XToLon(MercatorBounds::LonToX(lon));
+    lat = MercatorBounds::YToLat(MercatorBounds::LatToY(lat));
+  }
 
-    auto const res = m_api.SetUriAndParse(uriString);
-    if (res != ParsedMapApi::ParsingResult::Incorrect)
+  UserMarkType const type = UserMarkType::API_MARK;
+
+  class ApiTest
+  {
+  public:
+    ApiTest(string const & uriString)
     {
-      if (!m_api.GetViewportRect(m_viewportRect))
-        m_viewportRect = df::GetWorldRect();
+      m_m = &m_fm.GetBookmarkManager();
+      m_api.SetBookmarkManager(m_m);
+
+      auto const res = m_api.SetUriAndParse(uriString);
+      if (res != ParsedMapApi::ParsingResult::Incorrect)
+      {
+        if (!m_api.GetViewportRect(m_viewportRect))
+          m_viewportRect = df::GetWorldRect();
+      }
     }
-  }
 
-  bool IsValid() const { return m_api.IsValid(); }
-  m2::RectD GetViewport() const { return m_viewportRect; }
+    bool IsValid() const { return m_api.IsValid(); }
+    m2::RectD GetViewport() const { return m_viewportRect; }
 
-  string const & GetAppTitle() const { return m_api.GetAppTitle(); }
-  bool GoBackOnBalloonClick() const { return m_api.GoBackOnBalloonClick(); }
+    string const & GetAppTitle() const { return m_api.GetAppTitle(); }
+    bool GoBackOnBalloonClick() const { return m_api.GoBackOnBalloonClick(); }
+    int GetPointCount() const { return UserMarkControllerGuard(*m_m, type).m_controller.GetUserMarkCount(); }
+    vector<RoutePoint> GetRoutePoints() const { return m_api.GetRoutePoints(); }
+    url_scheme::SearchRequest const & GetSearchRequest() const { return m_api.GetSearchRequest(); }
+    string const & GetGlobalBackUrl() const { return m_api.GetGlobalBackUrl(); }
+    int GetApiVersion() const { return m_api.GetApiVersion(); }
+    bool TestLatLon(int index, double lat, double lon) const
+    {
+      ms::LatLon const ll = GetMark(index)->GetLatLon();
+      return my::AlmostEqualULPs(ll.lat, lat) && my::AlmostEqualULPs(ll.lon, lon);
+    }
 
-  size_t GetPointCount() const
+    bool TestRoutePoint(int index, double lat, double lon, string const & name)
+    {
+      RoutePoint const pt = GetRoutePoints()[index];
+      return pt.m_org == MercatorBounds::FromLatLon(lat, lon) && pt.m_name == name;
+    }
+
+    bool TestName(int index, string const & name) const
+    {
+      return GetMark(index)->GetName() == name;
+    }
+
+    bool TestID(int index, string const & id) const
+    {
+      return GetMark(index)->GetID() == id;
+    }
+
+    bool TestRouteType(string const & type) const { return m_api.GetRoutingType() == type; }
+  private:
+    ApiMarkPoint const * GetMark(int index) const
+    {
+      UserMarkControllerGuard guard(*m_m, type);
+      TEST_LESS(index, guard.m_controller.GetUserMarkCount(), ());
+      return static_cast<ApiMarkPoint const *>(guard.m_controller.GetUserMark(index));
+    }
+
+  private:
+    Framework m_fm;
+    ParsedMapApi m_api;
+    m2::RectD m_viewportRect;
+    BookmarkManager * m_m;
+  };
+
+  bool IsValid(Framework & fm, string const & uriString)
   {
-    return UserMarkNotificationGuard(*m_m, type).m_controller.GetUserMarkCount();
+    ParsedMapApi api;
+    api.SetBookmarkManager(&fm.GetBookmarkManager());
+    api.SetUriAndParse(uriString);
+    {
+      UserMarkControllerGuard guard(fm.GetBookmarkManager(), UserMarkType::API_MARK);
+      guard.m_controller.Clear();
+    }
+
+    return api.IsValid();
   }
-
-  vector<RoutePoint> GetRoutePoints() const { return m_api.GetRoutePoints(); }
-  url_scheme::SearchRequest const & GetSearchRequest() const { return m_api.GetSearchRequest(); }
-  string const & GetGlobalBackUrl() const { return m_api.GetGlobalBackUrl(); }
-  int GetApiVersion() const { return m_api.GetApiVersion(); }
-
-  bool TestLatLon(int index, double lat, double lon) const
-  {
-    ms::LatLon const ll = GetMark(index)->GetLatLon();
-    return my::AlmostEqualULPs(ll.lat, lat) && my::AlmostEqualULPs(ll.lon, lon);
-  }
-
-  bool TestRoutePoint(int index, double lat, double lon, string const & name)
-  {
-    RoutePoint const pt = GetRoutePoints()[index];
-    return pt.m_org == MercatorBounds::FromLatLon(lat, lon) && pt.m_name == name;
-  }
-
-  bool TestName(int index, string const & name) const
-  {
-    return GetMark(index)->GetName() == name;
-  }
-
-  bool TestID(int index, string const & id) const
-  {
-    return GetMark(index)->GetApiID() == id;
-  }
-
-  bool TestRouteType(string const & type) const { return m_api.GetRoutingType() == type; }
-private:
-  ApiMarkPoint const * GetMark(int index) const
-  {
-    UserMarkNotificationGuard guard(*m_m, type);
-    TEST_LESS(index, static_cast<int>(guard.m_controller.GetUserMarkCount()), ());
-    return static_cast<ApiMarkPoint const *>(guard.m_controller.GetUserMark(index));
-  }
-
-private:
-  Framework m_fm;
-  ParsedMapApi m_api;
-  m2::RectD m_viewportRect;
-  BookmarkManager * m_m;
-};
-
-bool IsValid(Framework & fm, string const & uriString)
-{
-  ParsedMapApi api;
-  api.SetBookmarkManager(&fm.GetBookmarkManager());
-  api.SetUriAndParse(uriString);
-  {
-    UserMarkNotificationGuard guard(fm.GetBookmarkManager(), UserMark::Type::API);
-    guard.m_controller.Clear();
-  }
-
-  return api.IsValid();
-}
 }
 
 UNIT_TEST(MapApiSmoke)
@@ -158,7 +147,7 @@ UNIT_TEST(SearchApiSmoke)
 
 UNIT_TEST(SearchApiInvalidUrl)
 {
-  Framework f(kFrameworkParams);
+  Framework f;
   TEST(!IsValid(f, "mapsme://search?"), ("The search query parameter is necessary"));
   TEST(!IsValid(f, "mapsme://search?query"), ("Search query can't be empty"));
   TEST(IsValid(f, "mapsme://search?query=aaa&cll=1,1,1"), ("If it's wrong lat lon format then just ignore it"));
@@ -167,40 +156,9 @@ UNIT_TEST(SearchApiInvalidUrl)
   TEST(!IsValid(f, "mapsme://search?Query=fff"), ("The parser is case sensitive"));
 }
 
-UNIT_TEST(LeadApiSmoke)
-{
-  string const uriString = "mapsme://lead?utm_source=a&utm_medium=b&utm_campaign=c&utm_content=d&utm_term=e";
-  TEST(Uri(uriString).IsValid(), ());
-  ApiTest test(uriString);
-  TEST(test.IsValid(), ());
-
-  auto checkEqual = [](string const & key, string const & value)
-  {
-    string result;
-    TEST(marketing::Settings::Get(key, result), ());
-    TEST_EQUAL(result, value, ());
-  };
-
-  checkEqual("utm_source", "a");
-  checkEqual("utm_medium", "b");
-  checkEqual("utm_campaign", "c");
-  checkEqual("utm_content", "d");
-  checkEqual("utm_term", "e");
-}
-
-UNIT_TEST(LeadApiInvalid)
-{
-  Framework f(kFrameworkParams);
-  TEST(!IsValid(f, "mapsme://lead?"), ("From, type and name parameters are necessary"));
-  TEST(!IsValid(f, "mapsme://lead?utm_source&utm_medium&utm_campaign"), ("Parameters can't be empty"));
-  TEST(IsValid(f, "mapsme://lead?utm_source=a&utm_medium=b&utm_campaign=c"), ("These parameters are enough"));
-  TEST(IsValid(f, "mapsme://lead?utm_source=a&utm_medium=b&utm_campaign=c&smh=smh"), ("If there is an excess parameter just ignore it"));
-  TEST(!IsValid(f, "mapsme://lead?utm_source=a&UTM_MEDIUM=b&utm_campaign=c&smh=smh"), ("The parser is case sensitive"));
-}
-
 UNIT_TEST(MapApiInvalidUrl)
 {
-  Framework fm(kFrameworkParams);
+  Framework fm;
   TEST(!IsValid(fm, "competitors://map?ll=12.3,34.54"), ());
   TEST(!IsValid(fm, "mapswithme://ggg?ll=12.3,34.54"), ());
   TEST(!IsValid(fm, "mwm://"), ("No parameters"));
@@ -212,7 +170,7 @@ UNIT_TEST(MapApiInvalidUrl)
 
 UNIT_TEST(RouteApiInvalidUrl)
 {
-  Framework f(kFrameworkParams);
+  Framework f;
   TEST(!IsValid(f, "mapswithme://route?sll=1,1&saddr=name0&dll=2,2&daddr=name2"),
        ("Route type doesn't exist"));
   TEST(!IsValid(f, "mapswithme://route?sll=1,1&saddr=name0"), ("Destination doesn't exist"));
@@ -232,7 +190,7 @@ UNIT_TEST(RouteApiInvalidUrl)
 
 UNIT_TEST(MapApiLatLonLimits)
 {
-  Framework fm(kFrameworkParams);
+  Framework fm;
   TEST(!IsValid(fm, "mapswithme://map?ll=-91,10"), ("Invalid latitude"));
   TEST(!IsValid(fm, "mwm://map?ll=523.55,10"), ("Invalid latitude"));
   TEST(!IsValid(fm, "mapswithme://map?ll=23.55,450"), ("Invalid longtitude"));
@@ -386,7 +344,7 @@ string generatePartOfUrl(url_scheme::ApiPoint const & point)
   return stream.str();
 }
 
-string randomString(size_t size, uint32_t seed)
+string randomString(size_t size, size_t seed)
 {
   string result(size, '0');
   mt19937 rng(seed);
@@ -395,10 +353,10 @@ string randomString(size_t size, uint32_t seed)
   return result;
 }
 
-void generateRandomTest(uint32_t numberOfPoints, size_t stringLength)
+void generateRandomTest(size_t numberOfPoints, size_t stringLength)
 {
   vector <url_scheme::ApiPoint> vect(numberOfPoints);
-  for (uint32_t i = 0; i < numberOfPoints; ++i)
+  for (size_t i = 0; i < numberOfPoints; ++i)
   {
     url_scheme::ApiPoint point;
     mt19937 rng(i);
@@ -425,7 +383,7 @@ void generateRandomTest(uint32_t numberOfPoints, size_t stringLength)
     double lat = vect[i].m_lat;
     double lon = vect[i].m_lon;
     ToMercatoToLatLon(lat, lon);
-    int const ix = vect.size() - i - 1;
+    size_t const ix = vect.size() - i - 1;
     TEST(api.TestLatLon(ix, lat, lon), ());
     TEST(api.TestName(ix, vect[i].m_name), ());
     TEST(api.TestID(ix, vect[i].m_id), ());

@@ -1,7 +1,6 @@
 package com.mapswithme.maps.ads;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.view.View;
 
 /**
@@ -36,19 +35,12 @@ public interface MwmNativeAd
 
   /**
    * Unregisters the view attached to the current ad.
-   * @param bannerView A view which holds all native ad information.
    */
-  void unregisterView(@NonNull View bannerView);
+  void unregisterView();
 
   /**
    * Returns a provider name for this ad.
    */
   @NonNull
   String getProvider();
-
-  /**
-   * Returns a privacy information url, or <code>null</code> if not set.
-   */
-  @Nullable
-  String getPrivacyInfoUrl();
 }

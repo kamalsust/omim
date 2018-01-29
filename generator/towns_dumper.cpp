@@ -5,9 +5,9 @@
 
 #include "base/logging.hpp"
 
-#include <fstream>
-#include <string>
-#include <vector>
+#include "std/fstream.hpp"
+#include "std/string.hpp"
+#include "std/vector.hpp"
 
 namespace
 {
@@ -19,7 +19,7 @@ void TownsDumper::FilterTowns()
 {
   LOG(LINFO, ("Preprocessing started. Have", m_records.size(), "towns."));
   m4::Tree<Town> resultTree;
-  std::vector<Town> towns;
+  vector<Town> towns;
   towns.reserve(m_records.size());
   for (auto const & town : m_records)
   {
@@ -57,15 +57,15 @@ void TownsDumper::FilterTowns()
   LOG(LINFO, ("Preprocessing finished. Have", m_records.size(), "towns."));
 }
 
-void TownsDumper::Dump(std::string const & filePath)
+void TownsDumper::Dump(string const & filePath)
 {
   FilterTowns();
   ASSERT(!filePath.empty(), ());
-  std::ofstream stream(filePath);
+  ofstream stream(filePath);
   stream.precision(9);
   for (auto const & record : m_records)
   {
-    std::string const isCapital = record.capital ? "t" : "f";
+    string const isCapital = record.capital ? "t" : "f";
     stream << record.point.lat << ";" << record.point.lon << ";" << record.id << ";" << isCapital <<  std::endl;
   }
 }

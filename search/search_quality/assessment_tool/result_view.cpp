@@ -5,15 +5,13 @@
 
 #include "base/stl_add.hpp"
 
+#include <string>
 #include <utility>
-#include <vector>
 
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QRadioButton>
 #include <QtWidgets/QVBoxLayout>
-
-using namespace std;
 
 namespace
 {
@@ -25,7 +23,7 @@ QLabel * CreateLabel(QWidget & parent)
   return label;
 }
 
-void SetText(QLabel & label, string const & text) {
+void SetText(QLabel & label, std::string const & text) {
   if (text.empty())
   {
     label.hide();
@@ -35,51 +33,29 @@ void SetText(QLabel & label, string const & text) {
   label.setText(ToQString(text));
   label.show();
 }
-
-string GetResultType(search::Sample::Result const & result)
-{
-  return strings::JoinStrings(result.m_types, ", ");
-}
 }  // namespace
 
-ResultView::ResultView(string const & name, string const & type, string const & address,
-                       QWidget & parent)
-  : QWidget(&parent)
+ResultView::ResultView(search::Result const & result, QWidget & parent) : QWidget(&parent)
 {
   Init();
-  SetContents(name, type, address);
+  SetContents(result);
   setEnabled(false);
   setObjectName("result");
 }
 
-ResultView::ResultView(search::Result const & result, QWidget & parent)
-  : ResultView(result.GetString(), result.GetFeatureTypeName(), result.GetAddress(), parent)
+void ResultView::EnableEditing(Edits::RelevanceEditor && editor)
 {
-}
-
-ResultView::ResultView(search::Sample::Result const & result, QWidget & parent)
-  : ResultView(strings::ToUtf8(result.m_name), GetResultType(result), string() /* address */,
-               parent)
-{
-}
-
-void ResultView::SetEditor(Edits::Editor && editor)
-{
-  m_editor = my::make_unique<Edits::Editor>(std::move(editor));
+  m_editor = my::make_unique<Edits::RelevanceEditor>(std::move(editor));
 
   m_irrelevant->setChecked(false);
   m_relevant->setChecked(false);
   m_vital->setChecked(false);
 
-  auto const & r = m_editor->Get();
-  if (!r.m_unknown)
+  switch (m_editor->Get())
   {
-    switch (r.m_relevance)
-    {
-      case Relevance::Irrelevant: m_irrelevant->setChecked(true); break;
-      case Relevance::Relevant: m_relevant->setChecked(true); break;
-      case Relevance::Vital: m_vital->setChecked(true); break;
-    }
+  case Relevance::Irrelevant: m_irrelevant->setChecked(true); break;
+  case Relevance::Relevant: m_relevant->setChecked(true); break;
+  case Relevance::Vital: m_vital->setChecked(true); break;
   }
 
   setEnabled(true);
@@ -87,19 +63,10 @@ void ResultView::SetEditor(Edits::Editor && editor)
 
 void ResultView::Update()
 {
-  if (m_editor)
-  {
-    if (m_editor->GetType() == Edits::Entry::Type::Created)
-      setStyleSheet("#result {background: rgba(173, 223, 173, 50%)}");
-    else if (m_editor->HasChanges())
-      setStyleSheet("#result {background: rgba(255, 255, 200, 50%)}");
-    else
-      setStyleSheet("");
-  }
+  if (m_editor && m_editor->HasChanges())
+    setStyleSheet("#result {background: rgba(255, 255, 200, 50%)}");
   else
-  {
     setStyleSheet("");
-  }
 }
 
 void ResultView::Init()
@@ -108,8 +75,8 @@ void ResultView::Init()
   layout->setSizeConstraint(QLayout::SetMinimumSize);
   setLayout(layout);
 
-  m_name = CreateLabel(*this /* parent */);
-  layout->addWidget(m_name);
+  m_string = CreateLabel(*this /* parent */);
+  layout->addWidget(m_string);
 
   m_type = CreateLabel(*this /* parent */);
   m_type->setStyleSheet("QLabel { font-size : 8pt }");
@@ -124,19 +91,19 @@ void ResultView::Init()
     auto * groupLayout = new QHBoxLayout(group /* parent */);
     group->setLayout(groupLayout);
 
-    m_irrelevant = CreateRatioButton("Irrelevant", *groupLayout);
-    m_relevant = CreateRatioButton("Relevant", *groupLayout);
-    m_vital = CreateRatioButton("Vital", *groupLayout);
+    m_irrelevant = CreateRatioButton("0", *groupLayout);
+    m_relevant = CreateRatioButton("+1", *groupLayout);
+    m_vital = CreateRatioButton("+2", *groupLayout);
 
     layout->addWidget(group);
   }
 }
 
-void ResultView::SetContents(string const & name, string const & type, string const & address)
+void ResultView::SetContents(search::Result const & result)
 {
-  SetText(*m_name, name);
-  SetText(*m_type, type);
-  SetText(*m_address, address);
+  SetText(*m_string, result.GetString());
+  SetText(*m_type, result.GetFeatureType());
+  SetText(*m_address, result.GetAddress());
 
   m_irrelevant->setChecked(false);
   m_relevant->setChecked(false);

@@ -80,7 +80,7 @@ public class RoutingErrorDialogFragment extends BaseRoutingErrorDialogFragment
     for (CountryItem country : mMissingMaps)
     {
       if (country.status != CountryItem.STATUS_PROGRESS)
-        size += country.totalSize;
+        size += (country.totalSize - country.size);
     }
 
     MapManager.warnOn3g(getActivity(), size, new Runnable()

@@ -1,7 +1,6 @@
 #include "partners_api/uber_api.hpp"
-#include "partners_api/utils.hpp"
 
-#include "platform/platform.hpp"
+#include "platform/http_client.hpp"
 
 #include "geometry/latlon.hpp"
 
@@ -19,9 +18,12 @@ using namespace platform;
 
 namespace
 {
-bool RunSimpleHttpRequest(std::string const & url, std::string & result)
+string const kUberEstimatesUrl = "https://api.uber.com/v1/estimates";
+string g_uberUrlForTesting = "";
+
+bool RunSimpleHttpRequest(string const & url, string & result)
 {
-  platform::HttpClient request(url);
+  HttpClient request(url);
   if (request.RunHttpRequest() && !request.WasRedirected() && request.ErrorCode() == 200)
   {
     result = request.ServerResponse();
@@ -30,7 +32,7 @@ bool RunSimpleHttpRequest(std::string const & url, std::string & result)
   return false;
 }
 
-bool CheckUberResponse(json_t const * answer)
+bool CheckUberAnswer(json_t const * answer)
 {
   if (answer == nullptr)
     return false;
@@ -45,19 +47,19 @@ bool CheckUberResponse(json_t const * answer)
   return true;
 }
 
-bool IsIncomplete(taxi::Product const & p)
+bool IsIncomplete(uber::Product const & p)
 {
   return p.m_name.empty() || p.m_productId.empty() || p.m_time.empty() || p.m_price.empty();
 }
 
-void FillProducts(json_t const * time, json_t const * price, vector<taxi::Product> & products)
+void FillProducts(json_t const * time, json_t const * price, vector<uber::Product> & products)
 {
   // Fill data from time.
   auto const timeSize = json_array_size(time);
   for (size_t i = 0; i < timeSize; ++i)
   {
-    taxi::Product product;
-    int64_t estimatedTime = 0;
+    uber::Product product;
+    json_int_t estimatedTime = 0;
     auto const item = json_array_get(time, i);
     FromJSONObject(item, "display_name", product.m_name);
     FromJSONObject(item, "estimate", estimatedTime);
@@ -73,7 +75,7 @@ void FillProducts(json_t const * time, json_t const * price, vector<taxi::Produc
     auto const item = json_array_get(price, i);
 
     FromJSONObject(item, "display_name", name);
-    auto const it = find_if(products.begin(), products.end(), [&name](taxi::Product const & product)
+    auto const it = find_if(products.begin(), products.end(), [&name](uber::Product const & product)
     {
       return product.m_name == name;
     });
@@ -93,7 +95,7 @@ void FillProducts(json_t const * time, json_t const * price, vector<taxi::Produc
   products.erase(remove_if(products.begin(), products.end(), IsIncomplete), products.end());
 }
 
-void MakeFromJson(char const * times, char const * prices, vector<taxi::Product> & products)
+void MakeFromJson(char const * times, char const * prices, vector<uber::Product> & products)
 {
   products.clear();
   try
@@ -102,7 +104,7 @@ void MakeFromJson(char const * times, char const * prices, vector<taxi::Product>
     my::Json pricesRoot(prices);
     auto const timesArray = json_object_get(timesRoot.get(), "times");
     auto const pricesArray = json_object_get(pricesRoot.get(), "prices");
-    if (CheckUberResponse(timesArray) && CheckUberResponse(pricesArray))
+    if (CheckUberAnswer(timesArray) && CheckUberAnswer(pricesArray))
     {
       FillProducts(timesArray, pricesArray, products);
     }
@@ -113,43 +115,46 @@ void MakeFromJson(char const * times, char const * prices, vector<taxi::Product>
     products.clear();
   }
 }
+
+string GetUberURL()
+{
+  if (!g_uberUrlForTesting.empty())
+    return g_uberUrlForTesting;
+
+  return kUberEstimatesUrl;
+}
 }  // namespace
 
-namespace taxi
-{
 namespace uber
 {
-string const kEstimatesUrl = "https://api.uber.com/v1/estimates";
-string const kProductsUrl = "https://api.uber.com/v1/products";
-
 // static
-bool RawApi::GetProducts(ms::LatLon const & pos, string & result,
-                         std::string const & baseUrl /* = kProductsUrl */)
+bool RawApi::GetProducts(ms::LatLon const & pos, string & result)
 {
-  ostringstream url;
-  url << fixed << setprecision(6) << baseUrl << "?server_token=" << UBER_SERVER_TOKEN
+  stringstream url;
+  url << fixed << setprecision(6)
+      << "https://api.uber.com/v1/products?server_token=" << UBER_SERVER_TOKEN
       << "&latitude=" << pos.lat << "&longitude=" << pos.lon;
 
   return RunSimpleHttpRequest(url.str(), result);
 }
 
 // static
-bool RawApi::GetEstimatedTime(ms::LatLon const & pos, string & result,
-                              std::string const & baseUrl /* = kEstimatesUrl */)
+bool RawApi::GetEstimatedTime(ms::LatLon const & pos, string & result)
 {
-  ostringstream url;
-  url << fixed << setprecision(6) << baseUrl << "/time?server_token=" << UBER_SERVER_TOKEN
+  stringstream url;
+  url << fixed << setprecision(6)
+      << GetUberURL() << "/time?server_token=" << UBER_SERVER_TOKEN
       << "&start_latitude=" << pos.lat << "&start_longitude=" << pos.lon;
 
   return RunSimpleHttpRequest(url.str(), result);
 }
 
 // static
-bool RawApi::GetEstimatedPrice(ms::LatLon const & from, ms::LatLon const & to, string & result,
-                               std::string const & baseUrl /* = kEstimatesUrl */)
+bool RawApi::GetEstimatedPrice(ms::LatLon const & from, ms::LatLon const & to, string & result)
 {
-  ostringstream url;
-  url << fixed << setprecision(6) << baseUrl << "/price?server_token=" << UBER_SERVER_TOKEN
+  stringstream url;
+  url << fixed << setprecision(6)
+      << GetUberURL() << "/price?server_token=" << UBER_SERVER_TOKEN
       << "&start_latitude=" << from.lat << "&start_longitude=" << from.lon
       << "&end_latitude=" << to.lat << "&end_longitude=" << to.lon;
 
@@ -185,96 +190,68 @@ void ProductMaker::SetPrices(uint64_t const requestId, string const & prices)
   m_prices = make_unique<string>(prices);
 }
 
-void ProductMaker::SetError(uint64_t const requestId, taxi::ErrorCode code)
-{
-  lock_guard<mutex> lock(m_mutex);
-
-  if (requestId != m_requestId)
-    return;
-
-  m_error = make_unique<taxi::ErrorCode>(code);
-}
-
 void ProductMaker::MakeProducts(uint64_t const requestId, ProductsCallback const & successFn,
-                                ErrorProviderCallback const & errorFn)
+                                ErrorCallback const & errorFn)
 {
-  ASSERT(successFn, ());
-  ASSERT(errorFn, ());
-
-  vector<Product> products;
-  unique_ptr<taxi::ErrorCode> error;
+  vector<uber::Product> products;
   {
     lock_guard<mutex> lock(m_mutex);
 
     if (requestId != m_requestId || !m_times || !m_prices)
       return;
 
-    if (!m_error)
-    {
-      if (!m_times->empty() && !m_prices->empty())
-        MakeFromJson(m_times->c_str(), m_prices->c_str(), products);
-
-      if (products.empty())
-        m_error = my::make_unique<taxi::ErrorCode>(ErrorCode::NoProducts);
-    }
-
-    if (m_error)
-      error = my::make_unique<taxi::ErrorCode>(*m_error);
-
-    // Reset m_times and m_prices because we need to call callback only once.
-    m_times.reset();
-    m_prices.reset();
+    if (!m_times->empty() && !m_prices->empty())
+      MakeFromJson(m_times->c_str(), m_prices->c_str(), products);
+    else
+      LOG(LWARNING, ("Time or price is empty, time:", *m_times, "; price:", *m_prices));
   }
 
-  if (error)
-    errorFn(*error);
+  if (products.empty())
+    errorFn(ErrorCode::NoProducts, requestId);
   else
-    successFn(products);
+    successFn(products, requestId);
 }
 
-void Api::GetAvailableProducts(ms::LatLon const & from, ms::LatLon const & to,
-                               ProductsCallback const & successFn,
-                               ErrorProviderCallback const & errorFn)
+uint64_t Api::GetAvailableProducts(ms::LatLon const & from, ms::LatLon const & to,
+                                   ProductsCallback const & successFn, ErrorCallback const & errorFn)
 {
-  ASSERT(successFn, ());
-  ASSERT(errorFn, ());
-
-  if (!IsDistanceSupported(from, to))
-  {
-    // TODO(a): Add ErrorCode::FarDistance and provide this error code.
-    errorFn(ErrorCode::NoProducts);
-    return;
-  }
-
   auto const reqId = ++m_requestId;
   auto const maker = m_maker;
-  auto const baseUrl = m_baseUrl;
 
   maker->Reset(reqId);
 
-  GetPlatform().RunTask(Platform::Thread::Network, [maker, from, reqId, baseUrl, successFn, errorFn]()
+  threads::SimpleThread([maker, from, reqId, successFn, errorFn]()
   {
     string result;
-    if (!RawApi::GetEstimatedTime(from, result, baseUrl))
-      maker->SetError(reqId, ErrorCode::RemoteError);
+    if (!RawApi::GetEstimatedTime(from, result))
+    {
+      errorFn(ErrorCode::RemoteError, reqId);
+      return;
+    }
 
     maker->SetTimes(reqId, result);
     maker->MakeProducts(reqId, successFn, errorFn);
-  });
+  }).detach();
 
-  GetPlatform().RunTask(Platform::Thread::Network, [maker, from, to, reqId, baseUrl, successFn, errorFn]()
+  threads::SimpleThread([maker, from, to, reqId, successFn, errorFn]()
   {
     string result;
-    if (!RawApi::GetEstimatedPrice(from, to, result, baseUrl))
-      maker->SetError(reqId, ErrorCode::RemoteError);
+    if (!RawApi::GetEstimatedPrice(from, to, result))
+    {
+      errorFn(ErrorCode::RemoteError, reqId);
+      return;
+    }
 
     maker->SetPrices(reqId, result);
     maker->MakeProducts(reqId, successFn, errorFn);
-  });
+  }).detach();
+
+  return reqId;
 }
 
+// static
 RideRequestLinks Api::GetRideRequestLinks(string const & productId, ms::LatLon const & from,
-                                          ms::LatLon const & to) const
+                                          ms::LatLon const & to)
 {
   stringstream url;
   url << fixed << setprecision(6)
@@ -284,5 +261,18 @@ RideRequestLinks Api::GetRideRequestLinks(string const & productId, ms::LatLon c
 
   return {"uber://" + url.str(), "https://m.uber.com/ul" + url.str()};
 }
+
+void SetUberUrlForTesting(string const & url)
+{
+  g_uberUrlForTesting = url;
+}
+
+string DebugPrint(ErrorCode error)
+{
+  switch (error)
+  {
+    case ErrorCode::NoProducts: return "NoProducts";
+    case ErrorCode::RemoteError: return "RemoteError";
+  }
+}
 }  // namespace uber
-}  // namespace taxi

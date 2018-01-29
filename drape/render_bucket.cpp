@@ -56,16 +56,9 @@ void RenderBucket::AddOverlayHandle(drape_ptr<OverlayHandle> && handle)
   m_overlay.push_back(move(handle));
 }
 
-void RenderBucket::BeforeUpdate()
-{
-  for (auto & overlayHandle : m_overlay)
-    overlayHandle->BeforeUpdate();
-}
-
 void RenderBucket::Update(ScreenBase const & modelView)
 {
-  BeforeUpdate();
-  for (auto & overlayHandle : m_overlay)
+  for (drape_ptr<OverlayHandle> & overlayHandle : m_overlay)
   {
     if (overlayHandle->IsVisible())
       overlayHandle->Update(modelView);
@@ -74,19 +67,13 @@ void RenderBucket::Update(ScreenBase const & modelView)
 
 void RenderBucket::CollectOverlayHandles(ref_ptr<OverlayTree> tree)
 {
-  BeforeUpdate();
-  for (auto const & overlayHandle : m_overlay)
+  for (drape_ptr<OverlayHandle> const & overlayHandle : m_overlay)
     tree->Add(make_ref(overlayHandle));
-}
-
-bool RenderBucket::HasOverlayHandles() const
-{
-  return !m_overlay.empty();
 }
 
 void RenderBucket::RemoveOverlayHandles(ref_ptr<OverlayTree> tree)
 {
-  for (auto const & overlayHandle : m_overlay)
+  for (drape_ptr<OverlayHandle> const & overlayHandle : m_overlay)
     tree->Remove(make_ref(overlayHandle));
 }
 
@@ -129,26 +116,26 @@ void RenderBucket::SetFeatureMinZoom(int minZoom)
 
 void RenderBucket::RenderDebug(ScreenBase const & screen) const
 {
-  if (!DebugRectRenderer::Instance().IsEnabled() || m_overlay.empty())
-    return;
-
-  for (auto const & handle : m_overlay)
+#ifdef RENDER_DEBUG_RECTS
+  if (!m_overlay.empty())
   {
-    if (!screen.PixelRect().IsIntersect(handle->GetPixelRect(screen, false)))
-      continue;
-
-    OverlayHandle::Rects const & rects = handle->GetExtendedPixelShape(screen);
-    for (auto const & rect : rects)
+    for (auto const & handle : m_overlay)
     {
-      if (screen.isPerspective() && !screen.PixelRectIn3d().IsIntersect(m2::RectD(rect)))
+      if (!screen.PixelRect().IsIntersect(handle->GetPixelRect(screen, false)))
         continue;
 
-      DebugRectRenderer::Instance().DrawRect(screen, rect, handle->IsVisible() ?
-                                             dp::Color::Green() :
-                                             (handle->IsReady() ? dp::Color::Red() :
-                                                                  dp::Color::Yellow()));
+      OverlayHandle::Rects const & rects = handle->GetExtendedPixelShape(screen);
+      for (auto const & rect : rects)
+      {
+        if (screen.isPerspective() && !screen.PixelRectIn3d().IsIntersect(m2::RectD(rect)))
+          continue;
+
+        DebugRectRenderer::Instance().DrawRect(screen, rect, handle->IsVisible() ?
+                                               dp::Color::Green() : dp::Color::Red());
+      }
     }
   }
+#endif
 }
 
 } // namespace dp

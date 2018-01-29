@@ -6,14 +6,12 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.mapswithme.maps.MwmApplication;
 import com.mapswithme.maps.R;
 import com.mapswithme.maps.ads.AdTracker;
 import com.mapswithme.maps.ads.Banner;
@@ -24,7 +22,6 @@ import com.mapswithme.maps.ads.NativeAdListener;
 import com.mapswithme.util.Config;
 import com.mapswithme.util.ThemeUtils;
 import com.mapswithme.util.UiUtils;
-import com.mapswithme.util.Utils;
 import com.mapswithme.util.log.Logger;
 import com.mapswithme.util.log.LoggerFactory;
 import com.mapswithme.util.statistics.Statistics;
@@ -35,9 +32,6 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import static com.mapswithme.util.SharedPropertiesUtils.isShowcaseSwitchedOnLocal;
 import static com.mapswithme.util.statistics.Statistics.EventName.PP_BANNER_CLICK;
 import static com.mapswithme.util.statistics.Statistics.EventName.PP_BANNER_SHOW;
-import static com.mapswithme.util.statistics.Statistics.PP_BANNER_STATE_DETAILS;
-import static com.mapswithme.util.statistics.Statistics.PP_BANNER_STATE_PREVIEW;
-
 
 final class BannerController
 {
@@ -85,8 +79,6 @@ final class BannerController
   private CompoundNativeAdLoader mAdsLoader;
   @Nullable
   private AdTracker mAdTracker;
-  @NonNull
-  private MyNativeAdsListener mAdsListener = new MyNativeAdsListener();
 
   BannerController(@NonNull View bannerView, @Nullable BannerListener listener,
                    @NonNull CompoundNativeAdLoader loader, @Nullable AdTracker tracker)
@@ -102,16 +94,7 @@ final class BannerController
     mActionSmall = (TextView) bannerView.findViewById(R.id.tv__action_small);
     mActionLarge = (TextView) bannerView.findViewById(R.id.tv__action_large);
     mAds = bannerView.findViewById(R.id.tv__ads);
-    mAds.setOnClickListener(new View.OnClickListener()
-    {
-      @Override
-      public void onClick(View v)
-      {
-        handlePrivacyInfoUrl();
-      }
-    });
-    Resources res = mFrame.getResources();
-    UiUtils.expandTouchAreaForView(mAds, (int) res.getDimension(R.dimen.margin_quarter_plus));
+    loader.setAdListener(new MyNativeAdsListener());
     mAdsLoader = loader;
     mAdTracker = tracker;
     mFrame.setOnClickListener(new View.OnClickListener()
@@ -122,18 +105,6 @@ final class BannerController
         animateActionButton();
       }
     });
-  }
-
-  private void handlePrivacyInfoUrl()
-  {
-    if (mCurrentAd == null)
-      return;
-
-    String privacyUrl = mCurrentAd.getPrivacyInfoUrl();
-    if (TextUtils.isEmpty(privacyUrl))
-      return;
-
-    Utils.openUrl(mFrame.getContext(), privacyUrl);
   }
 
   private void setErrorStatus(boolean value)
@@ -186,6 +157,7 @@ final class BannerController
     }
 
     UiUtils.show(mFrame);
+
     mAdsLoader.loadAd(mFrame.getContext(), mBanners);
     updateVisibility();
   }
@@ -195,7 +167,7 @@ final class BannerController
     if (mCurrentAd != null)
     {
       LOGGER.d(TAG, "Unregister view for the ad: " + mCurrentAd.getTitle());
-      mCurrentAd.unregisterView(mFrame);
+      mCurrentAd.unregisterView();
       mCurrentAd = null;
     }
   }
@@ -264,26 +236,9 @@ final class BannerController
       return;
 
     if (isVisible)
-    {
       mAdTracker.onViewShown(mCurrentAd.getProvider(), mCurrentAd.getBannerId());
-      mCurrentAd.registerView(mFrame);
-    }
     else
-    {
       mAdTracker.onViewHidden(mCurrentAd.getProvider(), mCurrentAd.getBannerId());
-      mCurrentAd.unregisterView(mFrame);
-    }
-  }
-
-  void detach()
-  {
-    mAdsLoader.detach();
-    mAdsLoader.setAdListener(null);
-  }
-
-  void attach()
-  {
-    mAdsLoader.setAdListener(mAdsListener);
   }
 
   private void fillViews(@NonNull MwmNativeAd data)
@@ -306,7 +261,7 @@ final class BannerController
     else if (!mOpened)
     {
       close();
-      Statistics.INSTANCE.trackPPBanner(PP_BANNER_SHOW, data, PP_BANNER_STATE_PREVIEW);
+      Statistics.INSTANCE.trackPPBanner(PP_BANNER_SHOW, data, 0);
     }
     else
     {
@@ -341,11 +296,6 @@ final class BannerController
     }
     animator.setDuration(300);
     animator.start();
-  }
-
-  boolean isOpened()
-  {
-    return mOpened;
   }
 
   interface BannerListener
@@ -385,7 +335,7 @@ final class BannerController
     }
 
     @Override
-    public void onError(@NonNull String bannerId, @NonNull String provider, @NonNull NativeAdError error)
+    public void onError(@NonNull MwmNativeAd ad, @NonNull NativeAdError error)
     {
       if (mBanners == null)
         return;
@@ -397,14 +347,13 @@ final class BannerController
       if (mListener != null && isNotCached)
         mListener.onSizeChanged();
 
-      Statistics.INSTANCE.trackPPBannerError(bannerId, provider, error, mOpened ? 1 : 0);
+      Statistics.INSTANCE.trackPPBannerError(ad, error, mOpened ? 1 : 0);
     }
 
     @Override
     public void onClick(@NonNull MwmNativeAd ad)
     {
-      Statistics.INSTANCE.trackPPBanner(PP_BANNER_CLICK, ad,
-                                        mOpened ? PP_BANNER_STATE_DETAILS : PP_BANNER_STATE_PREVIEW);
+      Statistics.INSTANCE.trackPPBanner(PP_BANNER_CLICK, ad, mOpened ? 1 : 0);
     }
   }
 }

@@ -25,9 +25,8 @@ inline string GetFilePath()
 
 inline bool GetSettingsIsEnabled()
 {
-  bool enabled;
-  if (!settings::Get(kEnabledKey, enabled))
-    enabled = false;
+  bool enabled = false;
+  settings::Get(kEnabledKey, enabled);
   return enabled;
 }
 
@@ -38,9 +37,8 @@ inline void SetSettingsIsEnabled(bool enabled)
 
 inline hours GetSettingsDuration()
 {
-  uint32_t duration;
-  if (!settings::Get(kDurationHours, duration))
-    duration = kDefaultDurationHours;
+  uint32_t duration = kDefaultDurationHours;
+  settings::Get(kDurationHours, duration);
   return hours(duration);
 }
 

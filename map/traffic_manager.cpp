@@ -80,7 +80,7 @@ void TrafficManager::Teardown()
 
 void TrafficManager::SetStateListener(TrafficStateChangedFn const & onStateChangedFn)
 {
-  GetPlatform().RunTask(Platform::Thread::Gui, [this, onStateChangedFn]()
+  GetPlatform().RunOnGuiThread([this, onStateChangedFn]()
   {
     m_onStateChangedFn = onStateChangedFn;
   });
@@ -102,7 +102,8 @@ void TrafficManager::SetEnabled(bool enabled)
     ChangeState(enabled ? TrafficState::Enabled : TrafficState::Disabled);
   }
 
-  m_drapeEngine.SafeCall(&df::DrapeEngine::EnableTraffic, enabled);
+  if (m_drapeEngine != nullptr)
+    m_drapeEngine->EnableTraffic(enabled);
 
   if (enabled)
   {
@@ -132,7 +133,7 @@ void TrafficManager::Clear()
 
 void TrafficManager::SetDrapeEngine(ref_ptr<df::DrapeEngine> engine)
 {
-  m_drapeEngine.Set(engine);
+  m_drapeEngine = engine;
 }
 
 void TrafficManager::SetCurrentDataVersion(int64_t dataVersion)
@@ -140,7 +141,7 @@ void TrafficManager::SetCurrentDataVersion(int64_t dataVersion)
   m_currentDataVersion = dataVersion;
 }
 
-void TrafficManager::OnMwmDeregistered(MwmSet::MwmId const & mwmId)
+void TrafficManager::OnMwmDelete(MwmSet::MwmId const & mwmId)
 {
   if (!IsEnabled())
     return;
@@ -236,7 +237,8 @@ void TrafficManager::ThreadRoutine()
   {
     for (auto const & mwm : mwms)
     {
-      if (!mwm.IsAlive())
+      auto const & mwmInfo = mwm.GetInfo();
+      if (!mwmInfo)
         continue;
 
       traffic::TrafficInfo info(mwm, m_currentDataVersion);
@@ -391,8 +393,7 @@ void TrafficManager::OnTrafficDataResponse(traffic::TrafficInfo && info)
 
   if (!info.GetColoring().empty())
   {
-    m_drapeEngine.SafeCall(&df::DrapeEngine::UpdateTraffic,
-                           static_cast<traffic::TrafficInfo const &>(info));
+    m_drapeEngine->UpdateTraffic(info);
 
     // Update traffic colors for routing.
     m_observer.OnTrafficInfoAdded(move(info));
@@ -438,9 +439,8 @@ void TrafficManager::ClearCache(MwmSet::MwmId const & mwmId)
     ASSERT_GREATER_OR_EQUAL(m_currentCacheSizeBytes, it->second.m_dataSize, ());
     m_currentCacheSizeBytes -= it->second.m_dataSize;
 
-    m_drapeEngine.SafeCall(&df::DrapeEngine::ClearTrafficCache, mwmId);
-
-    GetPlatform().RunTask(Platform::Thread::Gui, [this, mwmId]()
+    m_drapeEngine->ClearTrafficCache(mwmId);
+    GetPlatform().RunOnGuiThread([this, mwmId]()
     {
       m_observer.OnTrafficInfoRemoved(mwmId);
     });
@@ -527,7 +527,7 @@ void TrafficManager::ChangeState(TrafficState newState)
       "$TrafficChangeState",
       alohalytics::TStringMap({{"state", DebugPrint(m_state.load())}}));
 
-  GetPlatform().RunTask(Platform::Thread::Gui, [this, newState]()
+  GetPlatform().RunOnGuiThread([this, newState]()
   {
     if (m_onStateChangedFn != nullptr)
       m_onStateChangedFn(newState);
@@ -560,7 +560,8 @@ void TrafficManager::Resume()
 
 void TrafficManager::SetSimplifiedColorScheme(bool simplified)
 {
-  m_drapeEngine.SafeCall(&df::DrapeEngine::SetSimplifiedTrafficColors, simplified);
+  if (m_drapeEngine != nullptr)
+    m_drapeEngine->SetSimplifiedTrafficColors(simplified);
 }
 
 string DebugPrint(TrafficManager::TrafficState state)
@@ -583,7 +584,7 @@ string DebugPrint(TrafficManager::TrafficState state)
     return "ExpiredData";
   case TrafficManager::TrafficState::ExpiredApp:
     return "ExpiredApp";
-  default:
+    default:
       ASSERT(false, ("Unknown state"));
   }
   return "Unknown";

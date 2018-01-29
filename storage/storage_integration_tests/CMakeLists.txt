@@ -23,12 +23,10 @@ omim_link_libraries(
   drape_frontend
   routing
   routing_common
-  transit
   search
   storage
   tracking
   traffic
-  ugc
   indexer
   drape
   partners_api
@@ -37,17 +35,16 @@ omim_link_libraries(
   platform
   editor
   opening_hours
-  mwm_diff
-  bsdiff
   geometry
   coding
   base
   freetype
   expat
+  fribidi
   icu
-  agg
   jansson
   protobuf
+  osrm
   stats_client
   minizip
   succinct

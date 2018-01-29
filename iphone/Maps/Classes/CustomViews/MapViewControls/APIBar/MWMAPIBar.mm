@@ -1,6 +1,6 @@
+#import "MWMCommon.h"
 #import "MWMAPIBar.h"
 #import "MWMAPIBarView.h"
-#import "MWMCommon.h"
 #import "Statistics.h"
 
 #include "Framework.h"
@@ -29,7 +29,7 @@ static NSString * const kKeyPath = @"subviews";
   if (self)
   {
     self.controller = controller;
-    [NSBundle.mainBundle loadNibNamed:@"MWMAPIBarView" owner:self options:nil];
+    [[NSBundle mainBundle] loadNibNamed:@"MWMAPIBarView" owner:self options:nil];
 
     self.timeFormatter = [[NSDateFormatter alloc] init];
     self.timeFormatter.dateStyle = NSDateFormatterNoStyle;
@@ -55,11 +55,11 @@ static NSString * const kKeyPath = @"subviews";
   [Statistics logEvent:kStatEventName(kStatAPI, kStatBack)];
   Framework & f = GetFramework();
   f.DeactivateMapSelection(true);
-  UserMarkNotificationGuard guard(f.GetBookmarkManager(), UserMark::Type::API);
+  UserMarkControllerGuard guard(f.GetBookmarkManager(), UserMarkType::API_MARK);
   guard.m_controller.Clear();
   self.isVisible = NO;
   NSURL * url = [NSURL URLWithString:@(f.GetApiDataHolder().GetGlobalBackUrl().c_str())];
-  [UIApplication.sharedApplication openURL:url];
+  [[UIApplication sharedApplication] openURL:url];
 }
 
 #pragma mark - Properties

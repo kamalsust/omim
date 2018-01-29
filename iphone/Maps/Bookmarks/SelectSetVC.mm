@@ -7,7 +7,7 @@
 
 @interface SelectSetVC () <AddSetVCDelegate>
 {
-  size_t m_categoryIndex;
+  BookmarkAndCategory m_bac;
 }
 
 @property (copy, nonatomic) NSString * category;
@@ -18,14 +18,14 @@
 @implementation SelectSetVC
 
 - (instancetype)initWithCategory:(NSString *)category
-                   categoryIndex:(size_t)categoryIndex
+                             bac:(BookmarkAndCategory const &)bac
                         delegate:(id<MWMSelectSetDelegate>)delegate
 {
   self = [super initWithStyle:UITableViewStyleGrouped];
   if (self)
   {
     _category = category;
-    m_categoryIndex = categoryIndex;
+    m_bac = bac;
     _delegate = delegate;
   }
   return self;
@@ -36,6 +36,7 @@
   [super viewDidLoad];
   NSAssert(self.category, @"Category can't be nil!");
   NSAssert(self.delegate, @"Delegate can't be nil!");
+  NSAssert(m_bac.IsValid(), @"Invalid BookmarkAndCategory's instance!");
   self.title = L(@"bookmark_sets");
 }
 
@@ -68,7 +69,7 @@
     if (cat)
       cell.textLabel.text = @(cat->GetName().c_str());
 
-    if (m_categoryIndex == indexPath.row)
+    if (m_bac.m_categoryIndex == indexPath.row)
       cell.accessoryType = UITableViewCellAccessoryCheckmark;
     else
       cell.accessoryType = UITableViewCellAccessoryNone;
@@ -80,13 +81,19 @@
 {
   [self moveBookmarkToSetWithIndex:setIndex];
   [self.tableView reloadData];
-  [self.delegate didSelectCategory:self.category withCategoryIndex:setIndex];
+  [self.delegate didSelectCategory:self.category withBac:m_bac];
 }
 
 - (void)moveBookmarkToSetWithIndex:(int)setIndex
 {
+  BookmarkAndCategory bac;
+  bac.m_bookmarkIndex = static_cast<size_t>(
+      GetFramework().MoveBookmark(m_bac.m_bookmarkIndex, m_bac.m_categoryIndex, setIndex));
+  bac.m_categoryIndex = setIndex;
+  m_bac = bac;
+
   BookmarkCategory const * category =
-      GetFramework().GetBookmarkManager().GetBmCategory(setIndex);
+      GetFramework().GetBookmarkManager().GetBmCategory(bac.m_categoryIndex);
   self.category = @(category->GetName().c_str());
 }
 
@@ -102,7 +109,7 @@
   else
   {
     [self moveBookmarkToSetWithIndex:static_cast<int>(indexPath.row)];
-    [self.delegate didSelectCategory:self.category withCategoryIndex:indexPath.row];
+    [self.delegate didSelectCategory:self.category withBac:m_bac];
     [self backTap];
   }
 }

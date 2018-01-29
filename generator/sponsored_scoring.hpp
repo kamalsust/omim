@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include "std/string.hpp"
 
 class FeatureBuilder1;
 
@@ -9,7 +9,7 @@ namespace generator
 namespace impl
 {
 double GetLinearNormDistanceScore(double distance, double maxDistance);
-double GetNameSimilarityScore(std::string const & booking_name, std::string const & osm_name);
+double GetNameSimilarityScore(string const & booking_name, string const & osm_name);
 }  // namespace impl
 
 namespace sponsored_scoring

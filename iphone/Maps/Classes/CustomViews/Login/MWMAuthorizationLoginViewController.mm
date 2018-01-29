@@ -1,3 +1,5 @@
+#import "MWMCommon.h"
+#import "MapsAppDelegate.h"
 #import "MWMAlertViewController.h"
 #import "MWMAuthorizationCommon.h"
 #import "MWMAuthorizationLoginViewController.h"
@@ -5,6 +7,14 @@
 #import "Statistics.h"
 
 #include "Framework.h"
+
+#include "editor/server_api.hpp"
+
+#include "indexer/osm_editor.hpp"
+
+#include "platform/platform.hpp"
+
+#include "base/logging.hpp"
 
 namespace
 {
@@ -70,8 +80,8 @@ using namespace osm_auth_ios;
 
   if (!isConnected)
   {
-    self.loginGoogleButton.layer.borderColor = UIColor.clearColor.CGColor;
-    self.loginFacebookButton.layer.borderColor = UIColor.clearColor.CGColor;
+    self.loginGoogleButton.layer.borderColor = [UIColor clearColor].CGColor;
+    self.loginFacebookButton.layer.borderColor = [UIColor clearColor].CGColor;
   }
 }
 
